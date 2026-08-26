@@ -157,10 +157,15 @@ export type CapaMedia = CapaBase & {
 
 export type Capa = CapaTexto | CapaForma | CapaMedia | CapaTrazo;
 
-/** Cámara de la composición: keyframes de centro (x, y en px del lienzo) y zoom (1 = todo el frame). */
+/** Cámara de la composición: el render ES lo que ella ve. Keyframes de centro
+    (x, y en px del lienzo) y zoom (1 = el frame entero); `base` es el estado
+    sin animar de cada canal — las pistas lo pisan, igual que en una capa. */
 export type Camara = {
+  base?: { x?: number; y?: number; zoom?: number };
   pistas: { x?: Keyframe[]; y?: Keyframe[]; zoom?: Keyframe[] };
 };
+
+export type CanalCamara = "x" | "y" | "zoom";
 
 export type Composicion = {
   version: 1;

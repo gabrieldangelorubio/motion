@@ -11,11 +11,14 @@
    es una secuencia de estas ops, nunca una regeneración total.
 ----------------------------------------------------------------------------- */
 
-import type { Capa, Composicion, Keyframe, NombrePropiedad } from "@/lib/motion/modelo";
+import type { Camara, CanalCamara, Capa, Composicion, Keyframe, NombrePropiedad } from "@/lib/motion/modelo";
 import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
 import { nombresPresets } from "@/lib/motion/presets-puro";
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; error: string };
+
+/** Id reservado de la «capa» cámara en la UI — nunca es una capa real del modelo. */
+export const CAMARA_ID = "::camara";
 
 export function crearComposicion(datos: {
   nombre: string;
@@ -91,16 +94,90 @@ export function moverKeyframe(
   return editarCapa(comp, capaId, { pistas: { ...capa.pistas, [propiedad]: nueva } });
 }
 
+/* ——— Cámara: el render es lo que ella ve; estas ops la editan como a una capa ——— */
+
+/**
+ * Fija el valor de un canal de la cámara en el instante t, con auto-key:
+ * si el canal YA tiene keyframes, agrega/actualiza el keyframe en t (el
+ * valor tiene que quedar donde el usuario lo puso); si no tiene, edita la
+ * base — mover la cámara sin keyframes no arranca una animación sola.
+ */
+export function fijarValorCamara(
+  comp: Composicion,
+  canal: CanalCamara,
+  t: number,
+  v: number,
+): Composicion {
+  const camara: Camara = comp.camara ?? { pistas: {} };
+  const pista = camara.pistas[canal];
+  if (pista && pista.length > 0) {
+    return agregarKeyframeCamara(comp, t, { [canal]: v });
+  }
+  return {
+    ...comp,
+    camara: { ...camara, base: { ...camara.base, [canal]: v } },
+  };
+}
+
+/** Agrega (o pisa, si ya hay uno en t) un keyframe por cada canal provisto. */
+export function agregarKeyframeCamara(
+  comp: Composicion,
+  t: number,
+  valores: Partial<Record<CanalCamara, number>>,
+): Composicion {
+  const camara: Camara = comp.camara ?? { pistas: {} };
+  const pistas = { ...camara.pistas };
+  for (const canal of ["x", "y", "zoom"] as const) {
+    const v = valores[canal];
+    if (v === undefined) continue;
+    const previa = pistas[canal] ?? [];
+    pistas[canal] = ordenarKeyframes([
+      ...previa.filter((k) => k.t !== t),
+      { t, v },
+    ]);
+  }
+  return { ...comp, camara: { ...camara, pistas } };
+}
+
+export function moverKeyframeCamara(
+  comp: Composicion,
+  canal: CanalCamara,
+  t: number,
+  nuevoT: number,
+): Resultado<Composicion> {
+  const pista = comp.camara?.pistas[canal];
+  if (!pista) return { ok: false, error: `La cámara no tiene keyframes de ${canal}` };
+  const indice = pista.findIndex((k) => k.t === t);
+  if (indice < 0) return { ok: false, error: `No hay un keyframe de cámara (${canal}) en ${t}ms` };
+  if (nuevoT < 0 || nuevoT > comp.duracion) {
+    return { ok: false, error: `El destino ${nuevoT}ms cae fuera de la composición` };
+  }
+  const nueva = ordenarKeyframes(pista.map((k, i) => (i === indice ? { ...k, t: nuevoT } : k)));
+  return {
+    ok: true,
+    valor: { ...comp, camara: { ...comp.camara!, pistas: { ...comp.camara!.pistas, [canal]: nueva } } },
+  };
+}
+
 /** Resumen legible de la composición — el contexto que un tool le da al asistente. */
 export function describir(comp: Composicion): string {
   const lineas = [
     `«${comp.nombre}» — ${comp.ancho}×${comp.alto} @ ${comp.fps}fps, ${(comp.duracion / 1000).toFixed(2)}s, ${comp.capas.length} capas`,
   ];
   if (comp.camara) {
-    const canales = (["x", "y", "zoom"] as const)
-      .filter((c) => comp.camara?.pistas[c]?.length)
-      .map((c) => `${c} ${comp.camara!.pistas[c]!.length} kf`);
-    lineas.push(`  cámara: ${canales.join(", ") || "sin pistas"}`);
+    // los keyframes van CON valores y easings: el asistente los reanima
+    const partes: string[] = [];
+    const base = comp.camara.base;
+    if (base) {
+      partes.push(`base (${base.x ?? "·"}, ${base.y ?? "·"}) zoom ${base.zoom ?? "·"}`);
+    }
+    for (const canal of ["x", "y", "zoom"] as const) {
+      const pista = comp.camara.pistas[canal];
+      if (!pista?.length) continue;
+      const kfs = pista.map((k) => `${k.t}ms→${k.v}${k.easing ? ` (${k.easing})` : ""}`).join(", ");
+      partes.push(`${canal}: ${kfs}`);
+    }
+    lineas.push(`  cámara — el render es lo que ella ve: ${partes.join(" · ") || "sin pistas (plano fijo)"}`);
   }
   for (const capa of comp.capas) {
     const partes = [`  · [${capa.tipo}] «${capa.nombre}» en (${Math.round(capa.x)}, ${Math.round(capa.y)})`];

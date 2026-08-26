@@ -29,6 +29,7 @@ import {
 } from "@/lib/motion/camara-puro";
 import { cajaLocalDeCapa, cajaMundoDeCapa, capaEnPunto, type MedirTexto } from "@/lib/motion/cajas-puro";
 import { snapArrastre, type Guia } from "@/lib/motion/snap-puro";
+import { CAMARA_ID } from "@/lib/motion/herramientas-puro";
 
 const UMBRAL_DRAG_CAPA = 4; // px de pantalla, como el AdiosJam
 const UMBRAL_SNAP = 8; // px de pantalla (÷ escala al aplicar)
@@ -49,11 +50,15 @@ export const Lienzo = forwardRef<
     obtenerMedia?: () => FuentesDeMedia;
     /** píxeles de render por píxel CSS del preview (0.5 = borrador, dpr = nítido). NO afecta el export. */
     obtenerCalidad?: () => number;
+    /** tiempo actual de la composición (para resolver el encuadre de cámara en gestos) */
+    obtenerTiempo?: () => number;
     onSeleccionar: (id: string | null) => void;
     onCheckpoint: () => void;
     onMoverCapa: (id: string, x: number, y: number) => void;
+    /** arrastre del encuadre con la cámara seleccionada: centro nuevo en px del lienzo */
+    onMoverCamara?: (x: number, y: number) => void;
   }
->(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerMedia, obtenerCalidad, onSeleccionar, onCheckpoint, onMoverCapa }, ref) {
+>(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerMedia, obtenerCalidad, obtenerTiempo, onSeleccionar, onCheckpoint, onMoverCapa, onMoverCamara }, ref) {
   const contRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const camRef = useRef<Camara>({ x: 0, y: 0, escala: 0.4 });
@@ -105,12 +110,23 @@ export const Lienzo = forwardRef<
     ctx.fillRect(0, 0, ancho, alto);
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.escala, cam.escala);
-    pintar(estadoEn(comp, t), ctx as unknown as Contexto2D, obtenerMedia?.() ?? {});
+    // El lienzo muestra el MUNDO: acá la cámara de la composición no
+    // transforma (el export sí la aplica). En su lugar se dibuja el
+    // ENCUADRE — el render es exactamente lo que cae adentro.
+    const estado = estadoEn(comp, t);
+    pintar(
+      { ...estado, camara: { x: comp.ancho / 2, y: comp.alto / 2, zoom: 1 } },
+      ctx as unknown as Contexto2D,
+      obtenerMedia?.() ?? {},
+    );
 
-    // marco del frame, a 1px constante en pantalla
-    ctx.strokeStyle = tokensRef.current.linea;
-    ctx.lineWidth = 1 / cam.escala;
-    ctx.strokeRect(0, 0, comp.ancho, comp.alto);
+    const vista = estado.camara;
+    const vw = comp.ancho / vista.zoom;
+    const vh = comp.alto / vista.zoom;
+    const camaraSeleccionada = obtenerSeleccionId() === CAMARA_ID;
+    ctx.strokeStyle = camaraSeleccionada ? tokensRef.current.acento : tokensRef.current.linea;
+    ctx.lineWidth = (camaraSeleccionada ? 2 : 1) / cam.escala;
+    ctx.strokeRect(vista.x - vw / 2, vista.y - vh / 2, vw, vh);
 
     // marco de selección: borde azul de 2px constantes, rotando con la capa (§3.1)
     const seleccionId = obtenerSeleccionId();
@@ -150,8 +166,19 @@ export const Lienzo = forwardRef<
     const cont = contRef.current;
     if (!cont) return;
     const comp = obtenerComposicion();
+    // encuadra TODO el contenido del canvas (las pantallas pueden vivir
+    // fuera del frame de render), no sólo el rectángulo de la composición
+    let x0 = 0, y0 = 0, x1 = comp.ancho, y1 = comp.alto;
+    for (const capa of comp.capas) {
+      if (capa.oculta) continue;
+      const caja = cajaMundoDeCapa(capa, medir);
+      x0 = Math.min(x0, caja.x);
+      y0 = Math.min(y0, caja.y);
+      x1 = Math.max(x1, caja.x + caja.w);
+      y1 = Math.max(y1, caja.y + caja.h);
+    }
     camRef.current = camaraQueEncuadra(
-      { x: 0, y: 0, w: comp.ancho, h: comp.alto },
+      { x: x0, y: y0, w: x1 - x0, h: y1 - y0 },
       { left: 0, top: 0, width: cont.clientWidth, height: cont.clientHeight },
       { margen: 60 },
     );
@@ -219,6 +246,37 @@ export const Lienzo = forwardRef<
     if (!cont) return;
     const rect = cont.getBoundingClientRect();
     const comp = obtenerComposicion();
+
+    // Con la cámara seleccionada, arrastrar mueve el ENCUADRE (con auto-key
+    // arriba, en el Editor); un click seco vuelve a la selección normal.
+    if (obtenerSeleccionId() === CAMARA_ID && onMoverCamara) {
+      const vistaCam = estadoEn(comp, obtenerTiempo?.() ?? 0).camara;
+      const gestoCam = { x0: e.clientX, y0: e.clientY, camX0: vistaCam.x, camY0: vistaCam.y, activo: false };
+      const alMoverCam = (ev: PointerEvent) => {
+        const dxP = ev.clientX - gestoCam.x0;
+        const dyP = ev.clientY - gestoCam.y0;
+        if (!gestoCam.activo) {
+          if (Math.abs(dxP) + Math.abs(dyP) < UMBRAL_DRAG_CAPA) return;
+          gestoCam.activo = true;
+          onCheckpoint();
+        }
+        const esc = camRef.current.escala;
+        onMoverCamara(gestoCam.camX0 + dxP / esc, gestoCam.camY0 + dyP / esc);
+      };
+      const alSoltarCam = (ev: PointerEvent) => {
+        window.removeEventListener("pointermove", alMoverCam);
+        window.removeEventListener("pointerup", alSoltarCam);
+        if (!gestoCam.activo) {
+          const punto = pantallaAMundo(ev.clientX, ev.clientY, rect, camRef.current);
+          const capa = capaEnPunto(comp.capas, medir, punto.x, punto.y);
+          onSeleccionar(capa ? capa.id : null);
+        }
+      };
+      window.addEventListener("pointermove", alMoverCam);
+      window.addEventListener("pointerup", alSoltarCam);
+      return;
+    }
+
     const punto = pantallaAMundo(e.clientX, e.clientY, rect, camRef.current);
     const capa = capaEnPunto(comp.capas, medir, punto.x, punto.y);
 

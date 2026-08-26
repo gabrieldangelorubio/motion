@@ -13,7 +13,8 @@
 ----------------------------------------------------------------------------- */
 
 import { useEffect, useRef } from "react";
-import type { Composicion, NombrePropiedad, Segmento } from "@/lib/motion/modelo";
+import type { CanalCamara, Composicion, NombrePropiedad, Segmento } from "@/lib/motion/modelo";
+import { CAMARA_ID } from "@/lib/motion/herramientas-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
@@ -47,6 +48,14 @@ type GestoKeyframe = {
   x0: number;
   activo: boolean;
 };
+type GestoKeyframeCamara = {
+  tipo: "kfCamara";
+  canal: CanalCamara;
+  tOriginal: number;
+  tActual: number;
+  x0: number;
+  activo: boolean;
+};
 
 export function LineaDeTiempo({
   composicion,
@@ -62,6 +71,7 @@ export function LineaDeTiempo({
   onCheckpoint,
   onRetimarSegmento,
   onMoverKeyframe,
+  onMoverKeyframeCamara,
 }: {
   composicion: Composicion;
   tiempo: number;
@@ -76,11 +86,12 @@ export function LineaDeTiempo({
   onCheckpoint: () => void;
   onRetimarSegmento: (capaId: string, clave: "entrada" | "salida", nuevoEn: number) => void;
   onMoverKeyframe: (capaId: string, propiedad: NombrePropiedad, tActual: number, nuevoT: number) => void;
+  onMoverKeyframeCamara: (canal: CanalCamara, tActual: number, nuevoT: number) => void;
 }) {
   const pistaRef = useRef<HTMLDivElement>(null);
   const filasRef = useRef<HTMLDivElement>(null);
   const escrubeando = useRef(false);
-  const gestoRef = useRef<GestoSpan | GestoKeyframe | null>(null);
+  const gestoRef = useRef<GestoSpan | GestoKeyframe | GestoKeyframeCamara | null>(null);
   const redimenRef = useRef<{ y0: number; alto0: number } | null>(null);
 
   // El drag corre con listeners en window (pointerdown en el elemento,
@@ -122,6 +133,13 @@ export function LineaDeTiempo({
     if (gesto.tipo === "span") {
       const nuevoEn = alFrame(Math.min(comp.duracion, Math.max(0, gesto.enOriginal + dt)));
       onRetimarSegmento(gesto.capaId, gesto.clave, nuevoEn);
+    } else if (gesto.tipo === "kfCamara") {
+      const pista = comp.camara?.pistas[gesto.canal];
+      const nuevoT = alFrame(Math.min(comp.duracion, Math.max(0, gesto.tOriginal + dt)));
+      if (nuevoT === gesto.tActual || !pista) return;
+      if (pista.some((k) => k.t === nuevoT)) return; // no pisar otro keyframe
+      onMoverKeyframeCamara(gesto.canal, gesto.tActual, nuevoT);
+      gesto.tActual = nuevoT;
     } else {
       const capa = comp.capas.find((c) => c.id === gesto.capaId);
       const pista = capa?.pistas?.[gesto.propiedad];
@@ -133,7 +151,7 @@ export function LineaDeTiempo({
     }
   };
 
-  const iniciarGesto = (gesto: GestoSpan | GestoKeyframe) => {
+  const iniciarGesto = (gesto: GestoSpan | GestoKeyframe | GestoKeyframeCamara) => {
     gestoRef.current = gesto;
     const alMover = (e: PointerEvent) => moverGesto(e.clientX);
     const alSoltar = () => {
@@ -240,6 +258,18 @@ export function LineaDeTiempo({
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={() => onSeleccionar(CAMARA_ID)}
+            className={[
+              "relative mb-1 flex h-9 w-full items-center gap-1.5 rounded-control pl-2.5 text-left",
+              seleccionId === CAMARA_ID ? "bg-ink/[0.08]" : "hover:bg-ink/[0.04]",
+            ].join(" ")}
+          >
+            <span className={["absolute inset-y-1 left-0 w-0.5 rounded-full", seleccionId === CAMARA_ID ? "bg-acento" : "bg-transparent"].join(" ")} />
+            <Icono nombre="camara" width={12} height={12} className="shrink-0 text-foreground/45" />
+            <span className="min-w-0 truncate text-xs text-foreground/70">{t("Cámara")}</span>
+          </button>
         </div>
         <div ref={filasRef} className="relative min-w-0 flex-1">
         <div className="pointer-events-none absolute inset-y-0 z-10 w-px bg-acento/60" style={{ left: pct(tiempo) }} />
@@ -313,6 +343,48 @@ export function LineaDeTiempo({
             </div>
           );
         })}
+        {(() => {
+          const activa = seleccionId === CAMARA_ID;
+          const pistasCam = composicion.camara?.pistas ?? {};
+          return (
+            <div
+              onPointerDown={() => onSeleccionar(CAMARA_ID)}
+              className={[
+                "relative mb-1 h-9 rounded-control",
+                activa ? "bg-ink/[0.06]" : "hover:bg-ink/[0.03]",
+              ].join(" ")}
+            >
+              {(Object.entries(pistasCam) as [CanalCamara, { t: number }[] | undefined][]).flatMap(
+                ([canal, pista]) =>
+                  (pista ?? []).map((kf) => (
+                    <span
+                      key={`${canal}-${kf.t}`}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={t("Mover el keyframe de cámara ({canal})", { canal })}
+                      onKeyDown={(e) => {
+                        const dir = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+                        if (!dir) return;
+                        e.preventDefault();
+                        onCheckpoint();
+                        onMoverKeyframeCamara(canal, kf.t, alFrame(Math.min(composicion.duracion, Math.max(0, kf.t + dir * cuadro))));
+                      }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        onSeleccionar(CAMARA_ID);
+                        iniciarGesto({ tipo: "kfCamara", canal, tOriginal: kf.t, tActual: kf.t, x0: e.clientX, activo: false });
+                      }}
+                      className={[
+                        "absolute top-1/2 z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-grab rounded-[2px] active:cursor-grabbing",
+                        activa ? "bg-acento" : "bg-foreground/50 hover:bg-foreground/80",
+                      ].join(" ")}
+                      style={{ left: pct(kf.t) }}
+                    />
+                  )),
+              )}
+            </div>
+          );
+        })()}
         </div>
       </div>
     </div>

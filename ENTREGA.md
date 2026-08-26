@@ -43,9 +43,17 @@ máscaras a mano; el recorte se apaga en reposo para no cortar descendentes),
 fill llegan como path animable; presets `trazar`/`retraer`/`borrar` y
 propiedades `trazoInicio`/`trazoFin` 0–1 keyframeables — implementado con
 `setLineDash`/`lineDashOffset` sobre el largo real medido al importar, y un
-trazo sin medir degrada a entero), **cámara de composición** (keyframes de
-centro x/y y zoom aplicados como transformación de mundo antes de las capas
-— el export la hereda gratis — y un **modo grabación**: botón de cámara →
+trazo sin medir degrada a entero), **el paradigma canvas + cámara** (el lienzo es
+infinito: cada import de Figma se SUMA a la derecha de lo existente con su
+fondo como placa — ids únicos, anclas remapeadas —, y el render es LO QUE VE
+LA CÁMARA; el editor muestra el mundo con el rectángulo de encuadre
+dibujado encima — la transformación de cámara la aplica el export, no el
+preview —; la cámara es otra capa, abajo: fila propia en capas y timeline
+con keyframes arrastrables, inspector con x/y/zoom resueltos al tiempo
+actual y auto-key por canal —si el canal tiene keyframes, editar crea uno
+en el playhead; si no, edita la base—, «keyframe acá», «tomar la vista»,
+y con la cámara seleccionada arrastrar en el lienzo mueve el ENCUADRE con
+auto-key; 2D: posición + zoom), un **modo grabación** (botón de cámara →
 reproducís y encuadrás a mano con pan/zoom del lienzo; al terminar,
 `suavizarGrabacion` convierte la toma cruda en pocos keyframes editables:
 media móvil de 350 ms contra el temblor + reducción RDP por canal, extremos

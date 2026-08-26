@@ -13,9 +13,18 @@
 ----------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Capa, CapaTexto, Composicion, NombrePropiedad } from "@/lib/motion/modelo";
+import type { CanalCamara, Capa, CapaTexto, Composicion, NombrePropiedad } from "@/lib/motion/modelo";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
-import { editarCapa, moverKeyframe } from "@/lib/motion/herramientas-puro";
+import {
+  CAMARA_ID,
+  agregarKeyframeCamara,
+  editarCapa,
+  fijarValorCamara,
+  moverKeyframe,
+  moverKeyframeCamara,
+} from "@/lib/motion/herramientas-puro";
+import { estadoEn } from "@/lib/motion/evaluar-puro";
+import { cajaMundoDeCapa } from "@/lib/motion/cajas-puro";
 import { guardarComposicionAction } from "@/app/(app)/(modulos)/motion/acciones";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
@@ -25,6 +34,7 @@ import { Lienzo, type ControlLienzo } from "@/components/motion/Lienzo";
 import { LineaDeTiempo } from "@/components/motion/LineaDeTiempo";
 import { Capas } from "@/components/motion/Capas";
 import { Inspector } from "@/components/motion/Inspector";
+import { InspectorCamara } from "@/components/motion/InspectorCamara";
 import { ExportarVideo } from "@/components/motion/ExportarVideo";
 import { PanelImportar } from "@/components/motion/PanelImportar";
 import { PanelAgente } from "@/components/motion/PanelAgente";
@@ -32,7 +42,7 @@ import { PanelFuentes } from "@/components/motion/PanelFuentes";
 import { Segmentado } from "@/components/ui/Segmentado";
 import { familiasDeComposicion, familiaDisponible } from "@/lib/motion/fuentes-puro";
 import { suavizarGrabacion, type MuestraCamara } from "@/lib/motion/suavizar-puro";
-import { baselineAproximada, envolverEnLineas, type ResultadoImport } from "@/lib/motion/figma-puro";
+import { baselineAproximada, envolverEnLineas, sumarAlLienzo, type ResultadoImport } from "@/lib/motion/figma-puro";
 import type { FuentesDeMedia } from "@/lib/motion/pintar";
 
 const TOPE_UNDO = 120;
@@ -248,6 +258,46 @@ export function Editor({
     setComposicion({ ...compRef.current, camara: undefined });
   }, [registrar]);
 
+  // ——— La cámara como capa: auto-key y keyframes desde la UI ———
+  const alFrameActual = useCallback(() => {
+    const cuadro = 1000 / compRef.current.fps;
+    return Math.round(tiempoRef.current / cuadro) * cuadro;
+  }, []);
+
+  const fijarCamara = useCallback((canal: CanalCamara, v: number) => {
+    setComposicion(fijarValorCamara(compRef.current, canal, alFrameActual(), v));
+  }, [alFrameActual]);
+
+  const moverCamaraEnVivo = useCallback((x: number, y: number) => {
+    const t = alFrameActual();
+    setComposicion(fijarValorCamara(fijarValorCamara(compRef.current, "x", t, x), "y", t, y));
+  }, [alFrameActual]);
+
+  const keyframeCamaraAhora = useCallback(() => {
+    registrar();
+    const vista = estadoEn(compRef.current, tiempoRef.current).camara;
+    setComposicion(agregarKeyframeCamara(compRef.current, alFrameActual(), vista));
+  }, [registrar, alFrameActual]);
+
+  const tomarVistaCamara = useCallback(() => {
+    const vista = lienzoRef.current?.vistaActual();
+    if (!vista) return;
+    registrar();
+    const comp = compRef.current;
+    const p = comp.camara?.pistas;
+    const hayKeyframes = !!(p?.x?.length || p?.y?.length || p?.zoom?.length);
+    setComposicion(
+      hayKeyframes
+        ? agregarKeyframeCamara(comp, alFrameActual(), vista)
+        : { ...comp, camara: { ...(comp.camara ?? { pistas: {} }), base: { ...vista } } },
+    );
+  }, [registrar, alFrameActual]);
+
+  const moverKeyframeCamaraEnVivo = useCallback((canal: CanalCamara, tActual: number, nuevoT: number) => {
+    const res = moverKeyframeCamara(compRef.current, canal, tActual, nuevoT);
+    if (res.ok) setComposicion(res.valor);
+  }, []);
+
   // ——— Media: resolución de imágenes (data URIs del import de Figma) ———
   // El motor no sabe de red: recibe un resolver. Las imágenes se cargan
   // perezosas la primera vez que pintar() las pide; el loop del preview
@@ -402,26 +452,60 @@ export function Editor({
     }
   }, [envolverCapaTexto, anclarTextos, registrar]);
 
+  // Borde derecho del contenido actual: ahí se suma la próxima pantalla.
+  const bordeDerechoLienzo = useCallback((comp: Composicion): number => {
+    const ctx = document.createElement("canvas").getContext("2d");
+    const medir = (texto: string, font: string) => {
+      if (!ctx) return 0;
+      ctx.font = font;
+      return ctx.measureText(texto).width;
+    };
+    let max = comp.ancho;
+    for (const capa of comp.capas) {
+      if (capa.oculta) continue;
+      const caja = cajaMundoDeCapa(capa, medir);
+      max = Math.max(max, caja.x + caja.w);
+    }
+    return max;
+  }, []);
+
   const importarDeFigma = useCallback((resultado: ResultadoImport) => {
     registrar();
-    anclasRef.current = resultado.anclas.map((a) => ({ ...a }));
-    setComposicion(anclarTextos(reajustarTextos(medirTrazos(resultado.composicion), resultado.reajustes)));
+    // Paradigma canvas: la primera pantalla define el frame de render; las
+    // siguientes se SUMAN al lienzo a la derecha — el render es lo que ve
+    // la cámara, que después viaja entre pantallas.
+    const actual = compRef.current;
+    const seSuma = actual.capas.length > 0;
+    let composicionNueva: Composicion;
+    let reajustes = resultado.reajustes;
+    let anclas = resultado.anclas;
+    if (seSuma) {
+      const dx = Math.ceil(bordeDerechoLienzo(actual) + 200);
+      ({ composicion: composicionNueva, reajustes, anclas } = sumarAlLienzo(actual, resultado, dx, 0));
+    } else {
+      composicionNueva = resultado.composicion;
+    }
+    anclasRef.current = anclas.map((a) => ({ ...a }));
+    const final = anclarTextos(reajustarTextos(medirTrazos(composicionNueva), reajustes));
+    setComposicion(final);
     setSeleccionId(null);
     tiempoRef.current = 0;
     setTiempoUI(0);
     setAvisoGuardado(
-      resultado.avisos.length
-        ? t.plural(resultado.avisos.length, "Importado con {n} aviso de conversión", "Importado con {n} avisos de conversión")
-        : null,
+      seSuma
+        ? t("«{nombre}» se sumó al lienzo, a la derecha de lo existente", { nombre: resultado.composicion.nombre })
+        : resultado.avisos.length
+          ? t.plural(resultado.avisos.length, "Importado con {n} aviso de conversión", "Importado con {n} avisos de conversión")
+          : null,
     );
     requestAnimationFrame(() => lienzoRef.current?.encuadrar());
     // si la pantalla usa tipografías que este browser no tiene, abrir el
     // panel de fuentes de una — nunca sustituir en silencio
-    const faltantes = familiasDeComposicion(resultado.composicion).some(({ familia, pesos }) =>
+    const faltantes = familiasDeComposicion(final).some(({ familia, pesos }) =>
       pesos.some((peso) => !familiaDisponible(familia, peso)),
     );
     if (faltantes) setFuentesAbierto(true);
-  }, [registrar, medirTrazos, reajustarTextos, anclarTextos]);
+  }, [registrar, medirTrazos, reajustarTextos, anclarTextos, bordeDerechoLienzo]);
 
   const familiasFaltantes = familiasDeComposicion(composicion).filter(({ familia, pesos }) =>
     pesos.some((peso) => !familiaDisponible(familia, peso)),
@@ -494,9 +578,11 @@ export function Editor({
             obtenerSeleccionId={() => seleccionRef.current}
             obtenerMedia={obtenerMedia}
             obtenerCalidad={() => calidadRef.current}
+            obtenerTiempo={() => tiempoRef.current}
             onSeleccionar={setSeleccionId}
             onCheckpoint={registrar}
             onMoverCapa={(id, x, y) => editarEnVivo(id, { x, y })}
+            onMoverCamara={moverCamaraEnVivo}
           />
           <div className="absolute left-3 top-3">
             <ConPista pista={t("Calidad del preview — el export siempre sale a resolución completa")}>
@@ -611,15 +697,28 @@ export function Editor({
           onCheckpoint={registrar}
           onRetimarSegmento={retimarSegmento}
           onMoverKeyframe={moverKeyframeEnVivo}
+          onMoverKeyframeCamara={moverKeyframeCamaraEnVivo}
         />
       </div>
       <div className="min-h-0">
-        <Inspector
-          capa={capaSeleccionada}
-          duracionComposicion={composicion.duracion}
-          onEditar={editarEnVivo}
-          onCheckpoint={registrar}
-        />
+        {seleccionId === CAMARA_ID ? (
+          <InspectorCamara
+            composicion={composicion}
+            tiempo={tiempoUI}
+            onFijar={fijarCamara}
+            onKeyframe={keyframeCamaraAhora}
+            onTomarVista={tomarVistaCamara}
+            onQuitar={quitarCamara}
+            onCheckpoint={registrar}
+          />
+        ) : (
+          <Inspector
+            capa={capaSeleccionada}
+            duracionComposicion={composicion.duracion}
+            onEditar={editarEnVivo}
+            onCheckpoint={registrar}
+          />
+        )}
       </div>
     </div>
   );

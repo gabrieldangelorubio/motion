@@ -145,6 +145,62 @@ export function validarImportFigma(datos: unknown): datos is ImportFigma {
 }
 
 /**
+ * Suma una pantalla importada al LIENZO de una composición existente (el
+ * paradigma canvas: muchas pantallas conviven y el render es lo que ve la
+ * cámara). Desplaza todas las capas nuevas a (dx, dy), antepone el fondo del
+ * frame como placa propia (en el canvas el fondo de la composición ya no lo
+ * cubre), renombra ids que chocan con los existentes y remapea reajustes y
+ * anclas (que están en coordenadas del frame) al lugar nuevo.
+ */
+export function sumarAlLienzo(
+  comp: Composicion,
+  resultado: ResultadoImport,
+  dx: number,
+  dy: number,
+): { composicion: Composicion; reajustes: ReajusteTexto[]; anclas: AnclaTexto[] } {
+  const nueva = resultado.composicion;
+  const usados = new Set(comp.capas.map((c) => c.id));
+  const renombres = new Map<string, string>();
+  const idLibre = (id: string) => {
+    let candidato = id;
+    let n = 2;
+    while (usados.has(candidato)) candidato = `${id}-${n++}`;
+    usados.add(candidato);
+    return candidato;
+  };
+
+  const fondo: Capa = {
+    id: idLibre(`pantalla-${nueva.nombre.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24) || "figma"}`),
+    nombre: `${nueva.nombre} (fondo)`,
+    tipo: "forma",
+    forma: "rectangulo",
+    ancho: nueva.ancho,
+    alto: nueva.alto,
+    color: nueva.fondo,
+    x: dx + nueva.ancho / 2,
+    y: dy + nueva.alto / 2,
+    v: Math.max(0, ...comp.capas.map((c) => c.v ?? 0)) + 1,
+  };
+
+  const capas = nueva.capas.map((c) => {
+    const id = idLibre(c.id);
+    renombres.set(c.id, id);
+    return { ...c, id, x: c.x + dx, y: c.y + dy };
+  });
+
+  return {
+    composicion: { ...comp, capas: [...comp.capas, fondo, ...capas] },
+    reajustes: resultado.reajustes.map((r) => ({ ...r, capaId: renombres.get(r.capaId) ?? r.capaId })),
+    anclas: resultado.anclas.map((a) => ({
+      ...a,
+      capaId: renombres.get(a.capaId) ?? a.capaId,
+      topCaja: a.topCaja + dy,
+      tintaY: a.tintaY === undefined ? undefined : a.tintaY + dy,
+    })),
+  };
+}
+
+/**
  * IR de Figma → composición nueva del tamaño del frame, con las capas
  * estáticas en su lugar (el orden del IR es el z-order: primero = fondo).
  * La animación la ponen después el usuario o el agente.

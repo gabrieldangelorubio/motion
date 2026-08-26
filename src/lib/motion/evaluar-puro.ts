@@ -188,16 +188,17 @@ function estadoDeCapa(capa: Capa, t: number): EstadoCapa {
 
 export function estadoEn(comp: Composicion, t: number): EstadoComposicion {
   const cam = comp.camara?.pistas;
+  const base = comp.camara?.base;
   return {
     ancho: comp.ancho,
     alto: comp.alto,
     fondo: comp.fondo,
     capas: comp.capas.filter((c) => !c.oculta).map((c) => estadoDeCapa(c, t)),
     camara: {
-      x: cam?.x?.length ? interpolar(cam.x, t) : comp.ancho / 2,
-      y: cam?.y?.length ? interpolar(cam.y, t) : comp.alto / 2,
+      x: cam?.x?.length ? interpolar(cam.x, t) : (base?.x ?? comp.ancho / 2),
+      y: cam?.y?.length ? interpolar(cam.y, t) : (base?.y ?? comp.alto / 2),
       // zoom nunca ≤ 0: un keyframe roto degrada a casi-plano, no a un frame invertido
-      zoom: Math.max(0.05, cam?.zoom?.length ? interpolar(cam.zoom, t) : 1),
+      zoom: Math.max(0.05, cam?.zoom?.length ? interpolar(cam.zoom, t) : (base?.zoom ?? 1)),
     },
   };
 }

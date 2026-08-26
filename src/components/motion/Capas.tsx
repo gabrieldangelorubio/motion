@@ -10,6 +10,7 @@
 ----------------------------------------------------------------------------- */
 
 import type { Composicion } from "@/lib/motion/modelo";
+import { CAMARA_ID } from "@/lib/motion/herramientas-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
@@ -77,6 +78,45 @@ export function Capas({
           );
         })}
       </div>
+
+      {/* la cámara vive abajo, como otra capa: el render es lo que ella ve */}
+      {(() => {
+        const activa = seleccionId === CAMARA_ID;
+        const kfs = (["x", "y", "zoom"] as const).reduce(
+          (n, canal) => n + (composicion.camara?.pistas[canal]?.length ?? 0),
+          0,
+        );
+        return (
+          <div className="shrink-0 border-t border-(--glass-border) px-2 py-2">
+            <div
+              className={[
+                "relative flex h-8 items-center gap-2 rounded-control pl-2.5 pr-2",
+                activa ? "bg-ink/[0.08]" : "hover:bg-ink/[0.04]",
+              ].join(" ")}
+            >
+              <span className={["absolute inset-y-1 left-0 w-0.5 rounded-full", activa ? "bg-acento" : "bg-transparent"].join(" ")} />
+              <span className="grid w-4 shrink-0 place-items-center text-foreground/40" aria-hidden>
+                <Icono nombre="camara" width={13} height={13} />
+              </span>
+              <button
+                type="button"
+                onClick={() => onSeleccionar(CAMARA_ID)}
+                className={[
+                  "min-w-0 flex-1 truncate text-left text-[13px]",
+                  activa ? "text-foreground" : "text-foreground/75",
+                ].join(" ")}
+              >
+                {t("Cámara")}
+              </button>
+              {kfs > 0 && (
+                <span className="shrink-0 font-mono text-[10px] tabular-nums text-foreground/40">
+                  {t.plural(kfs, "{n} kf", "{n} kf")}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </aside>
   );
 }

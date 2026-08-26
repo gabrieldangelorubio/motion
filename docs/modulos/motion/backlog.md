@@ -53,11 +53,21 @@
 - **Dónde:** `modelo.ts` (aditivo), `Editor.tsx`
 
 ### [P2] Capas de textura y cámara 2.5D del blueprint
-- **Estado:** parcial (2026-08-26) — la cámara 2D YA está: pistas x/y/zoom
-  como transform de mundo + modo grabación con suavizado
-  (`suavizar-puro.ts`). Falta: rotación de cámara, parallax 2.5D por capa
-  (factor de profundidad), grain determinista y duotono.
+- **Estado:** parcial (2026-08-26) — la cámara 2D YA es el corazón del
+  paradigma canvas: capa propia con base + pistas x/y/zoom, auto-key,
+  drag del encuadre, modo grabación con suavizado, y el render es lo que
+  ella ve. Falta: rotación de cámara, parallax 2.5D por capa (factor de
+  profundidad), grain determinista y duotono.
 - **Dónde:** `modelo.ts` (aditivo), `evaluar-puro.ts`, `pintar.ts`
+
+### [P1] Afinar el lienzo multi-pantalla
+- **Estado:** abierto (la base quedó el 2026-08-26: import aditivo +
+  cámara-capa)
+- **Qué:** mover una pantalla ENTERA como grupo (hoy las capas se mueven de
+  a una), nombrar/organizar pantallas, borrar una pantalla completa, y una
+  vista previa «lo que ve la cámara» conmutables en el editor (hoy el
+  resultado exacto se ve en el export).
+- **Dónde:** `Editor.tsx`, `Lienzo.tsx`, quizá `modelo.ts` (grupo liviano)
 
 ### [P1] Probar el plugin de Figma en Figma real y ajustar
 - **Estado:** abierto
