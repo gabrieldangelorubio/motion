@@ -188,9 +188,11 @@ export function LineaDeTiempo({
         </div>
       </div>
 
-      <div
+      <div className="mx-3 mb-2 flex shrink-0 items-center">
+        <div className="w-36 shrink-0" />
+        <div
         ref={pistaRef}
-        className="relative mx-3 mb-2 h-6 shrink-0 cursor-ew-resize rounded-control shadow-hueco"
+        className="relative h-6 min-w-0 flex-1 cursor-ew-resize rounded-control shadow-hueco"
         role="slider"
         aria-label={t("Posición en la composición")}
         aria-valuemin={0}
@@ -215,9 +217,31 @@ export function LineaDeTiempo({
           <div key={s} className="absolute top-0 h-2 w-px bg-foreground/20" style={{ left: pct(s * 1000) }} />
         ))}
         <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-acento" style={{ left: pct(tiempo) }} />
+        </div>
       </div>
 
-      <div ref={filasRef} className="relative mx-3 mb-3 min-h-0 flex-1 overflow-y-auto">
+      {/* nombres en un gutter propio: un span nunca puede pisar el nombre */}
+      <div className="mx-3 mb-3 flex min-h-0 flex-1 overflow-y-auto">
+        <div className="w-36 shrink-0 pr-2">
+          {composicion.capas.map((capa) => {
+            const activa = seleccionId === capa.id;
+            return (
+              <button
+                key={capa.id}
+                type="button"
+                onClick={() => onSeleccionar(capa.id)}
+                className={[
+                  "relative mb-1 flex h-9 w-full items-center rounded-control pl-2.5 text-left",
+                  activa ? "bg-ink/[0.08]" : "hover:bg-ink/[0.04]",
+                ].join(" ")}
+              >
+                <span className={["absolute inset-y-1 left-0 w-0.5 rounded-full", activa ? "bg-acento" : "bg-transparent"].join(" ")} />
+                <span className="min-w-0 truncate text-xs text-foreground/70">{capa.nombre}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div ref={filasRef} className="relative min-w-0 flex-1">
         <div className="pointer-events-none absolute inset-y-0 z-10 w-px bg-acento/60" style={{ left: pct(tiempo) }} />
         {composicion.capas.map((capa) => {
           const activa = seleccionId === capa.id;
@@ -230,13 +254,9 @@ export function LineaDeTiempo({
               onPointerDown={() => onSeleccionar(capa.id)}
               className={[
                 "relative mb-1 h-9 rounded-control",
-                activa ? "bg-ink/[0.08]" : "hover:bg-ink/[0.04]",
+                activa ? "bg-ink/[0.06]" : "hover:bg-ink/[0.03]",
               ].join(" ")}
             >
-              <span className={["absolute inset-y-1 left-0 w-0.5 rounded-full", activa ? "bg-acento" : "bg-transparent"].join(" ")} />
-              <span className="pointer-events-none absolute left-2.5 top-1/2 z-10 max-w-36 -translate-y-1/2 truncate text-xs text-foreground/70">
-                {capa.nombre}
-              </span>
               {spans.map(({ clave, seg }) => (
                 <div
                   key={clave}
@@ -293,6 +313,7 @@ export function LineaDeTiempo({
             </div>
           );
         })}
+        </div>
       </div>
     </div>
   );

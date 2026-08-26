@@ -60,3 +60,23 @@
 - **Qué:** grain determinista, duotono, y capa cámara con tracks aplicada
   como transform inverso del mundo.
 - **Dónde:** `modelo.ts` (aditivo), `evaluar-puro.ts`, `pintar.ts`
+
+### [P1] Probar el plugin de Figma en Figma real y ajustar
+- **Estado:** abierto
+- **Qué:** correr `figma-plugin/` sobre pantallas reales de adiós adiós,
+  ajustar los casos que degraden mal (auto-layout raro, estilos de texto
+  mixtos frecuentes) y decidir qué más merece fidelidad nativa.
+- **Dónde:** `figma-plugin/code.js`, `lib/motion/figma-puro.ts`
+
+### [P2] Referencias visuales para el agente
+- **Estado:** abierto
+- **Qué:** adjuntar al chat un video/frames de referencia; el agente los ve
+  (visión) y los traduce a coreografía — primer paso del módulo M8 del
+  blueprint (la medición CV viene después).
+- **Dónde:** `lib/motion/agente.ts`, `PanelAgente.tsx`
+
+### [P2] Migrar el agente al asistente real (Diosa)
+- **Estado:** abierto
+- **Qué:** registrar las 11 herramientas + system prompt como tools del
+  área motion de Diosa y decidir el destino del panel local.
+- **Dónde:** de nuestro lado, con el catálogo tipado de diosa

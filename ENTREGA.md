@@ -20,8 +20,14 @@ drag de capas EN el lienzo** (hit-test con rotación y escala, umbral 4px,
 Shift = eje dominante, ⌘ = sin snapping, capas bloqueadas seleccionables
 pero no movibles) con **snapping azul** (algoritmo canónico de 3 imanes por
 eje, un ganador por eje, el frame como imán, guías a 1px constante), panel
-de capas, undo por snapshots, autosave con CAS, y **export a MP4
-frame-exacto** (WebCodecs + `mp4-muxer`, decisión aprobada por Fran
+de capas, undo por snapshots, autosave con CAS, **import de una pantalla de
+Figma** (plugin propio en `figma-plugin/` → JSON por copy/paste →
+normalizador puro con degradación por-nodo y avisos visibles; texto real,
+formas nativas, lo demás rasterizado a data-uri que el editor resuelve),
+**el agente director de motion** (ruta `/api/motion/agente`: loop agéntico
+con la API de Claude sobre 11 herramientas incrementales validadas y
+clampeadas — panel de chat que aplica cada respuesta como UN paso de undo y
+muestra las ops), y **export a MP4 frame-exacto** (WebCodecs + `mp4-muxer`, decisión aprobada por Fran
 2026-08-26): la misma `pintar()` del preview frame a frame, H.264 con
 fallback a VP9-en-MP4 (Chromium sin codecs propietarios), **supersampling
 temporal 4×** para motion blur real (media móvil exacta sobre frames
@@ -29,6 +35,20 @@ opacos), back-pressure del encoder y progreso en vivo.
 
 ## Qué NO hace (con motivo)
 
+- **El plugin de Figma no corrió en Figma real todavía** (acá no hay
+  Figma): el normalizador está testeado contra el IR (9 tests) y el flujo
+  pegar→importar verificado en browser; el plugin es chico y defensivo,
+  pero su primera corrida es de ustedes — cualquier nodo raro degrada a
+  raster con aviso, nunca rompe.
+- **El loop vivo del agente no corrió acá** (el sandbox no tiene
+  `ANTHROPIC_API_KEY`): la capa de herramientas está 100% testeada (10
+  tests + sabotaje del clamp) y la ruta responde bien sin key (503 legible)
+  y con payload inválido (400). Primera corrida real: poner la key en
+  `.env.local`.
+- **El agente es el prototipo del área motion de Diosa**: cuando se
+  integre, las 11 herramientas y el system prompt migran a tools del
+  asistente real (§10.5) y este panel puede quedar o irse — las firmas ya
+  son las que Diosa espera (ops puras sobre la composición).
 - **Texto multilínea y fuentes cargadas**: hoy una capa de texto es una línea
   con el stack del sistema; `FontFace` + licencias es un P1 declarado.
 - **Audio**: no hay pista de audio en esta versión.
@@ -43,12 +63,19 @@ opacos), back-pressure del encoder y progreso en vivo.
   la versión que diosa ya tiene (anexo E del kit): en la integración no es
   una dep nueva, es la misma. ~9 KB comprimido, cargada sólo por la page
   del módulo.
+- **`@anthropic-ai/sdk`** — el loop del agente director (servidor
+  solamente: la importa la ruta API, nunca entra al bundle del cliente).
+  Si diosa ya la tiene para su asistente, es la misma dep.
 
 Nada más: cero librerías de animación, canvas o UI.
 
 ## Variables de entorno
 
-**Ninguna.**
+- **`ANTHROPIC_API_KEY`** (SECRETA) — la clave de la API de Claude para el
+  agente director. Sin ella el módulo funciona entero salvo el chat, que
+  avisa con un error legible (503).
+- `MOTION_AGENTE_MODELO` (opcional) — modelo del agente; default
+  `claude-opus-5`.
 
 ## Migración (SQL aditivo) + fragmento de schema
 

@@ -26,6 +26,10 @@ import { LineaDeTiempo } from "@/components/motion/LineaDeTiempo";
 import { Capas } from "@/components/motion/Capas";
 import { Inspector } from "@/components/motion/Inspector";
 import { ExportarVideo } from "@/components/motion/ExportarVideo";
+import { PanelImportar } from "@/components/motion/PanelImportar";
+import { PanelAgente } from "@/components/motion/PanelAgente";
+import type { ResultadoImport } from "@/lib/motion/figma-puro";
+import type { FuentesDeMedia } from "@/lib/motion/pintar";
 
 const TOPE_UNDO = 120;
 const DEBOUNCE_GUARDADO = 1500;
@@ -40,11 +44,14 @@ export function Editor({
   snapshotInicial,
   composicionId,
   entregarExport,
+  conAgente = true,
 }: {
   snapshotInicial: string;
   composicionId: string;
   /** canal de entrega del MP4 exportado; default: descarga del browser */
   entregarExport?: (blob: Blob, nombre: string) => void | Promise<void>;
+  /** la demo estática no tiene backend: apaga el panel del agente */
+  conAgente?: boolean;
 }) {
   const [composicion, setComposicion] = useState<Composicion>(() => deserializar(snapshotInicial));
   const [reproduciendo, setReproduciendo] = useState(true);
@@ -52,6 +59,7 @@ export function Editor({
   const [seleccionId, setSeleccionId] = useState<string | null>(null);
   const [avisoGuardado, setAvisoGuardado] = useState<string | null>(null);
   const [altoTimeline, setAltoTimeline] = useState(240);
+  const [importarAbierto, setImportarAbierto] = useState(false);
 
   const compRef = useRef(composicion);
   const seleccionRef = useRef(seleccionId);
@@ -176,6 +184,39 @@ export function Editor({
     editarEnVivo(capaId, { oculta: !capa?.oculta });
   }, [registrar, editarEnVivo]);
 
+  // ——— Media: resolución de imágenes (data URIs del import de Figma) ———
+  // El motor no sabe de red: recibe un resolver. Las imágenes se cargan
+  // perezosas la primera vez que pintar() las pide; el loop del preview
+  // las pinta apenas terminan de cargar.
+  const imagenesRef = useRef(new Map<string, HTMLImageElement | "cargando">());
+  const obtenerMedia = useCallback((): FuentesDeMedia => ({
+    imagenDe: (mediaId: string) => {
+      const conocida = imagenesRef.current.get(mediaId);
+      if (conocida === "cargando") return null;
+      if (conocida) return conocida;
+      if (!mediaId.startsWith("data:")) return null; // ids de catálogo: los resuelve diosa
+      imagenesRef.current.set(mediaId, "cargando");
+      const imagen = new Image();
+      imagen.onload = () => imagenesRef.current.set(mediaId, imagen);
+      imagen.src = mediaId;
+      return null;
+    },
+  }), []);
+
+  const importarDeFigma = useCallback((resultado: ResultadoImport) => {
+    registrar();
+    setComposicion(resultado.composicion);
+    setSeleccionId(null);
+    tiempoRef.current = 0;
+    setTiempoUI(0);
+    setAvisoGuardado(
+      resultado.avisos.length
+        ? t.plural(resultado.avisos.length, "Importado con {n} aviso de conversión", "Importado con {n} avisos de conversión")
+        : null,
+    );
+    requestAnimationFrame(() => lienzoRef.current?.encuadrar());
+  }, [registrar]);
+
   // ——— Transport ———
   const saltarFrame = useCallback((dir: 1 | -1) => {
     setReproduciendo(false);
@@ -241,11 +282,17 @@ export function Editor({
             ref={lienzoRef}
             obtenerComposicion={() => compRef.current}
             obtenerSeleccionId={() => seleccionRef.current}
+            obtenerMedia={obtenerMedia}
             onSeleccionar={setSeleccionId}
             onCheckpoint={registrar}
             onMoverCapa={(id, x, y) => editarEnVivo(id, { x, y })}
           />
           <div className="absolute right-3 top-3 flex items-start gap-2">
+            <ConPista pista={t("Importar pantalla de Figma")}>
+              <BotonIcono tam={32} etiqueta={t("Importar pantalla de Figma")} onClick={() => setImportarAbierto(true)}>
+                <Icono nombre="subir" width={15} height={15} />
+              </BotonIcono>
+            </ConPista>
             <ConPista pista={t("Encuadrar todo (⇧1)")}>
               <BotonIcono tam={32} etiqueta={t("Encuadrar todo")} onClick={() => lienzoRef.current?.encuadrar()}>
                 <Icono nombre="encuadrar" width={15} height={15} />
@@ -253,10 +300,26 @@ export function Editor({
             </ConPista>
             <ExportarVideo
               obtenerComposicion={() => compRef.current}
+              obtenerMedia={obtenerMedia}
               onPausar={() => setReproduciendo(false)}
               entregar={entregarExport}
             />
           </div>
+          <PanelImportar
+            abierto={importarAbierto}
+            onCerrar={() => setImportarAbierto(false)}
+            onImportar={importarDeFigma}
+          />
+          {conAgente && (
+            <PanelAgente
+              obtenerSnapshot={() => serializar(compRef.current)}
+              composicionId={composicionId}
+              onAplicar={(snapshot) => {
+                registrar();
+                setComposicion(deserializar(snapshot));
+              }}
+            />
+          )}
           {avisoGuardado && (
             <div
               role="status"

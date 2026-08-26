@@ -16,7 +16,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import type { Composicion } from "@/lib/motion/modelo";
 import { estadoEn } from "@/lib/motion/evaluar-puro";
-import { pintar, type Contexto2D } from "@/lib/motion/pintar";
+import { pintar, type Contexto2D, type FuentesDeMedia } from "@/lib/motion/pintar";
 import {
   camaraConZoom,
   camaraQueEncuadra,
@@ -44,11 +44,12 @@ export const Lienzo = forwardRef<
   {
     obtenerComposicion: () => Composicion;
     obtenerSeleccionId: () => string | null;
+    obtenerMedia?: () => FuentesDeMedia;
     onSeleccionar: (id: string | null) => void;
     onCheckpoint: () => void;
     onMoverCapa: (id: string, x: number, y: number) => void;
   }
->(function Lienzo({ obtenerComposicion, obtenerSeleccionId, onSeleccionar, onCheckpoint, onMoverCapa }, ref) {
+>(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerMedia, onSeleccionar, onCheckpoint, onMoverCapa }, ref) {
   const contRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const camRef = useRef<Camara>({ x: 0, y: 0, escala: 0.4 });
@@ -97,7 +98,7 @@ export const Lienzo = forwardRef<
     ctx.fillRect(0, 0, ancho, alto);
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.escala, cam.escala);
-    pintar(estadoEn(comp, t), ctx as unknown as Contexto2D);
+    pintar(estadoEn(comp, t), ctx as unknown as Contexto2D, obtenerMedia?.() ?? {});
 
     // marco del frame, a 1px constante en pantalla
     ctx.strokeStyle = tokensRef.current.linea;

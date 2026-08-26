@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from "react";
 import type { Composicion } from "@/lib/motion/modelo";
+import type { FuentesDeMedia } from "@/lib/motion/pintar";
 import { exportarMp4, descargarBlob, exportSoportado } from "@/lib/motion/exportar";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
@@ -21,10 +22,12 @@ const MUESTRAS_BLUR = 4; // supersampling temporal por defecto (blur real de exp
 
 export function ExportarVideo({
   obtenerComposicion,
+  obtenerMedia,
   onPausar,
   entregar = descargarBlob,
 }: {
   obtenerComposicion: () => Composicion;
+  obtenerMedia?: () => FuentesDeMedia;
   /** el export necesita el reloj del preview quieto */
   onPausar: () => void;
   entregar?: (blob: Blob, nombre: string) => void | Promise<void>;
@@ -52,7 +55,7 @@ export function ExportarVideo({
     setProgreso(0);
     try {
       const comp = obtenerComposicion();
-      const blob = await exportarMp4(comp, {}, {
+      const blob = await exportarMp4(comp, obtenerMedia?.() ?? {}, {
         muestrasBlur: MUESTRAS_BLUR,
         onProgreso: (frame, total) => setProgreso(Math.round((frame / total) * 100)),
       });

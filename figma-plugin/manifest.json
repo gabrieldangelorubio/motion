@@ -1,0 +1,8 @@
+{
+  "name": "diosa motion — exportar pantalla",
+  "id": "diosa-motion-exportar-pantalla",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "networkAccess": { "allowedDomains": ["none"] }
+}

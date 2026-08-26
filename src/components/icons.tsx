@@ -64,6 +64,21 @@ const ICONOS = {
       <path d="M8 11V8a4 4 0 0 1 8 0v3" />
     </svg>
   ),
+  ia: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M12 3l1.8 4.8L18.5 9l-4.7 1.7L12 15l-1.8-4.3L5.5 9l4.7-1.2zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z" />
+    </svg>
+  ),
+  enviar: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M21 3L10 14M21 3l-7 18-3-8-8-3z" />
+    </svg>
+  ),
+  subir: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M12 15V5m0 0L8 9m4-4l4 4M5 19h14" />
+    </svg>
+  ),
   descargar: (p: IconoProps) => (
     <svg {...base(p)} aria-hidden>
       <path d="M12 4v10m0 0l-4-4m4 4l4-4M5 19h14" />

@@ -18,7 +18,9 @@
 > 4. El stack es Next 16 + React 19 + Tailwind v4, castellano, y las
 >    convenciones del kit (tres capas, jsonb + CAS + merge, tokens, i18n).
 >
-> Implementación en curso: `src/lib/motion` + `src/components/motion`. Estado
+> Implementación en curso: `src/lib/motion` + `src/components/motion`.
+> M2 (ingest Figma), M4 (agente, local), M5 (controles), M6 (export video) ya
+> tienen v1 construida. Estado
 > real en `../../../ENTREGA.md` y `backlog.md`.
 
 ## Visión
