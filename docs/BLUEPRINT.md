@@ -175,25 +175,40 @@ Pipeline en tres etapas de madurez:
    Overlord/Bodymovin) cuando el volumen lo justifique. Core separado del
    shell CEP para portar a UXP cuando Adobe lo lance para AE.
 
-### M8 — Referencias (imitar una animación de referencia)
+### M8 — Referencias (imitar una animación de referencia)  ✅ validado (docs/research-referencias.md)
 
 Requisito: poder cargar una referencia (video/GIF/URL de una animación que
 nos gusta), que el sistema **lea** esa animación y la **replique como escena
 editable de nuestro sistema** — presets + tracks + tokens — para retocarla
 con los controles manuales. Nunca un clon opaco.
 
-Pipeline en dos etapas complementarias:
+Hallazgo del research: **nadie en el mercado combina medición CV con lectura
+semántica** — AnimSpec y similares son VLM-only (el modelo estima timing y
+easing "a ojo", poco confiable). Nuestro diseño de dos etapas supera al
+estado del arte comercial usando piezas maduras:
 
-1. **Extracción mecánica** (sin LLM): ffmpeg → frames; tracking de
-   elementos (texto/formas) entre frames; curvas muestreadas de
-   posición/escala/opacidad por elemento; **fit de easing** (ajustar
-   cubic-bezier/spring a la trayectoria y snapear al token más cercano de
-   nuestra librería); detección de staggers (offsets entre elementos
-   similares); mapa de timing global (qué entra/sale y cuándo).
-2. **Lectura semántica** (visión de Claude): grillas de frames muestreados →
-   descripción estructurada del estilo mapeada a NUESTRO vocabulario
-   (clasificación restringida a presets/moods existentes, no descripción
-   libre): tipo de reveal, dirección, jerarquía, energía, texturas.
+1. **Extracción mecánica** (medición, sin LLM): ffmpeg (frames densos) →
+   SAM2 en modo video para segmentar capas (seed por click; UI de bordes
+   duros es su caso fácil) → CoTracker3 para trayectorias por capa (x, y,
+   escala, rotación, opacidad) → **fit de easing** por nonlinear least
+   squares (cubic-bezier y resorte en paralelo, gana el de menor residuo,
+   snap a token si el residuo es bajo) → **staggers medidos** por clustering
+   de onsets (Δt real). El fit de easing no existe como librería publicada:
+   lo construimos nosotros (scipy curve_fit) — es el gap del espacio.
+2. **Lectura semántica** (visión de Claude): la VLM **nunca extrae números**
+   (límite documentado de los VLM: frames como snapshots, sin identidad de
+   objetos, timing degradado). Recibe las curvas medidas como contexto y
+   hace solo lo cualitativo: nombrar capas, clasificar contra nuestro
+   vocabulario de presets, marcar mis-tracks para revisión, describir la
+   intención compositiva. Técnicas: grillas de frames etiquetadas +
+   onion-skin/diff.
+3. **Auto-verificación**: predicados espacio-temporales estilo MoVer
+   (SIGGRAPH 2025) — "B empieza Δt después de A" — chequeados contra el
+   render replicado antes de mostrar el resultado.
+
+Límite conocido: timing per-carácter de kinetic typography no es extraíble
+hoy (gap del campo entero) → híbrido: timing global medido + preset
+clasificado por VLM + stagger paramétrico nuestro que el usuario ajusta.
 
 Doble output:
 - **Escena editable** en Scene Graph v2 con nuestro contenido (el texto/media
