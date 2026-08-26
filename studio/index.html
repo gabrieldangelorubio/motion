@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Motion Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/studio.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="logo">motion<em>.studio</em></div>
+    <select id="scene-select"></select>
+    <div class="spacer"></div>
+    <div class="hint">motor CSS/WAAPI · escenas JSON · blur direccional por velocidad</div>
+  </header>
+
+  <div class="stage-wrap">
+    <div class="mg-stage"></div>
+  </div>
+
+  <footer class="transport">
+    <button id="btn-restart" title="Reiniciar">⟲</button>
+    <button id="btn-play" title="Play/Pausa">▶</button>
+    <input type="range" id="scrub" class="scrub" min="0" max="1000" value="0" />
+    <div class="time" id="time">0.00s / 0.00s</div>
+  </footer>
+
+  <aside class="panel">
+    <section>
+      <h3>Ajustes manuales</h3>
+      <div class="control">
+        <label>Velocidad global <output id="out-speed"></output></label>
+        <input type="range" id="ctl-speed" min="0.25" max="2" step="0.05" value="1" />
+      </div>
+      <div class="control">
+        <label>Stagger <output id="out-stagger"></output></label>
+        <input type="range" id="ctl-stagger" min="0" max="3" step="0.1" value="1" />
+      </div>
+      <div class="control">
+        <label>Motion blur <output id="out-blur"></output></label>
+        <input type="range" id="ctl-blur" min="0" max="2" step="0.1" value="1" />
+      </div>
+      <div class="control">
+        <label>Suavidad (easing global)</label>
+        <select id="ctl-ease"></select>
+      </div>
+    </section>
+
+    <section>
+      <h3>Escena (JSON)</h3>
+      <textarea id="scene-json" spellcheck="false"></textarea>
+      <div class="error" id="json-error"></div>
+      <button class="apply" id="btn-apply">Aplicar escena</button>
+    </section>
+  </aside>
+
+  <script type="module" src="js/ui.js"></script>
+</body>
+</html>

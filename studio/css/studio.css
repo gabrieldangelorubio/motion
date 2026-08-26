@@ -1,0 +1,132 @@
+/* Motion Studio — chrome + stage styles */
+:root {
+  --bg: #09090b;
+  --panel: #101014;
+  --panel-2: #17171c;
+  --line: #26262d;
+  --text: #e9e9ee;
+  --text-dim: #8b8b96;
+  --accent: #d8ff3e;
+  --radius: 10px;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  grid-template-rows: 48px 1fr 72px;
+  grid-template-areas: 'top top' 'stage panel' 'transport panel';
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ——— Top bar ——— */
+.topbar {
+  grid-area: top;
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.topbar .logo { font-weight: 800; letter-spacing: -0.03em; font-size: 15px; }
+.topbar .logo em { color: var(--accent); font-style: normal; }
+.topbar select {
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 6px;
+  padding: 5px 10px; font-size: 12.5px;
+}
+.topbar .spacer { flex: 1; }
+.topbar .hint { color: var(--text-dim); font-size: 11.5px; }
+
+/* ——— Stage ——— */
+.stage-wrap { grid-area: stage; position: relative; overflow: hidden; }
+.mg-stage { position: absolute; inset: 0; }
+.mg-frame {
+  position: absolute; left: 50%; top: 50%;
+  transform-origin: center;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--line), 0 24px 80px rgba(0,0,0,0.55);
+}
+.mg-layer {
+  position: absolute;
+  width: max-content; /* shrink-wrap regardless of left offset; maxWidth in layer.style re-enables wrapping */
+  white-space: pre-wrap;
+  will-change: transform, opacity, filter;
+}
+.mg-word { display: inline-block; }
+.mg-unit { display: inline-block; will-change: transform, opacity, filter; }
+.mg-line { display: block; }
+.mg-shimmer {
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.mg-svg-defs { position: absolute; pointer-events: none; }
+
+/* ——— Transport ——— */
+.transport {
+  grid-area: transport;
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 16px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+}
+.transport button {
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px;
+  width: 40px; height: 40px; font-size: 15px; cursor: pointer;
+}
+.transport button:hover { border-color: var(--accent); }
+.transport .time { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--text-dim); min-width: 110px; }
+.scrub { flex: 1; -webkit-appearance: none; appearance: none; height: 5px; border-radius: 3px; background: var(--line); cursor: pointer; }
+.scrub::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent); border: none;
+}
+
+/* ——— Control panel ——— */
+.panel {
+  grid-area: panel;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  overflow-y: auto;
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.panel h3 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-dim); margin-bottom: 8px;
+}
+.control { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+.control label { font-size: 12px; color: var(--text); display: flex; justify-content: space-between; }
+.control label output { color: var(--accent); font-variant-numeric: tabular-nums; }
+.control input[type='range'] {
+  -webkit-appearance: none; appearance: none;
+  height: 4px; border-radius: 2px; background: var(--line);
+}
+.control input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 12px; height: 12px; border-radius: 50%; background: var(--text);
+}
+.control select, .panel textarea {
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 8px; font-size: 12px; width: 100%;
+}
+.panel textarea {
+  font-family: ui-monospace, 'SF Mono', monospace;
+  font-size: 11px; min-height: 220px; resize: vertical;
+  line-height: 1.5;
+}
+.panel .apply {
+  background: var(--accent); color: #111; font-weight: 700;
+  border: none; border-radius: 8px; padding: 9px; cursor: pointer; font-size: 12.5px;
+}
+.panel .error { color: #ff6b6b; font-size: 11px; white-space: pre-wrap; }

@@ -1,0 +1,40 @@
+{
+  "name": "kinetic-lines",
+  "canvas": { "width": 1920, "height": 1080, "bg": "#0e0c09" },
+  "duration": 6000,
+  "layers": [
+    {
+      "id": "l1",
+      "type": "text",
+      "text": "LO QUE HACEMOS",
+      "style": { "fontSize": "110px", "fontWeight": "900", "color": "#f5efe4", "letterSpacing": "-0.02em" },
+      "position": { "x": "8%", "y": "30%", "anchor": "top-left" },
+      "split": "chars",
+      "in": { "preset": "reveal-up", "at": 300, "duration": 850, "ease": "out-expo", "stagger": 26 },
+      "out": { "preset": "conceal-down", "at": 4700, "duration": 600, "ease": "in-expo", "stagger": 18 },
+      "fx": { "motionBlur": 0.6 }
+    },
+    {
+      "id": "l2",
+      "type": "text",
+      "text": "NO ES ANIMAR",
+      "style": { "fontSize": "110px", "fontWeight": "900", "color": "#d8ff3e", "letterSpacing": "-0.02em" },
+      "position": { "x": "8%", "y": "44%", "anchor": "top-left" },
+      "split": "chars",
+      "in": { "preset": "reveal-up", "at": 750, "duration": 850, "ease": "out-expo", "stagger": 26 },
+      "out": { "preset": "conceal-down", "at": 4850, "duration": 600, "ease": "in-expo", "stagger": 18 },
+      "fx": { "motionBlur": 0.6 }
+    },
+    {
+      "id": "l3",
+      "type": "text",
+      "text": "ES DIRIGIR EL OJO",
+      "style": { "fontSize": "110px", "fontWeight": "900", "color": "#f5efe4", "letterSpacing": "-0.02em" },
+      "position": { "x": "8%", "y": "58%", "anchor": "top-left" },
+      "split": "chars",
+      "in": { "preset": "reveal-up", "at": 1200, "duration": 850, "ease": "out-expo", "stagger": 26 },
+      "out": { "preset": "conceal-down", "at": 5000, "duration": 600, "ease": "in-expo", "stagger": 18 },
+      "fx": { "motionBlur": 0.6 }
+    }
+  ]
+}

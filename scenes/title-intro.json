@@ -1,0 +1,39 @@
+{
+  "name": "title-intro",
+  "canvas": { "width": 1920, "height": 1080, "bg": "#0b0b0e" },
+  "duration": 5200,
+  "layers": [
+    {
+      "id": "kicker",
+      "type": "text",
+      "text": "ADIOS ADIOS PRESENTA",
+      "style": { "fontSize": "28px", "fontWeight": "600", "color": "#8b8b96", "letterSpacing": "0.42em" },
+      "position": { "x": "50%", "y": "38%", "anchor": "center" },
+      "split": "none",
+      "in": { "preset": "tracking-in", "at": 200, "duration": 1100, "ease": "out-expo" },
+      "out": { "preset": "fade-out", "at": 4200, "duration": 500, "ease": "in-cubic" }
+    },
+    {
+      "id": "title",
+      "type": "text",
+      "text": "MOTION",
+      "style": { "fontSize": "220px", "fontWeight": "900", "color": "#ffffff", "letterSpacing": "-0.03em", "lineHeight": "1" },
+      "position": { "x": "50%", "y": "50%", "anchor": "center" },
+      "split": "chars",
+      "in": { "preset": "rise", "at": 600, "duration": 950, "ease": "out-expo", "stagger": 45, "staggerOrder": "center", "params": { "distance": 140 } },
+      "out": { "preset": "lift-blur", "at": 4000, "duration": 700, "ease": "in-expo", "stagger": 25, "staggerOrder": "center" },
+      "fx": { "motionBlur": 0.8 }
+    },
+    {
+      "id": "sub",
+      "type": "text",
+      "text": "títulos · entradas · salidas — 100% CSS",
+      "style": { "fontSize": "30px", "fontWeight": "400", "color": "#b9b9c3" },
+      "position": { "x": "50%", "y": "63%", "anchor": "center" },
+      "split": "words",
+      "in": { "preset": "rise-blur", "at": 1500, "duration": 800, "ease": "out-quart", "stagger": 60, "params": { "distance": 34, "blur": 8 } },
+      "out": { "preset": "sink", "at": 4100, "duration": 550, "ease": "in-cubic", "stagger": 30 },
+      "fx": { "motionBlur": 0.5 }
+    }
+  ]
+}

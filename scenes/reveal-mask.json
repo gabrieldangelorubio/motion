@@ -1,0 +1,28 @@
+{
+  "name": "reveal-mask",
+  "canvas": { "width": 1920, "height": 1080, "bg": "#f2f0eb" },
+  "duration": 5000,
+  "layers": [
+    {
+      "id": "big",
+      "type": "text",
+      "text": "PREMIUM POR DEFECTO",
+      "style": { "fontSize": "150px", "fontWeight": "800", "color": "#141414", "letterSpacing": "-0.04em", "lineHeight": "1.05", "textAlign": "center", "maxWidth": "1400px" },
+      "position": { "x": "50%", "y": "48%", "anchor": "center" },
+      "split": "words",
+      "in": { "preset": "reveal-up", "at": 300, "duration": 900, "ease": "out-quart", "stagger": 110 },
+      "out": { "preset": "lift-blur", "at": 3900, "duration": 650, "ease": "in-expo", "stagger": 40 },
+      "fx": { "motionBlur": 0.7 }
+    },
+    {
+      "id": "tag",
+      "type": "text",
+      "text": "adiosadios.com",
+      "style": { "fontSize": "26px", "fontWeight": "600", "color": "#8a857c", "letterSpacing": "0.18em" },
+      "position": { "x": "50%", "y": "88%", "anchor": "center" },
+      "split": "none",
+      "in": { "preset": "fade", "at": 1600, "duration": 900, "ease": "smooth" },
+      "out": { "preset": "fade-out", "at": 4200, "duration": 500, "ease": "smooth" }
+    }
+  ]
+}
