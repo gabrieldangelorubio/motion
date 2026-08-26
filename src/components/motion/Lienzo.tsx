@@ -45,11 +45,13 @@ export const Lienzo = forwardRef<
     obtenerComposicion: () => Composicion;
     obtenerSeleccionId: () => string | null;
     obtenerMedia?: () => FuentesDeMedia;
+    /** píxeles de render por píxel CSS del preview (0.5 = borrador, dpr = nítido). NO afecta el export. */
+    obtenerCalidad?: () => number;
     onSeleccionar: (id: string | null) => void;
     onCheckpoint: () => void;
     onMoverCapa: (id: string, x: number, y: number) => void;
   }
->(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerMedia, onSeleccionar, onCheckpoint, onMoverCapa }, ref) {
+>(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerMedia, obtenerCalidad, onSeleccionar, onCheckpoint, onMoverCapa }, ref) {
   const contRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const camRef = useRef<Camara>({ x: 0, y: 0, escala: 0.4 });
@@ -81,19 +83,22 @@ export const Lienzo = forwardRef<
     const canvas = canvasRef.current;
     const cont = contRef.current;
     if (!canvas || !cont) return;
-    const dpr = window.devicePixelRatio || 1;
+    // calidad de preview al estilo Half/Quarter de AE: menos píxeles de
+    // render, mismo tamaño CSS (el browser re-escala). El export no pasa
+    // por acá: siempre sale a la resolución completa de la composición.
+    const factor = obtenerCalidad?.() ?? (window.devicePixelRatio || 1);
     const ancho = cont.clientWidth;
     const alto = cont.clientHeight;
-    if (canvas.width !== ancho * dpr || canvas.height !== alto * dpr) {
-      canvas.width = ancho * dpr;
-      canvas.height = alto * dpr;
+    if (canvas.width !== Math.round(ancho * factor) || canvas.height !== Math.round(alto * factor)) {
+      canvas.width = Math.round(ancho * factor);
+      canvas.height = Math.round(alto * factor);
     }
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const comp = obtenerComposicion();
     const cam = camRef.current;
 
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.setTransform(factor, 0, 0, factor, 0, 0);
     ctx.fillStyle = tokensRef.current.chrome;
     ctx.fillRect(0, 0, ancho, alto);
     ctx.translate(cam.x, cam.y);

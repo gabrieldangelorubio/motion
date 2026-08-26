@@ -23,6 +23,7 @@ export type Contexto2D = Pick<
   fillStyle: string | CanvasGradient | CanvasPattern;
   strokeStyle: string | CanvasGradient | CanvasPattern;
   globalAlpha: number;
+  globalCompositeOperation: GlobalCompositeOperation;
   font: string;
   textAlign: CanvasTextAlign;
   textBaseline: CanvasTextBaseline;
@@ -152,6 +153,8 @@ export function pintar(estado: EstadoComposicion, ctx: Contexto2D, media: Fuente
     if (!capa.visible || capa.opacidad <= 0) continue;
     ctx.save();
     ctx.globalAlpha = capa.opacidad;
+    // el modo de mezcla es de la CAPA contra lo ya pintado (fiel a Figma)
+    if (capa.capa.mezcla) ctx.globalCompositeOperation = capa.capa.mezcla;
     ctx.translate(capa.x, capa.y);
     if (capa.rotacion) ctx.rotate((capa.rotacion * Math.PI) / 180);
     if (capa.escala !== 1) ctx.scale(capa.escala, capa.escala);

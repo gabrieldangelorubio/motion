@@ -13,7 +13,7 @@
    - los avisos de conversión son datos visibles, no silencio.
 ----------------------------------------------------------------------------- */
 
-import type { Capa, Composicion } from "@/lib/motion/modelo";
+import { MEZCLAS, type Capa, type Composicion, type MezclaCapa } from "@/lib/motion/modelo";
 
 export type NodoFigma = {
   tipo: "texto" | "rect" | "elipse" | "imagen";
@@ -24,6 +24,8 @@ export type NodoFigma = {
   ancho: number;
   alto: number;
   opacidad?: number;
+  /** modo de mezcla en términos de canvas (el plugin ya mapeó el enum de Figma) */
+  mezcla?: string;
   /** grados; el plugin ya avisa si venía rotado y lo rasterizó */
   texto?: {
     contenido: string;
@@ -74,10 +76,16 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
   datos.nodos.forEach((nodo, i) => {
     if (nodo.aviso) avisos.push(`«${nodo.nombre}»: ${nodo.aviso}`);
     const id = sanitizarId(nodo.nombre, i);
+    let mezcla: MezclaCapa | undefined;
+    if (nodo.mezcla) {
+      if ((MEZCLAS as string[]).includes(nodo.mezcla)) mezcla = nodo.mezcla as MezclaCapa;
+      else avisos.push(`«${nodo.nombre}»: modo de mezcla «${nodo.mezcla}» desconocido — quedó normal`);
+    }
     const base = {
       id,
       nombre: nodo.nombre,
       opacidad: nodo.opacidad,
+      mezcla,
       v: i,
     };
 

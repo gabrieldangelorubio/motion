@@ -39,6 +39,32 @@ function tieneEfectos(nodo) {
   return "effects" in nodo && nodo.effects && nodo.effects.some(function (e) { return e.visible !== false; });
 }
 
+// Enum de blend de Figma → globalCompositeOperation de canvas. LINEAR_BURN y
+// LINEAR_DODGE no existen en canvas: se aproximan con multiply/screen y aviso.
+var MEZCLAS_FIGMA = {
+  MULTIPLY: "multiply", SCREEN: "screen", OVERLAY: "overlay",
+  DARKEN: "darken", LIGHTEN: "lighten",
+  COLOR_DODGE: "color-dodge", COLOR_BURN: "color-burn",
+  HARD_LIGHT: "hard-light", SOFT_LIGHT: "soft-light",
+  DIFFERENCE: "difference", EXCLUSION: "exclusion",
+  HUE: "hue", SATURATION: "saturation", COLOR: "color", LUMINOSITY: "luminosity",
+};
+
+function mezclaDe(nodo) {
+  var modo = "blendMode" in nodo ? nodo.blendMode : "NORMAL";
+  if (modo === "NORMAL" || modo === "PASS_THROUGH") return { mezcla: undefined, aviso: null };
+  if (modo === "LINEAR_BURN") return { mezcla: "multiply", aviso: "mezcla LINEAR_BURN se aproximó con multiply" };
+  if (modo === "LINEAR_DODGE") return { mezcla: "screen", aviso: "mezcla LINEAR_DODGE se aproximó con screen" };
+  var mapa = MEZCLAS_FIGMA[modo];
+  if (mapa) return { mezcla: mapa, aviso: null };
+  return { mezcla: undefined, aviso: "mezcla " + modo + " sin equivalente — quedó normal" };
+}
+
+function conAviso(nodo, extra) {
+  if (!extra) return nodo.aviso;
+  return nodo.aviso ? nodo.aviso + "; " + extra : extra;
+}
+
 function caja(nodo, marco) {
   var b = nodo.absoluteBoundingBox;
   var m = marco.absoluteBoundingBox;
@@ -53,14 +79,18 @@ function caja(nodo, marco) {
 async function rasterizar(nodo, marco, aviso) {
   var bytes = await nodo.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: 2 } });
   var c = caja(nodo, marco);
-  return {
+  var mezcla = mezclaDe(nodo);
+  var salida = {
     tipo: "imagen",
     nombre: nodo.name,
     x: c.x, y: c.y, ancho: c.ancho, alto: c.alto,
     opacidad: "opacity" in nodo && nodo.opacity < 1 ? nodo.opacity : undefined,
+    mezcla: mezcla.mezcla,
     imagen: { dataUri: "data:image/png;base64," + figma.base64Encode(bytes) },
     aviso: aviso,
   };
+  salida.aviso = conAviso(salida, mezcla.aviso);
+  return salida;
 }
 
 function alineacionDe(nodo) {
@@ -84,6 +114,7 @@ async function nodoAIR(nodo, marco, salida) {
       return;
     }
     var c = caja(nodo, marco);
+    var mezclaTexto = mezclaDe(nodo);
     var espaciado = nodo.letterSpacing.unit === "PERCENT"
       ? (nodo.fontSize * nodo.letterSpacing.value) / 100
       : nodo.letterSpacing.value;
@@ -92,6 +123,8 @@ async function nodoAIR(nodo, marco, salida) {
       nombre: nodo.name,
       x: c.x, y: c.y, ancho: c.ancho, alto: c.alto,
       opacidad: nodo.opacity < 1 ? nodo.opacity : undefined,
+      mezcla: mezclaTexto.mezcla,
+      aviso: mezclaTexto.aviso || undefined,
       texto: {
         contenido: nodo.characters,
         familia: nodo.fontName.family,
@@ -110,11 +143,14 @@ async function nodoAIR(nodo, marco, salida) {
     var sinBorde = nodo.strokes === figma.mixed || !nodo.strokes || nodo.strokes.length === 0;
     if (p && sinBorde) {
       var cc = caja(nodo, marco);
+      var mezclaForma = mezclaDe(nodo);
       salida.push({
         tipo: nodo.type === "RECTANGLE" ? "rect" : "elipse",
         nombre: nodo.name,
         x: cc.x, y: cc.y, ancho: cc.ancho, alto: cc.alto,
         opacidad: nodo.opacity < 1 ? nodo.opacity : undefined,
+        mezcla: mezclaForma.mezcla,
+        aviso: mezclaForma.aviso || undefined,
         forma: {
           color: colorDePintura(p),
           radio: nodo.type === "RECTANGLE" && typeof nodo.cornerRadius === "number" && nodo.cornerRadius > 0

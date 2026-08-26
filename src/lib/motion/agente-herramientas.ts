@@ -12,7 +12,7 @@
    vuelven en el resultado — verificación semántica barata.
 ----------------------------------------------------------------------------- */
 
-import type { Capa, CapaForma, CapaTexto, Composicion, Keyframe, NombreEasing, NombrePropiedad, OrdenEscalonado, Segmento } from "@/lib/motion/modelo";
+import { MEZCLAS, type Capa, type CapaForma, type CapaTexto, type Composicion, type Keyframe, type MezclaCapa, type NombreEasing, type NombrePropiedad, type OrdenEscalonado, type Segmento } from "@/lib/motion/modelo";
 import { agregarCapa, editarCapa, quitarCapa, describir } from "@/lib/motion/herramientas-puro";
 import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
 import { nombresPresets, PRESETS } from "@/lib/motion/presets-puro";
@@ -149,6 +149,11 @@ export function ejecutarHerramienta(
       if (input.rotacion !== undefined) cambios.rotacion = clamp(numero(input.rotacion, 0), -360, 360);
       if (input.opacidad !== undefined) cambios.opacidad = clamp(numero(input.opacidad, 1), 0, 1);
       if (input.motionBlur !== undefined) cambios.motionBlur = clamp(numero(input.motionBlur, 0), 0, 2);
+      if (input.mezcla !== undefined) {
+        if (input.mezcla === "normal" || input.mezcla === "") cambios.mezcla = undefined;
+        else if ((MEZCLAS as string[]).includes(String(input.mezcla))) cambios.mezcla = input.mezcla as MezclaCapa;
+        else return fallo(comp, `mezcla «${String(input.mezcla)}» no existe; usá normal o ${MEZCLAS.join(", ")}`);
+      }
       if (typeof input.nombre === "string") cambios.nombre = input.nombre;
       if (capa.tipo === "texto") {
         const extra = cambios as Partial<CapaTexto>;
@@ -313,7 +318,7 @@ export const DEFINICIONES_HERRAMIENTAS = [
   },
   {
     name: "editar_capa",
-    description: "Edita propiedades base de una capa existente: posición, escala (1 = 100%), rotación, opacidad (0-1), motionBlur (0-2), nombre; en texto también texto, color, tamano, peso, division.",
+    description: "Edita propiedades base de una capa existente: posición, escala (1 = 100%), rotación, opacidad (0-1), motionBlur (0-2), mezcla (normal, multiply, screen, overlay…), nombre; en texto también texto, color, tamano, peso, division.",
     input_schema: {
       type: "object",
       properties: {
@@ -324,6 +329,7 @@ export const DEFINICIONES_HERRAMIENTAS = [
         rotacion: { type: "number" },
         opacidad: { type: "number" },
         motionBlur: { type: "number" },
+        mezcla: { type: "string", description: "normal | multiply | screen | overlay | darken | lighten | color-dodge | color-burn | hard-light | soft-light | difference | exclusion | hue | saturation | color | luminosity" },
         nombre: { type: "string" },
         texto: { type: "string" },
         color: { type: "string" },

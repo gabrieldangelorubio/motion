@@ -29,6 +29,7 @@ import { ExportarVideo } from "@/components/motion/ExportarVideo";
 import { PanelImportar } from "@/components/motion/PanelImportar";
 import { PanelAgente } from "@/components/motion/PanelAgente";
 import { PanelFuentes } from "@/components/motion/PanelFuentes";
+import { Segmentado } from "@/components/ui/Segmentado";
 import { familiasDeComposicion, familiaDisponible } from "@/lib/motion/fuentes-puro";
 import type { ResultadoImport } from "@/lib/motion/figma-puro";
 import type { FuentesDeMedia } from "@/lib/motion/pintar";
@@ -63,6 +64,13 @@ export function Editor({
   const [altoTimeline, setAltoTimeline] = useState(240);
   const [importarAbierto, setImportarAbierto] = useState(false);
   const [fuentesAbierto, setFuentesAbierto] = useState(false);
+  // calidad del preview (Half/Quarter de AE): borrador para armar rápido,
+  // nítido para revisar. El export SIEMPRE sale a resolución completa.
+  const [calidad, setCalidad] = useState<"baja" | "media" | "alta">("media");
+  const calidadRef = useRef(1);
+  useEffect(() => {
+    calidadRef.current = calidad === "baja" ? 0.5 : calidad === "media" ? 1 : window.devicePixelRatio || 2;
+  }, [calidad]);
 
   const compRef = useRef(composicion);
   const seleccionRef = useRef(seleccionId);
@@ -296,10 +304,25 @@ export function Editor({
             obtenerComposicion={() => compRef.current}
             obtenerSeleccionId={() => seleccionRef.current}
             obtenerMedia={obtenerMedia}
+            obtenerCalidad={() => calidadRef.current}
             onSeleccionar={setSeleccionId}
             onCheckpoint={registrar}
             onMoverCapa={(id, x, y) => editarEnVivo(id, { x, y })}
           />
+          <div className="absolute left-3 top-3">
+            <ConPista pista={t("Calidad del preview — el export siempre sale a resolución completa")}>
+              <Segmentado
+                etiquetaAria={t("Calidad del preview")}
+                valor={calidad}
+                onCambio={(v) => setCalidad(v as "baja" | "media" | "alta")}
+                opciones={[
+                  { valor: "baja", nombre: "½" },
+                  { valor: "media", nombre: "1×" },
+                  { valor: "alta", nombre: t("Máx") },
+                ]}
+              />
+            </ConPista>
+          </div>
           <div className="absolute right-3 top-3 flex items-start gap-2">
             <ConPista pista={t("Importar pantalla de Figma")}>
               <BotonIcono tam={32} etiqueta={t("Importar pantalla de Figma")} onClick={() => setImportarAbierto(true)}>

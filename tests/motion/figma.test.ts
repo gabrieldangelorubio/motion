@@ -83,3 +83,12 @@ test("los ids generados son únicos y estables", () => {
   const otraVez = normalizarFigma(fixture());
   assert.deepEqual(otraVez.composicion.capas.map((c) => c.id), ids);
 });
+
+test("la mezcla viaja del IR a la capa; una desconocida degrada a normal CON aviso", () => {
+  const { composicion, avisos } = normalizarFigma(fixture());
+  const hero = composicion.capas.find((c) => c.nombre === "Foto hero")!;
+  assert.equal(hero.mezcla, "multiply");
+  const punto = composicion.capas.find((c) => c.nombre === "Punto")!;
+  assert.equal(punto.mezcla, undefined);
+  assert.ok(avisos.some((a) => a.includes("Punto") && a.includes("modo-inventado")));
+});

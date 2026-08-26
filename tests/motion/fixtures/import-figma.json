@@ -1,44 +1,93 @@
 {
   "origen": "figma",
   "version": 1,
-  "frame": { "nombre": "Pantalla home", "ancho": 390, "alto": 844, "fondo": "#f5f2ec" },
+  "frame": {
+    "nombre": "Pantalla home",
+    "ancho": 390,
+    "alto": 844,
+    "fondo": "#f5f2ec"
+  },
   "nodos": [
     {
       "tipo": "rect",
       "nombre": "Fondo tarjeta",
-      "x": 24, "y": 96, "ancho": 342, "alto": 420,
-      "forma": { "color": "#ffffff", "radio": 20 }
+      "x": 24,
+      "y": 96,
+      "ancho": 342,
+      "alto": 420,
+      "forma": {
+        "color": "#ffffff",
+        "radio": 20
+      }
     },
     {
       "tipo": "imagen",
       "nombre": "Foto hero",
-      "x": 40, "y": 320, "ancho": 310, "alto": 160,
-      "imagen": { "dataUri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" },
-      "aviso": "tenía un fill de imagen: se rasterizó a 2×"
+      "x": 40,
+      "y": 320,
+      "ancho": 310,
+      "alto": 160,
+      "imagen": {
+        "dataUri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      },
+      "aviso": "tenía un fill de imagen: se rasterizó a 2×",
+      "mezcla": "multiply"
     },
     {
       "tipo": "texto",
       "nombre": "Titular",
-      "x": 40, "y": 120, "ancho": 310, "alto": 44,
-      "texto": { "contenido": "Motion para case studies", "familia": "Inter", "peso": 700, "tamano": 34, "alineacion": "centro", "color": "#141416" }
+      "x": 40,
+      "y": 120,
+      "ancho": 310,
+      "alto": 44,
+      "texto": {
+        "contenido": "Motion para case studies",
+        "familia": "Inter",
+        "peso": 700,
+        "tamano": 34,
+        "alineacion": "centro",
+        "color": "#141416"
+      }
     },
     {
       "tipo": "texto",
       "nombre": "Bajada",
-      "x": 40, "y": 180, "ancho": 310, "alto": 48,
-      "texto": { "contenido": "todo el pipeline en un solo lugar", "familia": "Inter", "peso": 400, "tamano": 17, "alineacion": "izquierda", "color": "#5c5c66" }
+      "x": 40,
+      "y": 180,
+      "ancho": 310,
+      "alto": 48,
+      "texto": {
+        "contenido": "todo el pipeline en un solo lugar",
+        "familia": "Inter",
+        "peso": 400,
+        "tamano": 17,
+        "alineacion": "izquierda",
+        "color": "#5c5c66"
+      }
     },
     {
       "tipo": "rect",
       "nombre": "Botón CTA",
-      "x": 40, "y": 540, "ancho": 310, "alto": 52,
-      "forma": { "color": "#0005ff", "radio": 12 }
+      "x": 40,
+      "y": 540,
+      "ancho": 310,
+      "alto": 52,
+      "forma": {
+        "color": "#0005ff",
+        "radio": 12
+      }
     },
     {
       "tipo": "elipse",
       "nombre": "Punto",
-      "x": 186, "y": 620, "ancho": 18, "alto": 18,
-      "forma": { "color": "#141416" }
+      "x": 186,
+      "y": 620,
+      "ancho": 18,
+      "alto": 18,
+      "forma": {
+        "color": "#141416"
+      },
+      "mezcla": "modo-inventado"
     }
   ]
 }

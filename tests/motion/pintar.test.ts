@@ -81,3 +81,16 @@ test("cada save tiene su restore (el contexto no queda sucio)", () => {
   const restores = llamadas.filter((l) => l.startsWith("restore")).length;
   assert.equal(saves, restores);
 });
+
+test("una capa con mezcla setea el globalCompositeOperation dentro de su save/restore", () => {
+  const comp = fixture();
+  const capas = comp.capas.map((c) => (c.id === "placa" ? { ...c, mezcla: "multiply" as const } : c));
+  const { ctx, llamadas } = contextoFalso();
+  pintar(estadoEn({ ...comp, capas }, 2000), ctx);
+  const indiceMezcla = llamadas.findIndex((l) => l === "set globalCompositeOperation=multiply");
+  assert.ok(indiceMezcla > 0, "se seteó la mezcla");
+  // y las capas SIN mezcla no la setean (control negativo)
+  const sinMezcla = contextoFalso();
+  pintar(estadoEn(comp, 2000), sinMezcla.ctx);
+  assert.ok(!sinMezcla.llamadas.some((l) => l.startsWith("set globalCompositeOperation")));
+});

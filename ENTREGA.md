@@ -24,7 +24,7 @@ de capas, undo por snapshots, autosave con CAS, **import de una pantalla de
 Figma** (plugin propio en `figma-plugin/` → JSON por copy/paste →
 normalizador puro con degradación por-nodo y avisos visibles; texto real,
 formas nativas, lo demás rasterizado a data-uri que el editor resuelve),
-**gestión de tipografías** (detección real de familias faltantes por medición — `document.fonts.check` miente —, panel que se abre solo tras un import con fuentes ajenas, carga desde Google Fonts con fallo detectable o subiendo el archivo .otf/.ttf/.woff2; sin sustitución silenciosa), **el agente director de motion** (ruta `/api/motion/agente`: loop agéntico
+**modos de mezcla** (multiply, screen, overlay… — viajan desde Figma, se pintan con globalCompositeOperation, editables en inspector y agente; LINEAR_BURN/DODGE se aproximan con aviso), **calidad de preview** (½ / 1× / Máx al estilo Half/Quarter de AE — menos píxeles de render mientras armás; el export SIEMPRE sale a resolución completa), **gestión de tipografías** (detección real de familias faltantes por medición — `document.fonts.check` miente —, panel que se abre solo tras un import con fuentes ajenas, carga desde Google Fonts con fallo detectable o subiendo el archivo .otf/.ttf/.woff2; sin sustitución silenciosa), **el agente director de motion** (ruta `/api/motion/agente`: loop agéntico
 con la API de Claude sobre 11 herramientas incrementales validadas y
 clampeadas — panel de chat que aplica cada respuesta como UN paso de undo y
 muestra las ops), y **export a MP4 frame-exacto** (WebCodecs + `mp4-muxer`, decisión aprobada por Fran

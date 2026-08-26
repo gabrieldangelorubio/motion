@@ -9,7 +9,7 @@
    muestran en ms (dígitos: no pasan por el idioma, kit §2.6).
 ----------------------------------------------------------------------------- */
 
-import type { Capa, NombreEasing, OrdenEscalonado, Segmento } from "@/lib/motion/modelo";
+import { MEZCLAS, type Capa, type MezclaCapa, type NombreEasing, type OrdenEscalonado, type Segmento } from "@/lib/motion/modelo";
 import { EASINGS } from "@/lib/motion/easings-puro";
 import { nombresPresets } from "@/lib/motion/presets-puro";
 import { t } from "@/lib/i18n/stub";
@@ -176,6 +176,17 @@ export function Inspector({
             sufijo="×"
             onInicio={onCheckpoint}
             onCambio={(motionBlur) => editar({ motionBlur })}
+          />
+        </div>
+        <div className="mt-2.5">
+          <Desplegable
+            etiqueta={t("Mezcla")}
+            valor={capa.mezcla ?? ""}
+            opciones={[{ valor: "", nombre: t("normal") }, ...MEZCLAS.map((m) => ({ valor: m, nombre: m }))]}
+            onCambio={(v) => {
+              onCheckpoint();
+              editar({ mezcla: (v || undefined) as MezclaCapa | undefined });
+            }}
           />
         </div>
       </section>

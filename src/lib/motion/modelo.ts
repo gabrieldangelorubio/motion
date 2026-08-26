@@ -65,6 +65,18 @@ export type Segmento = {
   params?: Record<string, number>;
 };
 
+/** Modos de mezcla que canvas 2D soporta nativo (mismo set que Figma salvo linear-burn/dodge). */
+export type MezclaCapa =
+  | "multiply" | "screen" | "overlay" | "darken" | "lighten"
+  | "color-dodge" | "color-burn" | "hard-light" | "soft-light"
+  | "difference" | "exclusion" | "hue" | "saturation" | "color" | "luminosity";
+
+export const MEZCLAS: MezclaCapa[] = [
+  "multiply", "screen", "overlay", "darken", "lighten",
+  "color-dodge", "color-burn", "hard-light", "soft-light",
+  "difference", "exclusion", "hue", "saturation", "color", "luminosity",
+];
+
 export type CapaBase = {
   id: string;
   nombre: string;
@@ -84,6 +96,8 @@ export type CapaBase = {
   pistas?: Pistas;
   /** intensidad 0–2 del motion blur sintetizado por velocidad */
   motionBlur?: number;
+  /** modo de mezcla con lo que hay debajo; ausente = normal */
+  mezcla?: MezclaCapa;
 };
 
 export type CapaTexto = CapaBase & {
