@@ -112,6 +112,36 @@ export function LineaDeTiempo({
     compRef.current = composicion;
   }, [composicion]);
 
+  // S mantenida = el playhead SIGUE al mouse (scrub sin agarrar la barra):
+  // el clientX se mapea por la barra de scrub, desde cualquier lado.
+  const sostenidaRef = useRef(false);
+  useEffect(() => {
+    const enInput = () => {
+      const el = document.activeElement;
+      return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || (el as HTMLElement).isContentEditable);
+    };
+    const alTecla = (e: KeyboardEvent) => {
+      if (e.key !== "s" && e.key !== "S") return;
+      if (e.metaKey || e.ctrlKey || e.altKey || enInput()) return;
+      sostenidaRef.current = e.type === "keydown";
+    };
+    const alMover = (e: MouseEvent) => {
+      if (!sostenidaRef.current) return;
+      const rect = pistaRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const f = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      onScrub(f * compRef.current.duracion);
+    };
+    window.addEventListener("keydown", alTecla);
+    window.addEventListener("keyup", alTecla);
+    window.addEventListener("mousemove", alMover);
+    return () => {
+      window.removeEventListener("keydown", alTecla);
+      window.removeEventListener("keyup", alTecla);
+      window.removeEventListener("mousemove", alMover);
+    };
+  }, [onScrub]);
+
   const cuadro = 1000 / composicion.fps;
   const alFrame = (ms: number) => Math.round(ms / cuadro) * cuadro;
   const pct = (ms: number) => `${(ms / composicion.duracion) * 100}%`;
@@ -281,7 +311,8 @@ export function LineaDeTiempo({
             <span className="min-w-0 truncate text-xs text-foreground/70">{t("Cámara")}</span>
           </button>
         </div>
-        <div ref={filasRef} className="relative min-w-0 flex-1">
+        {/* min-h-full: el playhead cruza TODO el panel aunque haya pocas filas */}
+        <div ref={filasRef} className="relative min-h-full min-w-0 flex-1">
         <div className="pointer-events-none absolute inset-y-0 z-10 w-px bg-acento/60" style={{ left: pct(tiempo) }} />
         {composicion.capas.map((capa) => {
           const activa = seleccionId === capa.id;

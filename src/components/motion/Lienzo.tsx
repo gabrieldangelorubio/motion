@@ -49,6 +49,8 @@ export const Lienzo = forwardRef<
   {
     obtenerComposicion: () => Composicion;
     obtenerSeleccionId: () => string | null;
+    /** todas las capas seleccionadas (la primaria incluida) */
+    obtenerSeleccionIds?: () => string[];
     obtenerMedia?: () => FuentesDeMedia;
     /** píxeles de render por píxel CSS del preview (0.5 = borrador, dpr = nítido). NO afecta el export. */
     obtenerCalidad?: () => number;
@@ -60,6 +62,10 @@ export const Lienzo = forwardRef<
     /** herramienta activa en modo cámara: X mueve el encuadre, Z hace zoom */
     obtenerHerramientaCamara?: () => "posicion" | "zoom";
     onSeleccionar: (id: string | null) => void;
+    /** shift+click: suma o saca la capa de la selección múltiple */
+    onAlternarSeleccion?: (id: string) => void;
+    /** marquee: el rectángulo seleccionó estas capas */
+    onSeleccionarVarias?: (ids: string[]) => void;
     onCheckpoint: () => void;
     onMoverCapa: (id: string, x: number, y: number) => void;
     /** posiciones absolutas para varias capas (drag de una pantalla entera) */
@@ -69,13 +75,13 @@ export const Lienzo = forwardRef<
     /** herramienta Z: zoom nuevo del encuadre (drag horizontal) */
     onZoomCamara?: (zoom: number) => void;
   }
->(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerMedia, obtenerCalidad, obtenerTiempo, obtenerVista, obtenerHerramientaCamara, onSeleccionar, onCheckpoint, onMoverCapa, onMoverCapas, onMoverCamara, onZoomCamara }, ref) {
+>(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerSeleccionIds, obtenerMedia, obtenerCalidad, obtenerTiempo, obtenerVista, obtenerHerramientaCamara, onSeleccionar, onAlternarSeleccion, onSeleccionarVarias, onCheckpoint, onMoverCapa, onMoverCapas, onMoverCamara, onZoomCamara }, ref) {
   const contRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const camRef = useRef<Camara>({ x: 0, y: 0, escala: 0.4 });
   const tokensRef = useRef({ chrome: "#18191e", linea: "rgba(255,255,255,0.14)", acento: "#0005ff" });
-  const panRef = useRef<{ px: number; py: number; movio: boolean } | null>(null);
   const guiasRef = useRef<Guia[]>([]);
+  const marqueeRef = useRef<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const medidorRef = useRef<CanvasRenderingContext2D | null>(null);
 
   const medir: MedirTexto = (texto, font) => {
@@ -157,10 +163,13 @@ export const Lienzo = forwardRef<
     ctx.lineWidth = (camaraSeleccionada ? 2 : 1) / cam.escala;
     ctx.strokeRect(vista.x - vw / 2, vista.y - vh / 2, vw, vh);
 
-    // marco de selección: borde azul de 2px constantes, rotando con la capa (§3.1)
+    // marco de selección: borde azul de 2px constantes, rotando con la capa
+    // (§3.1); con selección múltiple, un marco por capa elegida
     const seleccionId = obtenerSeleccionId();
-    const capa = seleccionId ? comp.capas.find((c) => c.id === seleccionId) : null;
-    if (capa && !capa.oculta) {
+    const idsSeleccion = obtenerSeleccionIds?.() ?? (seleccionId ? [seleccionId] : []);
+    for (const id of idsSeleccion) {
+      const capa = comp.capas.find((c) => c.id === id);
+      if (!capa || capa.oculta) continue;
       const caja = cajaLocalDeCapa(capa, medir);
       const escalaCapa = capa.escala ?? 1;
       ctx.save();
@@ -171,6 +180,23 @@ export const Lienzo = forwardRef<
       ctx.lineWidth = 2 / (cam.escala * escalaCapa);
       ctx.strokeRect(caja.x, caja.y, caja.w, caja.h);
       ctx.restore();
+    }
+
+    // marquee de selección múltiple: rectángulo acento con velo suave
+    const marquee = marqueeRef.current;
+    if (marquee) {
+      const mx = Math.min(marquee.x0, marquee.x1);
+      const my = Math.min(marquee.y0, marquee.y1);
+      const mw = Math.abs(marquee.x1 - marquee.x0);
+      const mh = Math.abs(marquee.y1 - marquee.y0);
+      ctx.save();
+      ctx.globalAlpha = 0.08;
+      ctx.fillStyle = tokensRef.current.acento;
+      ctx.fillRect(mx, my, mw, mh);
+      ctx.restore();
+      ctx.strokeStyle = tokensRef.current.acento;
+      ctx.lineWidth = 1 / cam.escala;
+      ctx.strokeRect(mx, my, mw, mh);
     }
 
     // guías de snapping: línea azul a 1px constante, a lo largo del frame
@@ -383,27 +409,83 @@ export const Lienzo = forwardRef<
     const capa = capaEnPunto(comp.capas, medir, punto.x, punto.y);
 
     if (!capa) {
-      // vacío: pan; un click seco deselecciona al soltar
-      panRef.current = { px: e.clientX, py: e.clientY, movio: false };
+      // vacío: MARQUEE de selección múltiple (el pan queda en la rueda);
+      // un click seco deselecciona al soltar
+      const origen = { x: e.clientX, y: e.clientY, movio: false };
       const alMover = (ev: PointerEvent) => {
-        const p = panRef.current;
-        if (!p) return;
-        if (Math.abs(ev.clientX - p.px) + Math.abs(ev.clientY - p.py) > 2) p.movio = true;
-        camRef.current = {
-          ...camRef.current,
-          x: camRef.current.x + (ev.clientX - p.px),
-          y: camRef.current.y + (ev.clientY - p.py),
-        };
-        panRef.current = { px: ev.clientX, py: ev.clientY, movio: p.movio };
+        if (Math.abs(ev.clientX - origen.x) + Math.abs(ev.clientY - origen.y) > 3) origen.movio = true;
+        if (!origen.movio) return;
+        const hasta = pantallaAMundo(ev.clientX, ev.clientY, rect, camRef.current);
+        marqueeRef.current = { x0: punto.x, y0: punto.y, x1: hasta.x, y1: hasta.y };
       };
       const alSoltar = () => {
-        if (panRef.current && !panRef.current.movio) onSeleccionar(null);
-        panRef.current = null;
         window.removeEventListener("pointermove", alMover);
         window.removeEventListener("pointerup", alSoltar);
+        const marquee = marqueeRef.current;
+        marqueeRef.current = null;
+        if (!origen.movio || !marquee) {
+          onSeleccionar(null);
+          return;
+        }
+        const mx0 = Math.min(marquee.x0, marquee.x1);
+        const my0 = Math.min(marquee.y0, marquee.y1);
+        const mx1 = Math.max(marquee.x0, marquee.x1);
+        const my1 = Math.max(marquee.y0, marquee.y1);
+        const compAhora = obtenerComposicion();
+        const ids = compAhora.capas
+          .filter((c) => {
+            if (c.oculta) return false;
+            const caja = cajaMundoDeCapa(c, medir);
+            return caja.x < mx1 && caja.x + caja.w > mx0 && caja.y < my1 && caja.y + caja.h > my0;
+          })
+          .map((c) => c.id);
+        if (ids.length && onSeleccionarVarias) onSeleccionarVarias(ids);
+        else onSeleccionar(null);
       };
       window.addEventListener("pointermove", alMover);
       window.addEventListener("pointerup", alSoltar);
+      return;
+    }
+
+    // shift+click sobre una capa: entra o sale de la selección múltiple
+    if (e.shiftKey && onAlternarSeleccion) {
+      onAlternarSeleccion(capa.id);
+      return;
+    }
+
+    // arrastre con selección MÚLTIPLE que incluye a la capa agarrada: se
+    // mueven todas juntas (posiciones absolutas desde los orígenes)
+    const idsMulti = obtenerSeleccionIds?.() ?? [];
+    if (idsMulti.length > 1 && idsMulti.includes(capa.id) && onMoverCapas && !capa.bloqueada) {
+      const miembros = comp.capas
+        .filter((c) => idsMulti.includes(c.id) && !c.bloqueada)
+        .map((c) => ({ id: c.id, x0: c.x, y0: c.y }));
+      const gestoMulti = { x0: e.clientX, y0: e.clientY, activo: false };
+      const alMoverMulti = (ev: PointerEvent) => {
+        const dxP = ev.clientX - gestoMulti.x0;
+        const dyP = ev.clientY - gestoMulti.y0;
+        if (!gestoMulti.activo) {
+          if (Math.abs(dxP) + Math.abs(dyP) < UMBRAL_DRAG_CAPA) return;
+          gestoMulti.activo = true;
+          onCheckpoint();
+        }
+        const escala = camRef.current.escala;
+        let dx = dxP / escala;
+        let dy = dyP / escala;
+        if (ev.shiftKey) {
+          if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
+          else dx = 0;
+        }
+        onMoverCapas(miembros.map((m) => ({ id: m.id, x: m.x0 + dx, y: m.y0 + dy })));
+      };
+      const alSoltarMulti = () => {
+        window.removeEventListener("pointermove", alMoverMulti);
+        window.removeEventListener("pointerup", alSoltarMulti);
+        // click seco sobre una ya seleccionada: colapsa a esa sola
+        if (!gestoMulti.activo) onSeleccionar(capa.id);
+      };
+      window.addEventListener("pointermove", alMoverMulti);
+      window.addEventListener("pointerup", alSoltarMulti);
       return;
     }
 

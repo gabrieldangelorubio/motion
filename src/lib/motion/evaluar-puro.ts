@@ -27,6 +27,8 @@ export type EstadoUnidad = {
   /** desenfoque direccional sintetizado, px por eje */
   blurX: number;
   blurY: number;
+  /** rotación de la unidad alrededor de su centro, grados */
+  dRotacion: number;
   /** la unidad se pinta recortada a su caja de reposo (revelado con máscara) */
   recorte: boolean;
   /** trim del trazo resuelto 0–1 (sólo significa algo en capas tipo trazo) */
@@ -93,6 +95,7 @@ function aplicarSegmento(
   delay: number,
   motionBlur: number,
   alto: number,
+  factorTracking: number,
 ): void {
   const inicio = seg.en + delay;
   const bruto = (t - inicio) / seg.duracion;
@@ -102,11 +105,15 @@ function aplicarSegmento(
   // En presets `relativo` los dy son múltiplos del alto de la unidad, no px:
   // así «revelar» funciona igual en un título de 200px que en un caption de 18px.
   const escalaDy = compilado.relativo ? alto : 1;
-  unidad.dx += offsetDe(compilado.pista.dx, p);
+  // En presets `tracking` los dx son POR ÍNDICE desde el centro: la unidad
+  // del medio no se mueve y las puntas se abren/cierran proporcionalmente.
+  const escalaDx = compilado.tracking ? factorTracking : 1;
+  unidad.dx += offsetDe(compilado.pista.dx, p) * escalaDx;
   unidad.dy += offsetDe(compilado.pista.dy, p) * escalaDy;
   unidad.dEscala += offsetDe(compilado.pista.dEscala, p);
   unidad.opacidad += offsetDe(compilado.pista.dOpacidad, p);
   unidad.desenfoque += offsetDe(compilado.pista.desenfoque, p);
+  unidad.dRotacion += offsetDe(compilado.pista.dRotacion, p);
   unidad.trazoInicio += offsetDe(compilado.pista.dTrazoInicio, p);
   unidad.trazoFin += offsetDe(compilado.pista.dTrazoFin, p);
 
@@ -173,10 +180,12 @@ function estadoDeCapa(capa: Capa, t: number): EstadoCapa {
   for (let i = 0; i < n; i++) {
     const unidad: EstadoUnidad = {
       dx: 0, dy: 0, dEscala: 0, opacidad: 1, desenfoque: desenfoqueBase, blurX: 0, blurY: 0,
-      recorte: false, trazoInicio: trazoInicioBase, trazoFin: trazoFinBase,
+      dRotacion: 0, recorte: false, trazoInicio: trazoInicioBase, trazoFin: trazoFinBase,
     };
+    // índice centrado para tracking: la unidad del medio queda en 0
+    const factorTracking = i - (n - 1) / 2;
     for (const { seg, compilado, clase, delays } of segmentos) {
-      aplicarSegmento(unidad, seg, compilado, clase, t, delays[i], capa.motionBlur ?? 0, alto);
+      aplicarSegmento(unidad, seg, compilado, clase, t, delays[i], capa.motionBlur ?? 0, alto, factorTracking);
     }
     unidad.opacidad = Math.min(1, Math.max(0, unidad.opacidad));
     unidad.trazoInicio = Math.min(1, Math.max(0, unidad.trazoInicio));

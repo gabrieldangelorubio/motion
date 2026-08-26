@@ -56,7 +56,9 @@ function elementosDe(comp: Composicion): Elemento[] {
 export function Capas({
   composicion,
   seleccionId,
+  seleccionIds = [],
   onSeleccionar,
+  onAlternarSeleccion,
   onAlternarVisibilidad,
   onCheckpoint,
   onReordenarCapa,
@@ -65,7 +67,11 @@ export function Capas({
 }: {
   composicion: Composicion;
   seleccionId: string | null;
+  /** selección múltiple (la primaria incluida) para resaltar todas */
+  seleccionIds?: string[];
   onSeleccionar: (id: string) => void;
+  /** shift+click en una fila: entra/sale de la selección múltiple */
+  onAlternarSeleccion?: (id: string) => void;
   onAlternarVisibilidad: (id: string) => void;
   onCheckpoint: () => void;
   /** mover capaId para quedar antes/después de referenciaId (mismo contenedor) */
@@ -108,8 +114,11 @@ export function Capas({
       if (gesto.cont === PANTALLAS) onReordenarPantalla(gesto.id, otroId, despues);
       else onReordenarCapa(gesto.id, otroId, despues);
     };
-    const alSoltar = () => {
-      if (!gesto.activo) onSeleccionar(gesto.selId);
+    const alSoltar = (ev: PointerEvent) => {
+      if (!gesto.activo) {
+        if (ev.shiftKey && onAlternarSeleccion) onAlternarSeleccion(gesto.selId);
+        else onSeleccionar(gesto.selId);
+      }
       gestoRef.current = null;
       window.removeEventListener("pointermove", alMover);
       window.removeEventListener("pointerup", alSoltar);
@@ -119,7 +128,7 @@ export function Capas({
   };
 
   const fila = (capa: Capa, cont: string, sangria: boolean) => {
-    const activa = seleccionId === capa.id;
+    const activa = seleccionId === capa.id || seleccionIds.includes(capa.id);
     const esPlaca = capa.grupo === capa.id;
     return (
       <div

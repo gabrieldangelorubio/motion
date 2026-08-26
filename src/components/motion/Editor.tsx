@@ -110,6 +110,12 @@ export function Editor({
   useEffect(() => {
     seleccionRef.current = seleccionId;
   }, [seleccionId]);
+  // selección múltiple: la primaria (seleccionId) siempre está adentro
+  const [seleccionIds, setSeleccionIds] = useState<string[]>([]);
+  const seleccionIdsRef = useRef<string[]>([]);
+  useEffect(() => {
+    seleccionIdsRef.current = seleccionIds;
+  }, [seleccionIds]);
   const tiempoRef = useRef(0);
   const lienzoRef = useRef<ControlLienzo>(null);
   // ——— Modo cámara: grabar el gesto del viewport y suavizarlo a keyframes ———
@@ -763,6 +769,28 @@ export function Editor({
     setTiempoUI(ms);
   }, []);
 
+
+  // Supr con selección: borra TODAS las capas elegidas (la placa, su pantalla)
+  const borrarSeleccionadas = useCallback(() => {
+    const ids = seleccionIdsRef.current.length
+      ? seleccionIdsRef.current
+      : seleccionRef.current && seleccionRef.current !== CAMARA_ID
+        ? [seleccionRef.current]
+        : [];
+    if (!ids.length) return;
+    registrar();
+    let comp = compRef.current;
+    for (const id of ids) {
+      const capa = comp.capas.find((c) => c.id === id);
+      if (!capa) continue;
+      const res = capa.grupo === capa.id ? borrarGrupo(comp, capa.grupo) : quitarCapa(comp, id);
+      if (res.ok) comp = res.valor;
+    }
+    setComposicion(comp);
+    setSeleccionIds([]);
+    setSeleccionId(null);
+  }, [registrar]);
+
   // ——— Atajos (§8.1): un solo keydown, con el guard de inputs ———
   useEffect(() => {
     const alTeclear = (e: KeyboardEvent) => {
@@ -790,9 +818,9 @@ export function Editor({
       } else if ((e.key === "Delete" || e.key === "Backspace") && seleccionKfRef.current) {
         e.preventDefault();
         borrarKfSeleccionado();
-      } else if ((e.key === "Delete" || e.key === "Backspace") && seleccionRef.current && seleccionRef.current !== CAMARA_ID) {
+      } else if ((e.key === "Delete" || e.key === "Backspace") && (seleccionIdsRef.current.length || (seleccionRef.current && seleccionRef.current !== CAMARA_ID))) {
         e.preventDefault();
-        borrarCapa(seleccionRef.current);
+        borrarSeleccionadas();
       } else if (!meta && (e.key === "x" || e.key === "z") && (seleccionRef.current === CAMARA_ID || vistaRef.current === "camara")) {
         // herramientas del modo cámara estilo AE: X posición, Z zoom
         setHerramientaCamara(e.key === "z" ? "zoom" : "posicion");
@@ -810,7 +838,7 @@ export function Editor({
     };
     window.addEventListener("keydown", alTeclear);
     return () => window.removeEventListener("keydown", alTeclear);
-  }, [deshacer, rehacer, saltarFrame, copiarKfSeleccionado, pegarKf, borrarKfSeleccionado, borrarCapa]);
+  }, [deshacer, rehacer, saltarFrame, copiarKfSeleccionado, pegarKf, borrarKfSeleccionado, borrarSeleccionadas]);
 
   // Selección con las consecuencias juntas: al cambiar de capa, un keyframe
   // elegido de OTRA capa se suelta (borrar/copiar operan sobre lo que se ve
@@ -823,23 +851,51 @@ export function Editor({
       return pertenece ? sel : null;
     });
     setSeleccionId(id);
+    setSeleccionIds(id && id !== CAMARA_ID ? [id] : []);
   }, []);
+
+  // shift+click: la capa entra o sale de la selección múltiple
+  const alternarSeleccion = useCallback((id: string) => {
+    const actual = seleccionIdsRef.current;
+    const base = actual.length
+      ? actual
+      : seleccionRef.current && seleccionRef.current !== CAMARA_ID
+        ? [seleccionRef.current]
+        : [];
+    const nueva = base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
+    setSeleccionIds(nueva);
+    setSeleccionId(nueva[nueva.length - 1] ?? null);
+  }, []);
+
+  const seleccionarVarias = useCallback((ids: string[]) => {
+    setSeleccionIds(ids);
+    setSeleccionId(ids[ids.length - 1] ?? null);
+    setSeleccionKf(null);
+  }, []);
+
 
   const capaSeleccionada = composicion.capas.find((c) => c.id === seleccionId) ?? null;
 
   return (
     <div className="grid h-dvh grid-cols-[240px_1fr_300px] overflow-hidden">
-      <div className="min-h-0">
-        <Capas
-          composicion={composicion}
-          seleccionId={seleccionId}
-          onSeleccionar={seleccionar}
-          onAlternarVisibilidad={alternarVisibilidad}
-          onCheckpoint={registrar}
-          onReordenarCapa={reordenarCapaEnVivo}
-          onReordenarPantalla={reordenarPantallaEnVivo}
-          onBorrarCapa={borrarCapa}
-        />
+      <div className="flex min-h-0 flex-col">
+        <div className={bibliotecaAbierta ? "h-1/2 min-h-0" : "min-h-0 flex-1"}>
+          <Capas
+            composicion={composicion}
+            seleccionId={seleccionId}
+            onSeleccionar={seleccionar}
+            onAlternarVisibilidad={alternarVisibilidad}
+            onCheckpoint={registrar}
+            onReordenarCapa={reordenarCapaEnVivo}
+            onReordenarPantalla={reordenarPantallaEnVivo}
+            onBorrarCapa={borrarCapa}
+          />
+        </div>
+        {bibliotecaAbierta && (
+          <div className="h-1/2 min-h-0 border-r border-(--glass-border)">
+            <PanelBiblioteca onCerrar={() => setBibliotecaAbierta(false)} onAplicar={aplicarEfecto} />
+          </div>
+        )}
       </div>
       <div className="flex min-h-0 flex-col">
         <div className="relative min-h-0 flex-1">
@@ -847,12 +903,15 @@ export function Editor({
             ref={lienzoRef}
             obtenerComposicion={() => compRef.current}
             obtenerSeleccionId={() => seleccionRef.current}
+            obtenerSeleccionIds={() => seleccionIdsRef.current}
             obtenerMedia={obtenerMedia}
             obtenerCalidad={() => calidadRef.current}
             obtenerTiempo={() => tiempoRef.current}
             obtenerVista={() => vistaRef.current}
             obtenerHerramientaCamara={() => herramientaCamaraRef.current}
             onSeleccionar={seleccionar}
+            onAlternarSeleccion={alternarSeleccion}
+            onSeleccionarVarias={seleccionarVarias}
             onCheckpoint={registrar}
             onMoverCapa={(id, x, y) => editarEnVivo(id, { x, y })}
             onMoverCapas={moverCapasEnVivo}
@@ -973,11 +1032,6 @@ export function Editor({
               entregar={entregarExport}
             />
           </div>
-          <PanelBiblioteca
-            abierto={bibliotecaAbierta}
-            onCerrar={() => setBibliotecaAbierta(false)}
-            onAplicar={aplicarEfecto}
-          />
           <PanelImportar
             abierto={importarAbierto}
             onCerrar={() => setImportarAbierto(false)}

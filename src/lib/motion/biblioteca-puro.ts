@@ -10,11 +10,12 @@
 ----------------------------------------------------------------------------- */
 
 import type { CapaTexto, CapaTrazo, Composicion, Segmento } from "@/lib/motion/modelo";
-import { PRESETS } from "@/lib/motion/presets-puro";
+import { CATEGORIAS, PRESETS, type CategoriaPreset } from "@/lib/motion/presets-puro";
 
 export type EfectoBiblioteca = {
   nombre: string;
   clase: "entrada" | "salida";
+  categoria: CategoriaPreset;
   /** anima el trim del trazo: sólo aplica a capas tipo trazo */
   esDeTrazo: boolean;
 };
@@ -25,9 +26,21 @@ export function efectosDeBiblioteca(): EfectoBiblioteca[] {
     return {
       nombre,
       clase: def.clase,
+      categoria: def.categoria,
       esDeTrazo: !!(compilado.pista.dTrazoInicio || compilado.pista.dTrazoFin),
     };
   });
+}
+
+/** Los efectos por categoría, en el orden canónico (entradas antes que salidas). */
+export function efectosPorCategoria(): { categoria: (typeof CATEGORIAS)[number]; efectos: EfectoBiblioteca[] }[] {
+  const todos = efectosDeBiblioteca();
+  return CATEGORIAS.map((categoria) => ({
+    categoria,
+    efectos: todos
+      .filter((e) => e.categoria === categoria.id)
+      .sort((a, b) => (a.clase === b.clase ? 0 : a.clase === "entrada" ? -1 : 1)),
+  })).filter((seccion) => seccion.efectos.length > 0);
 }
 
 /** En qué instante del bucle la plantilla está EN REPOSO (la carta quieta). */

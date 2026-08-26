@@ -73,6 +73,13 @@ function pintarTexto(estado: EstadoCapa, ctx: Contexto2D): void {
       ctx.clip();
     }
     ctx.translate(x + u.dx, y + u.dy);
+    if (u.dRotacion) {
+      // la unidad rota alrededor de su centro VISUAL (medio del ancho, media
+      // altura de mayúsculas sobre la baseline), no del origen de la línea
+      ctx.translate(ancho / 2, -tamano * 0.35);
+      ctx.rotate((u.dRotacion * Math.PI) / 180);
+      ctx.translate(-ancho / 2, tamano * 0.35);
+    }
     ctx.scale(1 + u.dEscala, 1 + u.dEscala);
     ctx.fillText(texto, 0, 0);
     ctx.restore();
@@ -123,6 +130,7 @@ function pintarTrazo(estado: EstadoCapa, ctx: Contexto2D): void {
   ctx.globalAlpha *= u.opacidad;
   ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY);
   ctx.translate(u.dx, u.dy);
+  if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
   ctx.scale(1 + u.dEscala, 1 + u.dEscala);
   // el path viene en coordenadas locales del nodo; el ancla de la capa es el centro
   ctx.translate(-capa.ancho / 2, -capa.alto / 2);
@@ -150,6 +158,7 @@ function pintarForma(estado: EstadoCapa, ctx: Contexto2D): void {
   ctx.globalAlpha *= u.opacidad;
   ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY);
   ctx.translate(u.dx, u.dy);
+  if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
   ctx.scale(1 + u.dEscala, 1 + u.dEscala);
   ctx.fillStyle = capa.color;
   const x = -capa.ancho / 2;
@@ -178,6 +187,7 @@ function pintarMedia(estado: EstadoCapa, ctx: Contexto2D, media: FuentesDeMedia)
   ctx.globalAlpha *= u.opacidad;
   ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY);
   ctx.translate(u.dx, u.dy);
+  if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
   ctx.scale(1 + u.dEscala, 1 + u.dEscala);
   const imagen = media.imagenDe?.(capa.mediaId) ?? null;
   if (imagen) {

@@ -15,7 +15,7 @@
 import { MEZCLAS, type Camara, type Capa, type CapaForma, type CapaTexto, type CapaTrazo, type Composicion, type Keyframe, type MezclaCapa, type NombreEasing, type NombrePropiedad, type OrdenEscalonado, type Segmento } from "@/lib/motion/modelo";
 import { agregarCapa, editarCapa, quitarCapa, describir } from "@/lib/motion/herramientas-puro";
 import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
-import { nombresPresets, PRESETS } from "@/lib/motion/presets-puro";
+import { CATEGORIAS, nombresPresets, PRESETS } from "@/lib/motion/presets-puro";
 import { EASINGS } from "@/lib/motion/easings-puro";
 import { validar } from "@/lib/motion/validar-puro";
 
@@ -489,8 +489,12 @@ export const DEFINICIONES_HERRAMIENTAS = [
 /* ——— Conocimiento del sistema para el prompt (generado del código, no a mano) ——— */
 
 export function catalogoParaPrompt(): string {
-  const presets = Object.entries(PRESETS)
-    .map(([nombre, def]) => `- ${nombre} (${def.clase})`)
-    .join("\n");
-  return `Presets disponibles:\n${presets}\n\nEasings disponibles: ${Object.keys(EASINGS).join(", ")}`;
+  const porCategoria = CATEGORIAS.map((cat) => {
+    const nombres = Object.entries(PRESETS)
+      .filter(([, def]) => def.categoria === cat.id)
+      .map(([nombre, def]) => `${nombre} (${def.clase})`)
+      .join(", ");
+    return `- ${cat.nombre}: ${nombres}`;
+  }).join("\n");
+  return `Presets disponibles, por categoría:\n${porCategoria}\n\nEasings disponibles: ${Object.keys(EASINGS).join(", ")}`;
 }

@@ -15,8 +15,11 @@ las constantes de la casa), línea de tiempo **redimensionable** (agarradera
 superior) con scrub, transport, y **edición por drag** de spans de
 entrada/salida y keyframes (snap al frame, un checkpoint de undo por gesto),
 **inspector de propiedades** (transformación, texto, presets con easing y
-escalonado — cada campo con checkpoint por sesión de foco), **selección y
-drag de capas EN el lienzo** (hit-test con rotación y escala, umbral 4px,
+escalonado — cada campo con checkpoint por sesión de foco), **selección MÚLTIPLE y
+drag de capas EN el lienzo** (marquee arrastrando en el vacío — el pan
+del viewport queda en la rueda —, shift+click acumula en lienzo y panel,
+drag de una seleccionada mueve todas juntas, Supr borra la selección
+entera; y la S sostenida hace que el playhead SIGA al mouse) (hit-test con rotación y escala, umbral 4px,
 Shift = eje dominante, ⌘ = sin snapping, capas bloqueadas seleccionables
 pero no movibles) con **snapping azul** (algoritmo canónico de 3 imanes por
 eje, un ganador por eje, el frame como imán, guías a 1px constante), panel
@@ -39,7 +42,12 @@ del mismo texto medido acá, geometría contra geometría — con fallback al
 centrado en caja de línea si no hay tinta — y se re-ancla al cargar la
 tipografía real),
 **modos de mezcla** (multiply, screen, overlay… — viajan desde Figma, se pintan con globalCompositeOperation, editables en inspector y agente; LINEAR_BURN/DODGE se aproximan con aviso), **calidad de preview** (½ / 1× / Máx al estilo Half/Quarter de AE — menos píxeles de render mientras armás; el export SIEMPRE sale a resolución completa), **gestión de tipografías** (detección real de familias faltantes por medición — `document.fonts.check` miente —, panel que se abre solo tras un import con fuentes ajenas, carga desde Google Fonts con fallo detectable o subiendo el archivo .otf/.ttf/.woff2; sin sustitución silenciosa), **biblioteca de efectos**
-(panel con todos los presets: cada carta corre el MOTOR REAL sobre una
+(~37 presets en 8 categorías — máscaras y revelados, texto, desenfoque,
+rotación, tracking, impacto y rebote, logos y gráficas, trazos — sobre
+dos capacidades de motor nuevas: rotación POR UNIDAD (dRotacion) y
+tracking (dx por índice desde el centro, la del medio quieta); el panel
+vive bajo el de capas ocupando la mitad inferior de esa columna, con chip
+in/out por carta; panel con todos los presets: cada carta corre el MOTOR REAL sobre una
 plantilla en un mini canvas — hover lo anima en bucle, quieto muestra el
 reposo; nunca un video grabado que envejece —; tocarla aplica el efecto a
 la capa seleccionada reemplazando su entrada o salida según la clase y

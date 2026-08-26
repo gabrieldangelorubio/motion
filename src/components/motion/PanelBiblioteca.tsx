@@ -14,7 +14,7 @@
 
 import { useEffect, useRef } from "react";
 import {
-  efectosDeBiblioteca,
+  efectosPorCategoria,
   plantillaDeEfecto,
   reposoDeEfecto,
   type EfectoBiblioteca,
@@ -82,44 +82,47 @@ function Tarjeta({ efecto, onAplicar }: { efecto: EfectoBiblioteca; onAplicar: (
         {efecto.esDeTrazo && (
           <span className="shrink-0 font-mono text-[10px] text-foreground/40" aria-hidden>〜</span>
         )}
+        <span
+          className={[
+            "shrink-0 rounded-full px-1.5 font-mono text-[9px] uppercase leading-4",
+            efecto.clase === "entrada" ? "bg-acento/15 text-acento" : "bg-ink/[0.1] text-foreground/55",
+          ].join(" ")}
+        >
+          {efecto.clase === "entrada" ? t("in") : t("out")}
+        </span>
       </div>
     </button>
   );
 }
 
 export function PanelBiblioteca({
-  abierto,
   onCerrar,
   onAplicar,
 }: {
-  abierto: boolean;
   onCerrar: () => void;
   onAplicar: (nombre: string) => void;
 }) {
-  if (!abierto) return null;
-  const efectos = efectosDeBiblioteca();
-  const entradas = efectos.filter((e) => e.clase === "entrada");
-  const salidas = efectos.filter((e) => e.clase === "salida");
+  const secciones = efectosPorCategoria();
 
   return (
-    <div className="absolute bottom-3 left-3 top-14 z-20 flex w-60 flex-col rounded-card border border-(--menu-border) bg-(--menu-solido-bg) shadow-(--menu-shadow)">
+    <div className="flex h-full min-h-0 flex-col border-t border-(--glass-border) bg-(--chrome-bg)">
       <div className="flex items-center gap-2 px-3 pb-1 pt-2.5">
-        <div className="min-w-0 flex-1 text-[14px] font-semibold text-foreground">{t("Efectos")}</div>
+        <div className="min-w-0 flex-1 text-[13px] font-semibold text-foreground">{t("Efectos")}</div>
         <BotonIcono tam={26} etiqueta={t("Cerrar la biblioteca")} onClick={onCerrar}>
           <Icono nombre="cerrar" width={13} height={13} />
         </BotonIcono>
       </div>
       <div className="px-3 pb-2 text-xs text-muted">
-        {t("Dejá el mouse arriba para verlo; tocalo para ponérselo a la capa seleccionada.")}
+        {t("Hover para verlo; click se lo pone a la capa seleccionada.")}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        <Etiqueta className="mb-1.5 mt-1 px-1">{t("Entradas")}</Etiqueta>
-        {entradas.map((efecto) => (
-          <Tarjeta key={efecto.nombre} efecto={efecto} onAplicar={onAplicar} />
-        ))}
-        <Etiqueta className="mb-1.5 mt-3 px-1">{t("Salidas")}</Etiqueta>
-        {salidas.map((efecto) => (
-          <Tarjeta key={efecto.nombre} efecto={efecto} onAplicar={onAplicar} />
+        {secciones.map(({ categoria, efectos }) => (
+          <div key={categoria.id}>
+            <Etiqueta className="mb-1.5 mt-2 px-1">{t(categoria.nombre)}</Etiqueta>
+            {efectos.map((efecto) => (
+              <Tarjeta key={efecto.nombre} efecto={efecto} onAplicar={onAplicar} />
+            ))}
+          </div>
         ))}
       </div>
     </div>

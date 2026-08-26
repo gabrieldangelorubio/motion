@@ -11,12 +11,9 @@
 - **Dónde:** `lib/motion/exportar.ts`, worker nuevo, `consultas.ts`
 
 ### [P1] Selección múltiple en el lienzo: shift-click, marquee, Alt-duplica
-- **Estado:** abierto
-- **Qué:** lo que falta encima de la selección simple ya hecha: shift-click
-  acumula, marquee desde el fondo, Alt = duplicar y arrastrar la copia,
-  mover la selección múltiple por delta con orígenes guardados.
-- **Por qué:** «el editor se siente como los otros dos lienzos» (kit §10.6).
-- **Dónde:** `components/motion/Lienzo.tsx`
+- **Estado:** casi hecho (2026-08-26) — marquee en el vacío, shift+click en
+  lienzo y panel, drag en bloque con orígenes guardados, Supr borra la
+  selección entera. Falta: Alt = duplicar y arrastrar la copia.
 
 ### [P1] Texto multilínea, métricas reales y carga de fuentes
 - **Estado:** HECHO (2026-08-26) — `\n` real con `interlineado`, división
@@ -32,10 +29,11 @@
 - **Dónde:** `lib/motion/pintar.ts`
 
 ### [P2] Más presets y capa de énfasis (loops)
-- **Estado:** abierto
-- **Qué:** portar lo que falta del prototipo v0 (`_andamiaje/studio-v0`):
-  tracking, flip, pop, pulse/float/shimmer con `composite` aditivo (el
-  reveal enmascarado ya está: `revelar`/`ocultar`).
+- **Estado:** parcial (2026-08-26) — el catálogo creció a ~37 presets en 8
+  categorías (máscaras, texto, desenfoque, rotación, tracking, impacto,
+  logos/gráficas, trazos), con dos capacidades de motor nuevas: dRotacion
+  por unidad y tracking (dx por índice desde el centro). Falta lo que
+  necesita loops compuestos: pulse/float/shimmer (capa de énfasis).
 - **Dónde:** `lib/motion/presets-puro.ts`, `evaluar-puro.ts`
 
 ### [P2] Export Lottie (formato, no runtime)
