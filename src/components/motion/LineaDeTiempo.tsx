@@ -48,14 +48,19 @@ type GestoKeyframe = {
   x0: number;
   activo: boolean;
 };
-type GestoKeyframeCamara = {
-  tipo: "kfCamara";
-  canal: CanalCamara;
+type GestoPoseCamara = {
+  tipo: "poseCamara";
   tOriginal: number;
   tActual: number;
   x0: number;
   activo: boolean;
 };
+
+/** Un keyframe seleccionado en la timeline: de una pista de capa, o una POSE
+    de cámara (los keyframes de x/y/zoom que caen en el mismo instante). */
+export type SeleccionKeyframe =
+  | { tipo: "capa"; capaId: string; propiedad: NombrePropiedad; t: number }
+  | { tipo: "camara"; t: number };
 
 export function LineaDeTiempo({
   composicion,
@@ -71,7 +76,9 @@ export function LineaDeTiempo({
   onCheckpoint,
   onRetimarSegmento,
   onMoverKeyframe,
-  onMoverKeyframeCamara,
+  onMoverPoseCamara,
+  seleccionKf,
+  onSeleccionarKf,
 }: {
   composicion: Composicion;
   tiempo: number;
@@ -86,12 +93,14 @@ export function LineaDeTiempo({
   onCheckpoint: () => void;
   onRetimarSegmento: (capaId: string, clave: "entrada" | "salida", nuevoEn: number) => void;
   onMoverKeyframe: (capaId: string, propiedad: NombrePropiedad, tActual: number, nuevoT: number) => void;
-  onMoverKeyframeCamara: (canal: CanalCamara, tActual: number, nuevoT: number) => void;
+  onMoverPoseCamara: (tActual: number, nuevoT: number) => void;
+  seleccionKf: SeleccionKeyframe | null;
+  onSeleccionarKf: (sel: SeleccionKeyframe | null) => void;
 }) {
   const pistaRef = useRef<HTMLDivElement>(null);
   const filasRef = useRef<HTMLDivElement>(null);
   const escrubeando = useRef(false);
-  const gestoRef = useRef<GestoSpan | GestoKeyframe | GestoKeyframeCamara | null>(null);
+  const gestoRef = useRef<GestoSpan | GestoKeyframe | GestoPoseCamara | null>(null);
   const redimenRef = useRef<{ y0: number; alto0: number } | null>(null);
 
   // El drag corre con listeners en window (pointerdown en el elemento,
@@ -133,12 +142,13 @@ export function LineaDeTiempo({
     if (gesto.tipo === "span") {
       const nuevoEn = alFrame(Math.min(comp.duracion, Math.max(0, gesto.enOriginal + dt)));
       onRetimarSegmento(gesto.capaId, gesto.clave, nuevoEn);
-    } else if (gesto.tipo === "kfCamara") {
-      const pista = comp.camara?.pistas[gesto.canal];
+    } else if (gesto.tipo === "poseCamara") {
+      const pistasCam = comp.camara?.pistas;
       const nuevoT = alFrame(Math.min(comp.duracion, Math.max(0, gesto.tOriginal + dt)));
-      if (nuevoT === gesto.tActual || !pista) return;
-      if (pista.some((k) => k.t === nuevoT)) return; // no pisar otro keyframe
-      onMoverKeyframeCamara(gesto.canal, gesto.tActual, nuevoT);
+      if (nuevoT === gesto.tActual || !pistasCam) return;
+      // no pisar otra pose
+      if ((["x", "y", "zoom"] as CanalCamara[]).some((c) => pistasCam[c]?.some((k) => k.t === nuevoT))) return;
+      onMoverPoseCamara(gesto.tActual, nuevoT);
       gesto.tActual = nuevoT;
     } else {
       const capa = comp.capas.find((c) => c.id === gesto.capaId);
@@ -151,7 +161,7 @@ export function LineaDeTiempo({
     }
   };
 
-  const iniciarGesto = (gesto: GestoSpan | GestoKeyframe | GestoKeyframeCamara) => {
+  const iniciarGesto = (gesto: GestoSpan | GestoKeyframe | GestoPoseCamara) => {
     gestoRef.current = gesto;
     const alMover = (e: PointerEvent) => moverGesto(e.clientX);
     const alSoltar = () => {
@@ -314,31 +324,43 @@ export function LineaDeTiempo({
               ))}
               {(Object.entries(capa.pistas ?? {}) as [NombrePropiedad, { t: number }[] | undefined][]).flatMap(
                 ([propiedad, pista]) =>
-                  (pista ?? []).map((kf) => (
-                    <span
-                      key={`${propiedad}-${kf.t}`}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={t("Mover el keyframe de {propiedad} de «{nombre}»", { propiedad, nombre: capa.nombre })}
-                      onKeyDown={(e) => {
-                        const dir = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
-                        if (!dir) return;
-                        e.preventDefault();
-                        onCheckpoint();
-                        onMoverKeyframe(capa.id, propiedad, kf.t, alFrame(Math.min(composicion.duracion, Math.max(0, kf.t + dir * cuadro))));
-                      }}
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        onSeleccionar(capa.id);
-                        iniciarGesto({ tipo: "keyframe", capaId: capa.id, propiedad, tOriginal: kf.t, tActual: kf.t, x0: e.clientX, activo: false });
-                      }}
-                      className={[
-                        "absolute top-1/2 z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-grab rounded-[2px] active:cursor-grabbing",
-                        activa ? "bg-acento" : "bg-foreground/50 hover:bg-foreground/80",
-                      ].join(" ")}
-                      style={{ left: pct(kf.t) }}
-                    />
-                  )),
+                  (pista ?? []).map((kf) => {
+                    const elegido =
+                      seleccionKf?.tipo === "capa" &&
+                      seleccionKf.capaId === capa.id &&
+                      seleccionKf.propiedad === propiedad &&
+                      seleccionKf.t === kf.t;
+                    return (
+                      <span
+                        key={`${propiedad}-${kf.t}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={t("Keyframe de {propiedad} de «{nombre}»", { propiedad, nombre: capa.nombre })}
+                        onKeyDown={(e) => {
+                          const dir = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+                          if (!dir) return;
+                          e.preventDefault();
+                          onCheckpoint();
+                          onMoverKeyframe(capa.id, propiedad, kf.t, alFrame(Math.min(composicion.duracion, Math.max(0, kf.t + dir * cuadro))));
+                        }}
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          onSeleccionar(capa.id);
+                          onSeleccionarKf({ tipo: "capa", capaId: capa.id, propiedad, t: kf.t });
+                          iniciarGesto({ tipo: "keyframe", capaId: capa.id, propiedad, tOriginal: kf.t, tActual: kf.t, x0: e.clientX, activo: false });
+                        }}
+                        className={[
+                          "absolute top-1/2 z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-grab rounded-[2px] active:cursor-grabbing",
+                          elegido
+                            ? "scale-140 bg-acento shadow-[0_0_0_2px_var(--chrome-bg),0_0_0_3.5px_var(--acento)]"
+                            : activa
+                              ? "bg-acento"
+                              : "bg-foreground/50 hover:bg-foreground/80",
+                        ].join(" ")}
+                        style={{ left: pct(kf.t) }}
+                      />
+                    );
+                  }),
               )}
             </div>
           );
@@ -346,6 +368,11 @@ export function LineaDeTiempo({
         {(() => {
           const activa = seleccionId === CAMARA_ID;
           const pistasCam = composicion.camara?.pistas ?? {};
+          // una POSE por instante: los keyframes de x/y/zoom que caen juntos
+          // se muestran (y se agarran) como UN rombo
+          const poses = [...new Set(
+            (Object.values(pistasCam) as { t: number }[][]).flatMap((pista) => (pista ?? []).map((k) => k.t)),
+          )].sort((a, b) => a - b);
           return (
             <div
               onPointerDown={() => onSeleccionar(CAMARA_ID)}
@@ -354,34 +381,39 @@ export function LineaDeTiempo({
                 activa ? "bg-ink/[0.06]" : "hover:bg-ink/[0.03]",
               ].join(" ")}
             >
-              {(Object.entries(pistasCam) as [CanalCamara, { t: number }[] | undefined][]).flatMap(
-                ([canal, pista]) =>
-                  (pista ?? []).map((kf) => (
-                    <span
-                      key={`${canal}-${kf.t}`}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={t("Mover el keyframe de cámara ({canal})", { canal })}
-                      onKeyDown={(e) => {
-                        const dir = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
-                        if (!dir) return;
-                        e.preventDefault();
-                        onCheckpoint();
-                        onMoverKeyframeCamara(canal, kf.t, alFrame(Math.min(composicion.duracion, Math.max(0, kf.t + dir * cuadro))));
-                      }}
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        onSeleccionar(CAMARA_ID);
-                        iniciarGesto({ tipo: "kfCamara", canal, tOriginal: kf.t, tActual: kf.t, x0: e.clientX, activo: false });
-                      }}
-                      className={[
-                        "absolute top-1/2 z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-grab rounded-[2px] active:cursor-grabbing",
-                        activa ? "bg-acento" : "bg-foreground/50 hover:bg-foreground/80",
-                      ].join(" ")}
-                      style={{ left: pct(kf.t) }}
-                    />
-                  )),
-              )}
+              {poses.map((tPose) => {
+                const elegido = seleccionKf?.tipo === "camara" && seleccionKf.t === tPose;
+                return (
+                  <span
+                    key={tPose}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={t("Pose de cámara en {t}ms", { t: Math.round(tPose) })}
+                    onKeyDown={(e) => {
+                      const dir = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+                      if (!dir) return;
+                      e.preventDefault();
+                      onCheckpoint();
+                      onMoverPoseCamara(tPose, alFrame(Math.min(composicion.duracion, Math.max(0, tPose + dir * cuadro))));
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      onSeleccionar(CAMARA_ID);
+                      onSeleccionarKf({ tipo: "camara", t: tPose });
+                      iniciarGesto({ tipo: "poseCamara", tOriginal: tPose, tActual: tPose, x0: e.clientX, activo: false });
+                    }}
+                    className={[
+                      "absolute top-1/2 z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-grab rounded-[2px] active:cursor-grabbing",
+                      elegido
+                        ? "scale-140 bg-acento shadow-[0_0_0_2px_var(--chrome-bg),0_0_0_3.5px_var(--acento)]"
+                        : activa
+                          ? "bg-acento"
+                          : "bg-foreground/50 hover:bg-foreground/80",
+                    ].join(" ")}
+                    style={{ left: pct(tPose) }}
+                  />
+                );
+              })}
             </div>
           );
         })()}

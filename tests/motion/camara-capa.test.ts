@@ -7,6 +7,11 @@ import {
   fijarValorCamara,
   moverCapas,
   moverKeyframeCamara,
+  moverPoseCamara,
+  ponerKeyframe,
+  poseCamaraEn,
+  quitarKeyframe,
+  quitarPoseCamara,
   describir,
 } from "@/lib/motion/herramientas-puro";
 import { sumarAlLienzo, type ResultadoImport } from "@/lib/motion/figma-puro";
@@ -182,6 +187,62 @@ test("borrarGrupo saca la pantalla entera CON lápidas (no resucita en el merge)
     assert.ok(res.valor.borrados?.every((b) => b.v === 777));
   }
   assert.ok(!borrarGrupo(composicion, "no-existe").ok, "grupo inexistente = error legible");
+});
+
+/* ——— Keyframes: poner, quitar, y las POSES de cámara ——— */
+
+test("ponerKeyframe agrega o pisa en t (con easing y hold); quitarKeyframe limpia la pista vacía", () => {
+  const comp: Composicion = {
+    ...base(),
+    capas: [{
+      id: "caja", nombre: "Caja", tipo: "forma", forma: "rectangulo",
+      ancho: 100, alto: 100, color: "#fff", x: 500, y: 500,
+    }],
+  };
+  const conKf = ponerKeyframe(comp, "caja", "x", { t: 1000, v: 800, easing: "salidaExpo" });
+  assert.ok(conKf.ok);
+  const pisado = ponerKeyframe(conKf.ok ? conKf.valor : comp, "caja", "x", { t: 1000, v: 900, hold: true });
+  assert.ok(pisado.ok);
+  if (pisado.ok) {
+    const pista = pisado.valor.capas[0].pistas!.x!;
+    assert.equal(pista.length, 1, "pisó, no duplicó");
+    assert.equal(pista[0].v, 900);
+    assert.equal(pista[0].hold, true);
+
+    const sinKf = quitarKeyframe(pisado.valor, "caja", "x", 1000);
+    assert.ok(sinKf.ok);
+    if (sinKf.ok) {
+      assert.equal(sinKf.valor.capas[0].pistas!.x, undefined, "la pista vacía se va con el último keyframe");
+    }
+  }
+  assert.ok(!ponerKeyframe(comp, "caja", "x", { t: 99999, v: 0 }).ok, "fuera de la composición");
+  assert.ok(!quitarKeyframe(comp, "caja", "x", 500).ok, "keyframe inexistente");
+});
+
+test("las poses de cámara: leer, borrar y retimear los canales de un instante como UNIDAD", () => {
+  let comp = agregarKeyframeCamara(base(), 1000, { x: 400, zoom: { v: 2, easing: "entradaSalidaCubic" } });
+  comp = agregarKeyframeCamara(comp, 3000, { x: 3000 });
+
+  const pose = poseCamaraEn(comp, 1000);
+  assert.equal(pose.x?.v, 400);
+  assert.equal(pose.zoom?.easing, "entradaSalidaCubic");
+  assert.equal(pose.y, undefined);
+
+  const movida = moverPoseCamara(comp, 1000, 1500);
+  assert.ok(movida.ok);
+  if (movida.ok) {
+    assert.deepEqual(movida.valor.camara?.pistas.x?.map((k) => k.t), [1500, 3000]);
+    assert.equal(movida.valor.camara?.pistas.zoom?.[0].t, 1500, "el zoom viaja con la pose");
+  }
+  assert.ok(!moverPoseCamara(comp, 1000, 3000).ok, "no pisa otra pose");
+
+  const borrada = quitarPoseCamara(comp, 1000);
+  assert.ok(borrada.ok);
+  if (borrada.ok) {
+    assert.equal(borrada.valor.camara?.pistas.zoom, undefined, "pista vacía se va");
+    assert.equal(borrada.valor.camara?.pistas.x?.length, 1, "la pose de 3000 sigue");
+  }
+  assert.ok(!quitarPoseCamara(comp, 777).ok, "instante sin pose = error legible");
 });
 
 /* ——— El agente y la cámara con base ——— */

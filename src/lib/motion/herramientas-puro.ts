@@ -94,6 +94,43 @@ export function moverKeyframe(
   return editarCapa(comp, capaId, { pistas: { ...capa.pistas, [propiedad]: nueva } });
 }
 
+/** Agrega (o pisa, si ya hay uno en ese t) UN keyframe en una pista de capa. */
+export function ponerKeyframe(
+  comp: Composicion,
+  capaId: string,
+  propiedad: NombrePropiedad,
+  kf: Keyframe,
+): Resultado<Composicion> {
+  const capa = comp.capas.find((c) => c.id === capaId);
+  if (!capa) return { ok: false, error: `No hay ninguna capa «${capaId}»` };
+  if (kf.t < 0 || kf.t > comp.duracion) {
+    return { ok: false, error: `El keyframe en ${kf.t}ms cae fuera de la composición` };
+  }
+  const pista = capa.pistas?.[propiedad] ?? [];
+  const nueva = ordenarKeyframes([...pista.filter((k) => k.t !== kf.t), kf]);
+  return editarCapa(comp, capaId, { pistas: { ...capa.pistas, [propiedad]: nueva } });
+}
+
+/** Borra UN keyframe; si la pista queda vacía, la pista entera se va con él. */
+export function quitarKeyframe(
+  comp: Composicion,
+  capaId: string,
+  propiedad: NombrePropiedad,
+  t: number,
+): Resultado<Composicion> {
+  const capa = comp.capas.find((c) => c.id === capaId);
+  if (!capa) return { ok: false, error: `No hay ninguna capa «${capaId}»` };
+  const pista = capa.pistas?.[propiedad];
+  if (!pista?.some((k) => k.t === t)) {
+    return { ok: false, error: `No hay un keyframe de ${propiedad} en ${t}ms` };
+  }
+  const nueva = pista.filter((k) => k.t !== t);
+  const pistas = { ...capa.pistas };
+  if (nueva.length === 0) delete pistas[propiedad];
+  else pistas[propiedad] = nueva;
+  return editarCapa(comp, capaId, { pistas });
+}
+
 /** Posiciones ABSOLUTAS para varias capas de una: la base del drag de una
     pantalla entera (el caller calcula origen + delta; acá no hay acumulación
     de error por deltas relativos). */
@@ -150,24 +187,75 @@ export function fijarValorCamara(
   };
 }
 
-/** Agrega (o pisa, si ya hay uno en t) un keyframe por cada canal provisto. */
+/** Agrega (o pisa, si ya hay uno en t) un keyframe por cada canal provisto.
+    Acepta número pelado o {v, easing} — el easing del tramo que SALE de ahí. */
 export function agregarKeyframeCamara(
   comp: Composicion,
   t: number,
-  valores: Partial<Record<CanalCamara, number>>,
+  valores: Partial<Record<CanalCamara, number | { v: number; easing?: Keyframe["easing"] }>>,
 ): Composicion {
   const camara: Camara = comp.camara ?? { pistas: {} };
   const pistas = { ...camara.pistas };
   for (const canal of ["x", "y", "zoom"] as const) {
-    const v = valores[canal];
-    if (v === undefined) continue;
+    const cruda = valores[canal];
+    if (cruda === undefined) continue;
+    const kf: Keyframe = typeof cruda === "number" ? { t, v: cruda } : { t, v: cruda.v, easing: cruda.easing };
     const previa = pistas[canal] ?? [];
-    pistas[canal] = ordenarKeyframes([
-      ...previa.filter((k) => k.t !== t),
-      { t, v },
-    ]);
+    pistas[canal] = ordenarKeyframes([...previa.filter((k) => k.t !== t), kf]);
   }
   return { ...comp, camara: { ...camara, pistas } };
+}
+
+/** La POSE de cámara en t: los keyframes de cada canal que caen exactos ahí. */
+export function poseCamaraEn(
+  comp: Composicion,
+  t: number,
+): Partial<Record<CanalCamara, { v: number; easing?: Keyframe["easing"] }>> {
+  const pose: Partial<Record<CanalCamara, { v: number; easing?: Keyframe["easing"] }>> = {};
+  for (const canal of ["x", "y", "zoom"] as const) {
+    const kf = comp.camara?.pistas[canal]?.find((k) => k.t === t);
+    if (kf) pose[canal] = { v: kf.v, easing: kf.easing };
+  }
+  return pose;
+}
+
+/** Borra la pose entera (los keyframes de todos los canales en t); las pistas
+    que quedan vacías se van. Si no queda ningún keyframe, la cámara conserva
+    su base (el encuadre fijo no se pierde por limpiar la animación). */
+export function quitarPoseCamara(comp: Composicion, t: number): Resultado<Composicion> {
+  const pistas = comp.camara?.pistas;
+  if (!pistas) return { ok: false, error: "La cámara no tiene keyframes" };
+  let hubo = false;
+  const nuevas: Camara["pistas"] = {};
+  for (const canal of ["x", "y", "zoom"] as const) {
+    const pista = pistas[canal];
+    if (!pista) continue;
+    const filtrada = pista.filter((k) => k.t !== t);
+    if (filtrada.length !== pista.length) hubo = true;
+    if (filtrada.length > 0) nuevas[canal] = filtrada;
+  }
+  if (!hubo) return { ok: false, error: `No hay keyframes de cámara en ${t}ms` };
+  return { ok: true, valor: { ...comp, camara: { ...comp.camara!, pistas: nuevas } } };
+}
+
+/** Retimea la pose entera: todos los canales con keyframe en t pasan a nuevoT. */
+export function moverPoseCamara(comp: Composicion, t: number, nuevoT: number): Resultado<Composicion> {
+  const pistas = comp.camara?.pistas;
+  if (!pistas) return { ok: false, error: "La cámara no tiene keyframes" };
+  if (nuevoT < 0 || nuevoT > comp.duracion) {
+    return { ok: false, error: `El destino ${nuevoT}ms cae fuera de la composición` };
+  }
+  const canales = (["x", "y", "zoom"] as const).filter((c) => pistas[c]?.some((k) => k.t === t));
+  if (canales.length === 0) return { ok: false, error: `No hay keyframes de cámara en ${t}ms` };
+  // no pisar otra pose: si CUALQUIER canal ya tiene keyframe en el destino, no
+  if (nuevoT !== t && (["x", "y", "zoom"] as const).some((c) => pistas[c]?.some((k) => k.t === nuevoT))) {
+    return { ok: false, error: `Ya hay una pose de cámara en ${nuevoT}ms` };
+  }
+  const nuevas: Camara["pistas"] = { ...pistas };
+  for (const canal of canales) {
+    nuevas[canal] = ordenarKeyframes(pistas[canal]!.map((k) => (k.t === t ? { ...k, t: nuevoT } : k)));
+  }
+  return { ok: true, valor: { ...comp, camara: { ...comp.camara!, pistas: nuevas } } };
 }
 
 export function moverKeyframeCamara(

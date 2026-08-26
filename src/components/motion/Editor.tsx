@@ -13,7 +13,7 @@
 ----------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CanalCamara, Capa, CapaTexto, Composicion, NombrePropiedad } from "@/lib/motion/modelo";
+import type { CanalCamara, Capa, CapaTexto, Composicion, Keyframe, NombrePropiedad } from "@/lib/motion/modelo";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
 import {
   CAMARA_ID,
@@ -23,7 +23,11 @@ import {
   fijarValorCamara,
   moverCapas,
   moverKeyframe,
-  moverKeyframeCamara,
+  moverPoseCamara,
+  ponerKeyframe,
+  poseCamaraEn,
+  quitarKeyframe,
+  quitarPoseCamara,
 } from "@/lib/motion/herramientas-puro";
 import { estadoEn } from "@/lib/motion/evaluar-puro";
 import { cajaMundoDeCapa } from "@/lib/motion/cajas-puro";
@@ -33,7 +37,7 @@ import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
 import { ConPista } from "@/components/ui/ConPista";
 import { Lienzo, type ControlLienzo } from "@/components/motion/Lienzo";
-import { LineaDeTiempo } from "@/components/motion/LineaDeTiempo";
+import { LineaDeTiempo, type SeleccionKeyframe } from "@/components/motion/LineaDeTiempo";
 import { Capas } from "@/components/motion/Capas";
 import { Inspector } from "@/components/motion/Inspector";
 import { InspectorCamara } from "@/components/motion/InspectorCamara";
@@ -107,6 +111,25 @@ export function Editor({
   const [grabandoCamara, setGrabandoCamara] = useState(false);
   const grabandoRef = useRef(false);
   const muestrasRef = useRef<MuestraCamara[]>([]);
+
+  // ——— Keyframe seleccionado en la timeline + portapapeles de keyframes ———
+  const [seleccionKf, setSeleccionKf] = useState<SeleccionKeyframe | null>(null);
+  const seleccionKfRef = useRef<SeleccionKeyframe | null>(null);
+  useEffect(() => {
+    seleccionKfRef.current = seleccionKf;
+  }, [seleccionKf]);
+  const portapapelesRef = useRef<
+    | { tipo: "capa"; capaId: string; propiedad: NombrePropiedad; v: number; easing?: Keyframe["easing"]; hold?: boolean }
+    | { tipo: "camara"; pose: ReturnType<typeof poseCamaraEn> }
+    | null
+  >(null);
+
+  // ——— Herramienta del modo cámara (estilo AE): X = posición, Z = zoom ———
+  const [herramientaCamara, setHerramientaCamara] = useState<"posicion" | "zoom">("posicion");
+  const herramientaCamaraRef = useRef<"posicion" | "zoom">("posicion");
+  useEffect(() => {
+    herramientaCamaraRef.current = herramientaCamara;
+  }, [herramientaCamara]);
   const pasadoRef = useRef<Composicion[]>([]);
   const futuroRef = useRef<Composicion[]>([]);
   const revRef = useRef(composicion.rev ?? 0);
@@ -235,7 +258,13 @@ export function Editor({
   const moverKeyframeEnVivo = useCallback(
     (capaId: string, propiedad: NombrePropiedad, tActual: number, nuevoT: number) => {
       const res = moverKeyframe(compRef.current, capaId, propiedad, tActual, nuevoT);
-      if (res.ok) setComposicion(res.valor);
+      if (res.ok) {
+        setComposicion(res.valor);
+        const sel = seleccionKfRef.current;
+        if (sel?.tipo === "capa" && sel.capaId === capaId && sel.propiedad === propiedad && sel.t === tActual) {
+          setSeleccionKf({ tipo: "capa", capaId, propiedad, t: nuevoT });
+        }
+      }
     },
     [],
   );
@@ -293,9 +322,15 @@ export function Editor({
     setComposicion(fijarValorCamara(compRef.current, canal, alFrameActual(), v));
   }, [alFrameActual]);
 
+  // Los gestos del ENCUADRE en el lienzo son auto-key estilo AE: dejan
+  // keyframe en el playhead, siempre. Te movés en la timeline, arrastrás,
+  // y la animación va quedando sola.
   const moverCamaraEnVivo = useCallback((x: number, y: number) => {
-    const t = alFrameActual();
-    setComposicion(fijarValorCamara(fijarValorCamara(compRef.current, "x", t, x), "y", t, y));
+    setComposicion(agregarKeyframeCamara(compRef.current, alFrameActual(), { x, y }));
+  }, [alFrameActual]);
+
+  const zoomCamaraEnVivo = useCallback((zoom: number) => {
+    setComposicion(agregarKeyframeCamara(compRef.current, alFrameActual(), { zoom }));
   }, [alFrameActual]);
 
   const keyframeCamaraAhora = useCallback(() => {
@@ -318,10 +353,67 @@ export function Editor({
     );
   }, [registrar, alFrameActual]);
 
-  const moverKeyframeCamaraEnVivo = useCallback((canal: CanalCamara, tActual: number, nuevoT: number) => {
-    const res = moverKeyframeCamara(compRef.current, canal, tActual, nuevoT);
-    if (res.ok) setComposicion(res.valor);
+  const moverPoseCamaraEnVivo = useCallback((tActual: number, nuevoT: number) => {
+    const res = moverPoseCamara(compRef.current, tActual, nuevoT);
+    if (res.ok) {
+      setComposicion(res.valor);
+      const sel = seleccionKfRef.current;
+      if (sel?.tipo === "camara" && sel.t === tActual) setSeleccionKf({ tipo: "camara", t: nuevoT });
+    }
   }, []);
+
+  // ——— Keyframes: borrar, copiar y pegar (capas y poses de cámara) ———
+  const borrarKfSeleccionado = useCallback(() => {
+    const sel = seleccionKfRef.current;
+    if (!sel) return;
+    registrar();
+    const res = sel.tipo === "capa"
+      ? quitarKeyframe(compRef.current, sel.capaId, sel.propiedad, sel.t)
+      : quitarPoseCamara(compRef.current, sel.t);
+    if (res.ok) {
+      setComposicion(res.valor);
+      setSeleccionKf(null);
+    }
+  }, [registrar]);
+
+  const copiarKfSeleccionado = useCallback(() => {
+    const sel = seleccionKfRef.current;
+    if (!sel) return;
+    if (sel.tipo === "capa") {
+      const capa = compRef.current.capas.find((c) => c.id === sel.capaId);
+      const kf = capa?.pistas?.[sel.propiedad]?.find((k) => k.t === sel.t);
+      if (!kf) return;
+      portapapelesRef.current = { tipo: "capa", capaId: sel.capaId, propiedad: sel.propiedad, v: kf.v, easing: kf.easing, hold: kf.hold };
+    } else {
+      const pose = poseCamaraEn(compRef.current, sel.t);
+      if (!Object.keys(pose).length) return;
+      portapapelesRef.current = { tipo: "camara", pose };
+    }
+  }, []);
+
+  const pegarKf = useCallback(() => {
+    const copiado = portapapelesRef.current;
+    if (!copiado) return;
+    const t = alFrameActual();
+    registrar();
+    if (copiado.tipo === "capa") {
+      const res = ponerKeyframe(compRef.current, copiado.capaId, copiado.propiedad, {
+        t,
+        v: copiado.v,
+        easing: copiado.easing,
+        hold: copiado.hold,
+      });
+      if (res.ok) {
+        setComposicion(res.valor);
+        setSeleccionKf({ tipo: "capa", capaId: copiado.capaId, propiedad: copiado.propiedad, t });
+      } else {
+        setAvisoGuardado(res.error);
+      }
+    } else {
+      setComposicion(agregarKeyframeCamara(compRef.current, t, copiado.pose));
+      setSeleccionKf({ tipo: "camara", t });
+    }
+  }, [registrar, alFrameActual]);
 
   // ——— Media: resolución de imágenes (data URIs del import de Figma) ———
   // El motor no sabe de red: recibe un resolver. Las imágenes se cargan
@@ -561,9 +653,21 @@ export function Editor({
         e.preventDefault();
         if (e.shiftKey) rehacer();
         else deshacer();
+      } else if (meta && e.key === "c" && seleccionKfRef.current) {
+        e.preventDefault();
+        copiarKfSeleccionado();
+      } else if (meta && e.key === "v" && portapapelesRef.current) {
+        e.preventDefault();
+        pegarKf();
       } else if (meta && e.key === "0") {
         e.preventDefault();
         lienzoRef.current?.escalaUno();
+      } else if ((e.key === "Delete" || e.key === "Backspace") && seleccionKfRef.current) {
+        e.preventDefault();
+        borrarKfSeleccionado();
+      } else if (!meta && (e.key === "x" || e.key === "z") && seleccionRef.current === CAMARA_ID) {
+        // herramientas del modo cámara estilo AE: X posición, Z zoom
+        setHerramientaCamara(e.key === "z" ? "zoom" : "posicion");
       } else if (e.shiftKey && e.key === "!") {
         e.preventDefault();
         lienzoRef.current?.encuadrar();
@@ -572,12 +676,26 @@ export function Editor({
       } else if (e.key === "ArrowRight") {
         saltarFrame(1);
       } else if (e.key === "Escape") {
-        setSeleccionId(null);
+        if (seleccionKfRef.current) setSeleccionKf(null);
+        else setSeleccionId(null);
       }
     };
     window.addEventListener("keydown", alTeclear);
     return () => window.removeEventListener("keydown", alTeclear);
-  }, [deshacer, rehacer, saltarFrame]);
+  }, [deshacer, rehacer, saltarFrame, copiarKfSeleccionado, pegarKf, borrarKfSeleccionado]);
+
+  // Selección con las consecuencias juntas: al cambiar de capa, un keyframe
+  // elegido de OTRA capa se suelta (borrar/copiar operan sobre lo que se ve
+  // elegido); al entrar al modo cámara la herramienta arranca en posición (X).
+  const seleccionar = useCallback((id: string | null) => {
+    if (id === CAMARA_ID) setHerramientaCamara("posicion");
+    setSeleccionKf((sel) => {
+      if (!sel) return sel;
+      const pertenece = sel.tipo === "camara" ? id === CAMARA_ID : id === sel.capaId;
+      return pertenece ? sel : null;
+    });
+    setSeleccionId(id);
+  }, []);
 
   const capaSeleccionada = composicion.capas.find((c) => c.id === seleccionId) ?? null;
 
@@ -587,7 +705,7 @@ export function Editor({
         <Capas
           composicion={composicion}
           seleccionId={seleccionId}
-          onSeleccionar={setSeleccionId}
+          onSeleccionar={seleccionar}
           onAlternarVisibilidad={alternarVisibilidad}
         />
       </div>
@@ -601,12 +719,21 @@ export function Editor({
             obtenerCalidad={() => calidadRef.current}
             obtenerTiempo={() => tiempoRef.current}
             obtenerVistaCamara={() => vistaCamaraRef.current}
-            onSeleccionar={setSeleccionId}
+            obtenerHerramientaCamara={() => herramientaCamaraRef.current}
+            onSeleccionar={seleccionar}
             onCheckpoint={registrar}
             onMoverCapa={(id, x, y) => editarEnVivo(id, { x, y })}
             onMoverCapas={moverCapasEnVivo}
             onMoverCamara={moverCamaraEnVivo}
+            onZoomCamara={zoomCamaraEnVivo}
           />
+          {seleccionId === CAMARA_ID && !vistaCamara && !grabandoCamara && (
+            <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-control border border-(--glass-border) bg-(--menu-solido-bg) px-3 py-1.5 text-xs text-foreground/80 shadow-(--menu-shadow)">
+              {herramientaCamara === "zoom"
+                ? t("Cámara · ZOOM (Z) — arrastrá horizontal · X: posición · deja keyframe en el playhead")
+                : t("Cámara · POSICIÓN (X) — arrastrá el encuadre · Z: zoom · deja keyframe en el playhead")}
+            </div>
+          )}
           <div className="absolute left-3 top-3 flex items-center gap-2">
             <ConPista pista={t("Calidad del preview — el export siempre sale a resolución completa")}>
               <Segmentado
@@ -733,11 +860,13 @@ export function Editor({
           onScrub={escrub}
           onTogglePlay={() => setReproduciendo((r) => !r)}
           onSaltarFrame={saltarFrame}
-          onSeleccionar={setSeleccionId}
+          onSeleccionar={seleccionar}
           onCheckpoint={registrar}
           onRetimarSegmento={retimarSegmento}
           onMoverKeyframe={moverKeyframeEnVivo}
-          onMoverKeyframeCamara={moverKeyframeCamaraEnVivo}
+          onMoverPoseCamara={moverPoseCamaraEnVivo}
+          seleccionKf={seleccionKf}
+          onSeleccionarKf={setSeleccionKf}
         />
       </div>
       <div className="min-h-0">

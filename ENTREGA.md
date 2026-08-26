@@ -52,8 +52,14 @@ preview —; la cámara es otra capa, abajo: fila propia en capas y timeline
 con keyframes arrastrables, inspector con x/y/zoom resueltos al tiempo
 actual y auto-key por canal —si el canal tiene keyframes, editar crea uno
 en el playhead; si no, edita la base—, «keyframe acá», «tomar la vista»,
-y con la cámara seleccionada arrastrar en el lienzo mueve el ENCUADRE con
-auto-key; 2D: posición + zoom; cada pantalla es un grupo liviano cuya
+y el modo cámara es estilo AE: con la cámara seleccionada, X = mover el
+encuadre y Z = zoom (drag horizontal), y TODO gesto en el lienzo deja
+keyframe en el playhead — te movés por la timeline, arrastrás, y la
+animación queda sola; los keyframes de x/y/zoom que caen en el mismo
+instante son UNA «pose» en la timeline: se selecciona, arrastra, copia
+(⌘C), pega en el playhead (⌘V) y borra (Supr) como unidad — y los
+keyframes de pistas de capas se seleccionan/copian/pegan/borran igual;
+2D: posición + zoom; cada pantalla es un grupo liviano cuya
 placa de fondo es la manija — arrastrarla mueve la pantalla ENTERA con
 snap y el inspector la borra completa con lápidas — y el lienzo conmuta
 Mundo/Cámara: la vista Cámara es el preview exacto del render, recortado

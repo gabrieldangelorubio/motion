@@ -56,6 +56,8 @@ export const Lienzo = forwardRef<
     obtenerTiempo?: () => number;
     /** true = mostrar LO QUE VE LA CÁMARA (preview del render); el mundo queda solo lectura */
     obtenerVistaCamara?: () => boolean;
+    /** herramienta activa en modo cámara: X mueve el encuadre, Z hace zoom */
+    obtenerHerramientaCamara?: () => "posicion" | "zoom";
     onSeleccionar: (id: string | null) => void;
     onCheckpoint: () => void;
     onMoverCapa: (id: string, x: number, y: number) => void;
@@ -63,8 +65,10 @@ export const Lienzo = forwardRef<
     onMoverCapas?: (posiciones: { id: string; x: number; y: number }[]) => void;
     /** arrastre del encuadre con la cámara seleccionada: centro nuevo en px del lienzo */
     onMoverCamara?: (x: number, y: number) => void;
+    /** herramienta Z: zoom nuevo del encuadre (drag horizontal) */
+    onZoomCamara?: (zoom: number) => void;
   }
->(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerMedia, obtenerCalidad, obtenerTiempo, obtenerVistaCamara, onSeleccionar, onCheckpoint, onMoverCapa, onMoverCapas, onMoverCamara }, ref) {
+>(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerMedia, obtenerCalidad, obtenerTiempo, obtenerVistaCamara, obtenerHerramientaCamara, onSeleccionar, onCheckpoint, onMoverCapa, onMoverCapas, onMoverCamara, onZoomCamara }, ref) {
   const contRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const camRef = useRef<Camara>({ x: 0, y: 0, escala: 0.4 });
@@ -305,7 +309,8 @@ export const Lienzo = forwardRef<
     // arriba, en el Editor); un click seco vuelve a la selección normal.
     if (obtenerSeleccionId() === CAMARA_ID && onMoverCamara) {
       const vistaCam = estadoEn(comp, obtenerTiempo?.() ?? 0).camara;
-      const gestoCam = { x0: e.clientX, y0: e.clientY, camX0: vistaCam.x, camY0: vistaCam.y, activo: false };
+      const herramienta = obtenerHerramientaCamara?.() ?? "posicion";
+      const gestoCam = { x0: e.clientX, y0: e.clientY, camX0: vistaCam.x, camY0: vistaCam.y, zoom0: vistaCam.zoom, activo: false };
       const alMoverCam = (ev: PointerEvent) => {
         const dxP = ev.clientX - gestoCam.x0;
         const dyP = ev.clientY - gestoCam.y0;
@@ -313,6 +318,11 @@ export const Lienzo = forwardRef<
           if (Math.abs(dxP) + Math.abs(dyP) < UMBRAL_DRAG_CAPA) return;
           gestoCam.activo = true;
           onCheckpoint();
+        }
+        if (herramienta === "zoom" && onZoomCamara) {
+          // estilo AE: arrastrar a la derecha acerca, a la izquierda aleja
+          onZoomCamara(Math.min(10, Math.max(0.1, gestoCam.zoom0 * Math.exp(dxP * 0.004))));
+          return;
         }
         const esc = camRef.current.escala;
         onMoverCamara(gestoCam.camX0 + dxP / esc, gestoCam.camY0 + dyP / esc);
