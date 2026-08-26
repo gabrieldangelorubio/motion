@@ -148,6 +148,14 @@ async function nodoAIR(nodo, marco, salida) {
     var lh = interlineado || nodo.fontSize * 1.15;
     var lineasEstimadas = Math.max(1, Math.round(nodo.height / lh));
 
+    // lineHeight AUTO usa las métricas de la fuente, no un número: cuando la
+    // caja abraza el contenido, alto ÷ líneas ES ese interlineado real — y de
+    // él depende el anclaje vertical (Figma centra los glifos en la línea).
+    var abrazaContenido = nodo.textAutoResize === "HEIGHT" || nodo.textAutoResize === "WIDTH_AND_HEIGHT";
+    if (interlineado === undefined && abrazaContenido && nodo.height > 0) {
+      interlineado = Math.round((nodo.height / lineasEstimadas) * 100) / 100;
+    }
+
     salida.push({
       tipo: "texto",
       nombre: nodo.name,

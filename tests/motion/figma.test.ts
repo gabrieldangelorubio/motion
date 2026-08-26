@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { envolverEnLineas, normalizarFigma, validarImportFigma, type ImportFigma } from "@/lib/motion/figma-puro";
+import { baselineAproximada, envolverEnLineas, normalizarFigma, validarImportFigma, type ImportFigma } from "@/lib/motion/figma-puro";
 import { validar } from "@/lib/motion/validar-puro";
 import type { CapaForma, CapaMedia, CapaTexto } from "@/lib/motion/modelo";
 
@@ -132,6 +132,32 @@ test("el conteo de líneas de Figma manda: si el ancho de la caja da otro conteo
   assert.equal(partido, "HOLA\nMUNDO");
   // un objetivo imposible (más líneas que palabras) se acota a las palabras
   assert.equal(envolverEnLineas("HOLA MUNDO", 999, medir, 5).split("\n").length, 2);
+});
+
+test("la baseline sigue el modelo de Figma: glifos centrados en la caja de línea", () => {
+  // sin interlineado conocido: el 0.8 clásico
+  assert.equal(baselineAproximada(100), 80);
+  // interlineado holgado (115): (115−105)/2 + 80 = 85 — apenas más abajo
+  assert.ok(Math.abs(baselineAproximada(100, 115) - 85) < 0.001);
+  // interlineado APRETADO (el caso «FANS»: título display con lineHeight menor
+  // al tamaño): la baseline sube fuerte respecto del 0.8 fijo
+  const apretada = baselineAproximada(180, 150);
+  assert.ok(Math.abs(apretada - ((150 - 189) / 2 + 144)) < 0.001, `vino ${apretada}`);
+  assert.ok(apretada < 180 * 0.8 - 15, "con lineHeight chico la baseline queda bien más arriba");
+  // y el ancla del nodo usa esa baseline + el corrimiento por líneas
+  const datos: ImportFigma = {
+    origen: "figma",
+    version: 1,
+    frame: { nombre: "F", ancho: 1920, alto: 1080, fondo: "#000" },
+    nodos: [{
+      tipo: "texto", nombre: "FANS", x: 900, y: 500, ancho: 460, alto: 150,
+      texto: { contenido: "FANS", familia: "Arial", peso: 900, tamano: 180, interlineado: 150, alineacion: "izquierda", color: "#fff" },
+    }],
+  };
+  const { composicion, anclas } = normalizarFigma(datos);
+  const fans = composicion.capas[0];
+  assert.ok(Math.abs(fans.y - (500 + baselineAproximada(180, 150))) < 0.001);
+  assert.deepEqual(anclas, [{ capaId: fans.id, topCaja: 500 }]);
 });
 
 test("la mezcla viaja del IR a la capa; una desconocida degrada a normal CON aviso", () => {

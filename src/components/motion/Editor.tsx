@@ -32,7 +32,7 @@ import { PanelFuentes } from "@/components/motion/PanelFuentes";
 import { Segmentado } from "@/components/ui/Segmentado";
 import { familiasDeComposicion, familiaDisponible } from "@/lib/motion/fuentes-puro";
 import { suavizarGrabacion, type MuestraCamara } from "@/lib/motion/suavizar-puro";
-import { envolverEnLineas, type ResultadoImport } from "@/lib/motion/figma-puro";
+import { baselineAproximada, envolverEnLineas, type ResultadoImport } from "@/lib/motion/figma-puro";
 import type { FuentesDeMedia } from "@/lib/motion/pintar";
 
 const TOPE_UNDO = 120;
@@ -330,32 +330,68 @@ export function Editor({
     return { ...comp, capas };
   }, [envolverCapaTexto]);
 
+  // Anclaje vertical fiel a Figma: Figma centra los glifos en la caja de
+  // línea, así que la baseline real depende del ascenso/descenso de la
+  // FUENTE (fontBoundingBox del canvas), no de un 0.8 fijo. Se recalcula
+  // desde el tope de la caja del nodo — al importar con la fuente que haya,
+  // y de nuevo al cargar la tipografía real. Sólo toca capas cuya y sigue
+  // siendo la que pusimos nosotros (si el usuario la movió, es suya).
+  const anclasRef = useRef<{ capaId: string; topCaja: number; yAplicada?: number }[]>([]);
+
+  const anclarTextos = useCallback((comp: Composicion): Composicion => {
+    if (!anclasRef.current.length) return comp;
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (!ctx) return comp;
+    const capas = comp.capas.map((c) => {
+      const ancla = anclasRef.current.find((a) => a.capaId === c.id);
+      if (!ancla || c.tipo !== "texto") return c;
+      if (ancla.yAplicada !== undefined && Math.abs(c.y - ancla.yAplicada) > 0.01) return c;
+      const { tamano, peso, familia } = c.fuente;
+      const interlineado = c.fuente.interlineado ?? tamano * 1.15;
+      ctx.font = `${peso} ${tamano}px ${familia}`;
+      const m = ctx.measureText("Híg");
+      const ascenso = m.fontBoundingBoxAscent ?? 0;
+      const descenso = m.fontBoundingBoxDescent ?? 0;
+      const cuerpo = ascenso + descenso;
+      const baseline = cuerpo > 0 && cuerpo < interlineado * 3
+        ? (interlineado - cuerpo) / 2 + ascenso
+        : baselineAproximada(tamano, c.fuente.interlineado);
+      const n = c.texto.split("\n").length;
+      const y = ancla.topCaja + baseline + ((n - 1) / 2) * interlineado;
+      ancla.yAplicada = y;
+      if (Math.abs(y - c.y) < 0.01) return c;
+      return { ...c, y };
+    });
+    return { ...comp, capas };
+  }, []);
+
   // El panel de fuentes se abre solo tras un import con familias faltantes:
   // al cerrarlo, la fuente REAL ya está cargada y el wrap se recalcula con
   // sus métricas verdaderas — sólo en capas que el usuario no tocó.
   const reaplicarReajustes = useCallback(() => {
-    if (!reajustesRef.current.length) return;
+    if (!reajustesRef.current.length && !anclasRef.current.length) return;
     const ctx = document.createElement("canvas").getContext("2d");
     if (!ctx) return;
-    let cambio = false;
     const capas = compRef.current.capas.map((c) => {
       const p = reajustesRef.current.find((r) => r.capaId === c.id);
       if (!p || c.tipo !== "texto" || c.texto !== p.aplicado) return c;
       const { texto, y } = envolverCapaTexto(c, p.anchoCaja, p.lineas, p.original, p.yOriginal, ctx);
       if (texto === c.texto) return c;
-      cambio = true;
       p.aplicado = texto;
       return { ...c, texto, y };
     });
+    const final = anclarTextos({ ...compRef.current, capas });
+    const cambio = final.capas.some((c, i) => c !== compRef.current.capas[i]);
     if (cambio) {
       registrar();
-      setComposicion({ ...compRef.current, capas });
+      setComposicion(final);
     }
-  }, [envolverCapaTexto, registrar]);
+  }, [envolverCapaTexto, anclarTextos, registrar]);
 
   const importarDeFigma = useCallback((resultado: ResultadoImport) => {
     registrar();
-    setComposicion(reajustarTextos(medirTrazos(resultado.composicion), resultado.reajustes));
+    anclasRef.current = resultado.anclas.map((a) => ({ ...a }));
+    setComposicion(anclarTextos(reajustarTextos(medirTrazos(resultado.composicion), resultado.reajustes)));
     setSeleccionId(null);
     tiempoRef.current = 0;
     setTiempoUI(0);
@@ -371,7 +407,7 @@ export function Editor({
       pesos.some((peso) => !familiaDisponible(familia, peso)),
     );
     if (faltantes) setFuentesAbierto(true);
-  }, [registrar, medirTrazos, reajustarTextos]);
+  }, [registrar, medirTrazos, reajustarTextos, anclarTextos]);
 
   const familiasFaltantes = familiasDeComposicion(composicion).filter(({ familia, pesos }) =>
     pesos.some((peso) => !familiaDisponible(familia, peso)),

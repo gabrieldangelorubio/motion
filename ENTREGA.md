@@ -29,7 +29,10 @@ automático de la caja se reconstruye: la API no expone los cortes de línea,
 así que el plugin estima el conteo por geometría y el editor re-envuelve
 midiendo — el conteo de Figma manda sobre el ancho si las métricas
 difieren, y al cargar la tipografía real en el panel el wrap se recalcula
-con las métricas verdaderas),
+con las métricas verdaderas; el anclaje vertical sigue el modelo de Figma
+—glifos centrados en la caja de línea, clave con lineHeights apretados de
+títulos display— y también se re-ancla con el fontBoundingBox real de la
+fuente cargada),
 **modos de mezcla** (multiply, screen, overlay… — viajan desde Figma, se pintan con globalCompositeOperation, editables en inspector y agente; LINEAR_BURN/DODGE se aproximan con aviso), **calidad de preview** (½ / 1× / Máx al estilo Half/Quarter de AE — menos píxeles de render mientras armás; el export SIEMPRE sale a resolución completa), **gestión de tipografías** (detección real de familias faltantes por medición — `document.fonts.check` miente —, panel que se abre solo tras un import con fuentes ajenas, carga desde Google Fonts con fallo detectable o subiendo el archivo .otf/.ttf/.woff2; sin sustitución silenciosa), **texto multilínea con revelado enmascarado** (`\n` real con interlineado
 propio, división por caracteres/palabras/**líneas**, presets
 `revelar`/`ocultar`: cada unidad sube dentro de su renglón recortada a su

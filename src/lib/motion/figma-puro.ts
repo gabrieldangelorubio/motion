@@ -61,9 +61,25 @@ export type ResultadoImport = {
   /** textos cuyo salto de línea era wrap de la caja en Figma: el editor los
       re-envuelve al ancho de la caja (acá no se puede medir texto) */
   reajustes: ReajusteTexto[];
+  /** tope de la caja de cada texto: el editor re-ancla la vertical midiendo
+      las métricas reales de la fuente (acá sólo hay una aproximación) */
+  anclas: AnclaTexto[];
 };
 
 export type ReajusteTexto = { capaId: string; anchoCaja: number; lineas: number };
+export type AnclaTexto = { capaId: string; topCaja: number };
+
+/**
+ * Baseline de la primera línea desde el tope de la caja, con el modelo de
+ * Figma: los glifos quedan CENTRADOS en la caja de línea. Con el ascenso y
+ * descenso aproximados del sistema (0.8 / 0.25 del tamaño) queda
+ * (interlineado − 1.05·tamaño)/2 + 0.8·tamaño. Sin interlineado conocido
+ * degrada al 0.8·tamaño clásico. El editor la refina con métricas reales.
+ */
+export function baselineAproximada(tamano: number, interlineado?: number): number {
+  if (interlineado === undefined) return tamano * 0.8;
+  return (interlineado - tamano * 1.05) / 2 + tamano * 0.8;
+}
 
 export type MedirAncho = (texto: string) => number;
 
@@ -134,6 +150,7 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
   const avisos: string[] = [];
   const capas: Capa[] = [];
   const reajustes: ReajusteTexto[] = [];
+  const anclas: AnclaTexto[] = [];
 
   datos.nodos.forEach((nodo, i) => {
     if (nodo.aviso) avisos.push(`«${nodo.nombre}»: ${nodo.aviso}`);
@@ -158,15 +175,16 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
         t.alineacion === "izquierda" ? nodo.x :
         t.alineacion === "derecha" ? nodo.x + nodo.ancho :
         nodo.x + nodo.ancho / 2;
-      // El motor centra el bloque multilínea en el ancla: la baseline de la
-      // primera línea queda aprox a 0.8 del tamaño desde el tope de la caja,
-      // así que el ancla baja media altura de bloque extra por línea adicional.
+      // El motor centra el bloque multilínea en el ancla: el ancla queda en
+      // la baseline de la primera línea más media altura de bloque extra por
+      // línea adicional. La baseline usa el modelo de centrado de Figma.
       const lineas = t.contenido.split("\n").length;
       const interlineado = t.interlineado ?? t.tamano * 1.15;
       if (lineas === 1 && (t.lineasEstimadas ?? 1) > 1) {
         // el quiebre era wrap de la caja: el editor lo reconstruye midiendo
         reajustes.push({ capaId: id, anchoCaja: nodo.ancho, lineas: t.lineasEstimadas! });
       }
+      anclas.push({ capaId: id, topCaja: nodo.y });
       capas.push({
         ...base,
         tipo: "texto",
@@ -182,7 +200,7 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
         division: "ninguna",
         alineacion: t.alineacion,
         x,
-        y: nodo.y + t.tamano * 0.8 + ((lineas - 1) / 2) * interlineado,
+        y: nodo.y + baselineAproximada(t.tamano, t.interlineado) + ((lineas - 1) / 2) * interlineado,
       });
       return;
     }
@@ -251,5 +269,6 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
     },
     avisos,
     reajustes,
+    anclas,
   };
 }

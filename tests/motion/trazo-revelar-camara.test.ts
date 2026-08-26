@@ -284,8 +284,9 @@ test("normalizarFigma convierte un vector con stroke en capa de trazo con largo 
   assert.equal(trazo.x, 250, "ancla al centro del nodo");
   const texto = composicion.capas.find((c) => c.tipo === "texto") as CapaTexto;
   assert.equal(texto.fuente.interlineado, 70);
-  // ancla: baseline de la 1ª línea (100 + 64×0.8) + media altura de bloque extra (70)
-  assert.ok(Math.abs(texto.y - (100 + 51.2 + 70)) < 0.01, `ancla multilínea corrida (vino ${texto.y})`);
+  // ancla: baseline centrada en la caja de línea ((70−67.2)/2 + 51.2 = 52.6)
+  // + media altura de bloque extra (70)
+  assert.ok(Math.abs(texto.y - (100 + 52.6 + 70)) < 0.01, `ancla multilínea corrida (vino ${texto.y})`);
 });
 
 /* ——— Herramientas del agente ——— */
