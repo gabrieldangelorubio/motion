@@ -175,6 +175,44 @@ Pipeline en tres etapas de madurez:
    Overlord/Bodymovin) cuando el volumen lo justifique. Core separado del
    shell CEP para portar a UXP cuando Adobe lo lance para AE.
 
+### M8 — Referencias (imitar una animación de referencia)
+
+Requisito: poder cargar una referencia (video/GIF/URL de una animación que
+nos gusta), que el sistema **lea** esa animación y la **replique como escena
+editable de nuestro sistema** — presets + tracks + tokens — para retocarla
+con los controles manuales. Nunca un clon opaco.
+
+Pipeline en dos etapas complementarias:
+
+1. **Extracción mecánica** (sin LLM): ffmpeg → frames; tracking de
+   elementos (texto/formas) entre frames; curvas muestreadas de
+   posición/escala/opacidad por elemento; **fit de easing** (ajustar
+   cubic-bezier/spring a la trayectoria y snapear al token más cercano de
+   nuestra librería); detección de staggers (offsets entre elementos
+   similares); mapa de timing global (qué entra/sale y cuándo).
+2. **Lectura semántica** (visión de Claude): grillas de frames muestreados →
+   descripción estructurada del estilo mapeada a NUESTRO vocabulario
+   (clasificación restringida a presets/moods existentes, no descripción
+   libre): tipo de reveal, dirección, jerarquía, energía, texturas.
+
+Doble output:
+- **Escena editable** en Scene Graph v2 con nuestro contenido (el texto/media
+  del case propio, no el de la referencia) animado como la referencia.
+- **Style profile reutilizable**: JSON de decisiones (familia de easings,
+  rangos de duración, staggers, dirección, moods) aplicable a cualquier otra
+  escena — "animá este case como la referencia X". Es el puente directo a la
+  automatización (F9): una librería de perfiles de estilo propia.
+
+Principios:
+- Todo lo extraído se **snapea a tokens** — mejor "cerca y editable" que
+  "exacto y opaco".
+- **Confianza por elemento**: lo que el tracking no resolvió queda marcado
+  para ajuste manual, nunca inventado en silencio.
+- **Verificación lado a lado**: render sincronizado referencia vs réplica
+  para iterar (el render determinístico lo hace barato).
+- Uso como referencia de estudio/estilo interno; no reproducir assets ni
+  marca ajenos en piezas finales.
+
 ## Fases
 
 | Fase | Entregable | Depende de |
@@ -187,9 +225,10 @@ Pipeline en tres etapas de madurez:
 | F5 | Chat IA con edit ops | F1 (mejor con F2) |
 | F6 | Export video | F1 |
 | F7 | Export After Effects | F1, F3 |
-| F8 | Automatización (case study completo semi-automático) | todo |
+| F8 | Referencias: video → escena editable + style profile | F1, F5 |
+| F9 | Automatización (case study completo semi-automático) | todo; F8 la potencia |
 
-Orden sugerido de construcción: F1 → F2 → F4 → F3 → F5 → F6 → F7 → F8.
+Orden sugerido de construcción: F1 → F2 → F4 → F3 → F5 → F6 → F7 → F8 → F9.
 (F4 antes que F3 para que el ingest tenga tipos de layer donde aterrizar.)
 
 ## Riesgos principales
