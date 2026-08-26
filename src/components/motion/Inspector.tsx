@@ -11,7 +11,7 @@
 
 import { MEZCLAS, type Capa, type MezclaCapa, type NombreEasing, type OrdenEscalonado, type Segmento } from "@/lib/motion/modelo";
 import { EASINGS } from "@/lib/motion/easings-puro";
-import { nombresPresets } from "@/lib/motion/presets-puro";
+import { nombresPresets, escalonadoSano } from "@/lib/motion/presets-puro";
 import { t } from "@/lib/i18n/stub";
 import { Etiqueta } from "@/components/ui/Etiqueta";
 import { CampoNumero } from "@/components/ui/CampoNumero";
@@ -252,7 +252,17 @@ export function Inspector({
               ]}
               onCambio={(division) => {
                 onCheckpoint();
-                editar({ division: division as "ninguna" | "caracteres" | "palabras" | "lineas" });
+                const d = division as "ninguna" | "caracteres" | "palabras" | "lineas";
+                const cambios: Partial<Capa> = { division: d };
+                // dividir sin escalonado no se VE (todas las unidades juntas =
+                // bloque entero): si el segmento no traía uno, le va el sano
+                if (d !== "ninguna") {
+                  if (capa.entrada && !capa.entrada.escalonado)
+                    cambios.entrada = { ...capa.entrada, escalonado: escalonadoSano(d) };
+                  if (capa.salida && !capa.salida.escalonado)
+                    cambios.salida = { ...capa.salida, escalonado: escalonadoSano(d) };
+                }
+                editar(cambios);
               }}
             />
           </div>

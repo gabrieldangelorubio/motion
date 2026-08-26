@@ -541,3 +541,14 @@ export function compilarSegmento(seg: Segmento): PresetCompilado {
 export function nombresPresets(clase: "entrada" | "salida"): string[] {
   return Object.keys(PRESETS).filter((k) => PRESETS[k].clase === clase);
 }
+
+/** Escalonado por defecto (ms entre unidades) al activar una división que no
+    trae escalonado propio: sin esto la división no se VE — todas las unidades
+    arrancan a la vez y el texto entra como un bloque entero. Un escalonado
+    puesto a mano (incluso 0 explícito) siempre manda sobre este default. */
+export function escalonadoSano(division: "ninguna" | "caracteres" | "palabras" | "lineas"): number {
+  if (division === "caracteres") return 35;
+  if (division === "palabras") return 90;
+  if (division === "lineas") return 140;
+  return 0;
+}

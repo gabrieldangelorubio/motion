@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CanalCamara, Capa, CapaTexto, Composicion, Keyframe, NombrePropiedad, Segmento } from "@/lib/motion/modelo";
-import { PRESETS } from "@/lib/motion/presets-puro";
+import { PRESETS, escalonadoSano } from "@/lib/motion/presets-puro";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
 import {
   CAMARA_ID,
@@ -256,11 +256,11 @@ export function Editor({
     if (res.ok) setComposicion(res.valor);
   }, []);
 
-  const retimarSegmento = useCallback((capaId: string, clave: "entrada" | "salida", nuevoEn: number) => {
+  const retimarSegmento = useCallback((capaId: string, clave: "entrada" | "salida", nuevoEn: number, nuevaDuracion?: number) => {
     const capa = compRef.current.capas.find((c) => c.id === capaId);
     const seg = capa?.[clave];
     if (!seg) return;
-    editarEnVivo(capaId, { [clave]: { ...seg, en: nuevoEn } });
+    editarEnVivo(capaId, { [clave]: { ...seg, en: nuevoEn, duracion: nuevaDuracion ?? seg.duracion } });
   }, [editarEnVivo]);
 
   const moverKeyframeEnVivo = useCallback(
@@ -340,6 +340,11 @@ export function Editor({
       : clase === "entrada"
         ? { preset, en: 0, duracion: 700, easing: "salidaExpo", escalonado: capa.tipo === "texto" ? 40 : undefined }
         : { preset, en: Math.max(0, comp.duracion - 900), duracion: 600, easing: "entradaCubic", escalonado: capa.tipo === "texto" ? 25 : undefined };
+    // una capa dividida sin escalonado se anima como bloque entero: si el
+    // timing heredado no traía, le va el default sano de su división
+    if (capa.tipo === "texto" && capa.division !== "ninguna" && !seg.escalonado) {
+      seg.escalonado = escalonadoSano(capa.division);
+    }
     editarEnVivo(id, { [clase]: seg });
     setAvisoGuardado(t("«{preset}» puesto como {clase} de «{nombre}»", { preset, clase, nombre: capa.nombre }));
   }, [registrar, editarEnVivo]);

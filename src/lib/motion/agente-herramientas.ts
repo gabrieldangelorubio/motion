@@ -15,7 +15,7 @@
 import { MEZCLAS, type Camara, type Capa, type CapaForma, type CapaTexto, type CapaTrazo, type Composicion, type Keyframe, type MezclaCapa, type NombreEasing, type NombrePropiedad, type OrdenEscalonado, type Segmento } from "@/lib/motion/modelo";
 import { agregarCapa, editarCapa, quitarCapa, describir } from "@/lib/motion/herramientas-puro";
 import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
-import { CATEGORIAS, nombresPresets, PRESETS } from "@/lib/motion/presets-puro";
+import { CATEGORIAS, escalonadoSano, nombresPresets, PRESETS } from "@/lib/motion/presets-puro";
 import { EASINGS } from "@/lib/motion/easings-puro";
 import { validar } from "@/lib/motion/validar-puro";
 
@@ -51,17 +51,21 @@ function exito(comp: Composicion, resumen: string): ResultadoHerramienta {
   return { comp, resultado: `OK: ${resumen}${cola}\n\nEstado actual:\n${describir(comp)}`, resumen };
 }
 
-function segmentoDe(comp: Composicion, input: Record<string, unknown>, clase: "entrada" | "salida"): Segmento | string {
+function segmentoDe(comp: Composicion, input: Record<string, unknown>, clase: "entrada" | "salida", capa?: Capa): Segmento | string {
   const preset = String(input.preset ?? "");
   if (!nombresPresets(clase).includes(preset)) {
     return `preset «${preset}» no existe; los de ${clase} son: ${nombresPresets(clase).join(", ")}`;
   }
+  // capa dividida sin escalonado pedido = bloque entero (no se ve la
+  // división): el default sano de su división; un 0 explícito sí manda
+  const escalonadoDefault =
+    capa?.tipo === "texto" && capa.division !== "ninguna" ? escalonadoSano(capa.division) : undefined;
   const seg: Segmento = {
     preset,
     en: clamp(numero(input.en, 0), 0, comp.duracion),
     duracion: clamp(numero(input.duracion, 700), 50, comp.duracion),
     easing: easingValido(input.easing),
-    escalonado: input.escalonado === undefined ? undefined : clamp(numero(input.escalonado, 0), 0, 500),
+    escalonado: input.escalonado === undefined ? escalonadoDefault : clamp(numero(input.escalonado, 0), 0, 500),
     ordenEscalonado: ordenValido(input.ordenEscalonado),
   };
   if (typeof input.params === "object" && input.params !== null) {
@@ -112,7 +116,7 @@ export function ejecutarHerramienta(
           peso: clamp(numero(input.peso, 600), 100, 900),
         },
         color: String(input.color ?? "#e8e8ee"),
-        division: input.division === "caracteres" || input.division === "palabras" ? input.division : "ninguna",
+        division: input.division === "caracteres" || input.division === "palabras" || input.division === "lineas" ? input.division : "ninguna",
         alineacion: input.alineacion === "izquierda" || input.alineacion === "derecha" ? input.alineacion : "centro",
         x: clamp(numero(input.x, comp.ancho / 2), -comp.ancho, comp.ancho * 2),
         y: clamp(numero(input.y, comp.alto / 2), -comp.alto, comp.alto * 2),
@@ -159,7 +163,17 @@ export function ejecutarHerramienta(
         const extra = cambios as Partial<CapaTexto>;
         if (typeof input.texto === "string") extra.texto = input.texto;
         if (typeof input.color === "string") extra.color = input.color;
-        if (input.division === "ninguna" || input.division === "caracteres" || input.division === "palabras" || input.division === "lineas") extra.division = input.division;
+        if (input.division === "ninguna" || input.division === "caracteres" || input.division === "palabras" || input.division === "lineas") {
+          extra.division = input.division;
+          // activar una división en segmentos sin escalonado: default sano,
+          // si no la edición no se ve (todas las unidades se mueven juntas)
+          if (input.division !== "ninguna") {
+            if (capa.entrada && !capa.entrada.escalonado)
+              extra.entrada = { ...capa.entrada, escalonado: escalonadoSano(input.division) };
+            if (capa.salida && !capa.salida.escalonado)
+              extra.salida = { ...capa.salida, escalonado: escalonadoSano(input.division) };
+          }
+        }
         if (input.tamano !== undefined || input.peso !== undefined) {
           extra.fuente = {
             ...capa.fuente,
@@ -186,7 +200,7 @@ export function ejecutarHerramienta(
       const clase = nombre === "definir_entrada" ? "entrada" : "salida";
       const capa = capaDe(input.capaId);
       if (!capa) return fallo(comp, `no hay ninguna capa «${String(input.capaId)}»; ids: ${comp.capas.map((c) => c.id).join(", ")}`);
-      const seg = segmentoDe(comp, input, clase);
+      const seg = segmentoDe(comp, input, clase, capa);
       if (typeof seg === "string") return fallo(comp, seg);
       const res = editarCapa(comp, capa.id, { [clase]: seg }, marca);
       return res.ok

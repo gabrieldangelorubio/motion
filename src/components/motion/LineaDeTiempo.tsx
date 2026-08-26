@@ -33,7 +33,10 @@ type GestoSpan = {
   tipo: "span";
   capaId: string;
   clave: "entrada" | "salida";
+  /** mover = deslizar el span entero; izq/der = estirar desde ese borde */
+  modo: "mover" | "izq" | "der";
   enOriginal: number;
+  duracionOriginal: number;
   x0: number;
   activo: boolean;
 };
@@ -91,7 +94,7 @@ export function LineaDeTiempo({
   onSaltarFrame: (dir: 1 | -1) => void;
   onSeleccionar: (id: string) => void;
   onCheckpoint: () => void;
-  onRetimarSegmento: (capaId: string, clave: "entrada" | "salida", nuevoEn: number) => void;
+  onRetimarSegmento: (capaId: string, clave: "entrada" | "salida", nuevoEn: number, nuevaDuracion?: number) => void;
   onMoverKeyframe: (capaId: string, propiedad: NombrePropiedad, tActual: number, nuevoT: number) => void;
   onMoverPoseCamara: (tActual: number, nuevoT: number) => void;
   seleccionKf: SeleccionKeyframe | null;
@@ -170,8 +173,19 @@ export function LineaDeTiempo({
     }
     const dt = dx * msPorPx();
     if (gesto.tipo === "span") {
-      const nuevoEn = alFrame(Math.min(comp.duracion, Math.max(0, gesto.enOriginal + dt)));
-      onRetimarSegmento(gesto.capaId, gesto.clave, nuevoEn);
+      const fin = gesto.enOriginal + gesto.duracionOriginal;
+      if (gesto.modo === "izq") {
+        // estira desde el borde izquierdo: el FIN queda clavado
+        const nuevoEn = alFrame(Math.min(fin - cuadro, Math.max(0, gesto.enOriginal + dt)));
+        onRetimarSegmento(gesto.capaId, gesto.clave, nuevoEn, fin - nuevoEn);
+      } else if (gesto.modo === "der") {
+        // estira desde el borde derecho: el INICIO queda clavado
+        const nuevoFin = alFrame(Math.min(comp.duracion, Math.max(gesto.enOriginal + cuadro, fin + dt)));
+        onRetimarSegmento(gesto.capaId, gesto.clave, gesto.enOriginal, nuevoFin - gesto.enOriginal);
+      } else {
+        const nuevoEn = alFrame(Math.min(comp.duracion, Math.max(0, gesto.enOriginal + dt)));
+        onRetimarSegmento(gesto.capaId, gesto.clave, nuevoEn);
+      }
     } else if (gesto.tipo === "poseCamara") {
       const pistasCam = comp.camara?.pistas;
       const nuevoT = alFrame(Math.min(comp.duracion, Math.max(0, gesto.tOriginal + dt)));
@@ -344,14 +358,39 @@ export function LineaDeTiempo({
                   onPointerDown={(e) => {
                     e.stopPropagation();
                     onSeleccionar(capa.id);
-                    iniciarGesto({ tipo: "span", capaId: capa.id, clave, enOriginal: seg.en, x0: e.clientX, activo: false });
+                    iniciarGesto({ tipo: "span", capaId: capa.id, clave, modo: "mover", enOriginal: seg.en, duracionOriginal: seg.duracion, x0: e.clientX, activo: false });
                   }}
                   className={[
-                    "absolute top-1.5 bottom-1.5 cursor-grab rounded-full active:cursor-grabbing",
+                    "group/span absolute top-1.5 bottom-1.5 cursor-grab rounded-full active:cursor-grabbing",
                     activa ? "bg-ink/[0.16] hover:bg-ink/[0.22]" : "bg-ink/[0.10] hover:bg-ink/[0.16]",
                   ].join(" ")}
                   style={{ left: pct(seg.en), width: pct(seg.duracion) }}
-                />
+                >
+                  {/* manijas de estirado: agarrás un borde y cambia la
+                      DURACIÓN (el otro extremo queda clavado) */}
+                  {(["izq", "der"] as const).map((modo) => (
+                    <div
+                      key={modo}
+                      aria-hidden
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        onSeleccionar(capa.id);
+                        iniciarGesto({ tipo: "span", capaId: capa.id, clave, modo, enOriginal: seg.en, duracionOriginal: seg.duracion, x0: e.clientX, activo: false });
+                      }}
+                      className={[
+                        "absolute inset-y-0 w-2.5 cursor-ew-resize",
+                        modo === "izq" ? "left-0 rounded-l-full" : "right-0 rounded-r-full",
+                      ].join(" ")}
+                    >
+                      <span
+                        className={[
+                          "absolute top-1/2 h-3 w-0.5 -translate-y-1/2 rounded-full bg-foreground/35 opacity-0 transition-opacity group-hover/span:opacity-100",
+                          modo === "izq" ? "left-1" : "right-1",
+                        ].join(" ")}
+                      />
+                    </div>
+                  ))}
+                </div>
               ))}
               {(Object.entries(capa.pistas ?? {}) as [NombrePropiedad, { t: number }[] | undefined][]).flatMap(
                 ([propiedad, pista]) =>

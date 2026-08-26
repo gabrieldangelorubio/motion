@@ -13,7 +13,11 @@ para guardado concurrente, y operaciones puras listas para tools de Diosa.
 Encima, el editor: page `/motion` con lienzo (cámara pan/zoom al cursor con
 las constantes de la casa), línea de tiempo **redimensionable** (agarradera
 superior) con scrub, transport, y **edición por drag** de spans de
-entrada/salida y keyframes (snap al frame, un checkpoint de undo por gesto),
+entrada/salida y keyframes (snap al frame, un checkpoint de undo por gesto;
+los spans además se ESTIRAN desde cualquiera de los dos bordes — manijas con
+cursor propio: el borde derecho alarga la duración con el inicio clavado, el
+izquierdo corre el inicio con el fin clavado, y el cuerpo sigue moviendo el
+span entero),
 **inspector de propiedades** (transformación, texto, presets con easing y
 escalonado — cada campo con checkpoint por sesión de foco), **selección MÚLTIPLE y
 drag de capas EN el lienzo** (marquee arrastrando en el vacío — el pan
@@ -61,7 +65,12 @@ izquierda del lienzo, en fila con el botón del agente), **texto multilínea con
 propio, división por caracteres/palabras/**líneas**, presets
 `revelar`/`ocultar`: cada unidad sube dentro de su renglón recortada a su
 caja de reposo — el clásico reveal de SplitText con máscara, sin crear
-máscaras a mano; el recorte se apaga en reposo para no cortar descendentes),
+máscaras a mano; el recorte se apaga en reposo para no cortar descendentes;
+y dividir SIEMPRE se ve: activar una división en el inspector, por el agente
+o al aplicar un efecto de la biblioteca pone un escalonado sano por división
+—35/90/140 ms para caracteres/palabras/líneas— en los segmentos que no
+traían uno, porque división con escalonado 0 anima el texto como un bloque
+entero; un escalonado puesto a mano, incluso 0 explícito, siempre manda),
 **capas de trazo con trim estilo AE** (vectores de Figma con stroke y sin
 fill llegan como path animable; presets `trazar`/`retraer`/`borrar` y
 propiedades `trazoInicio`/`trazoFin` 0–1 keyframeables — implementado con

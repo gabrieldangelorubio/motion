@@ -108,3 +108,38 @@ test("toda definición de herramienta tiene ejecutor (los nombres están sincron
     );
   }
 });
+
+test("dividir sin escalonado no queda en bloque: definir_entrada defaultea el sano por división", () => {
+  // capa dividida por caracteres, el agente no pasa escalonado → default 35
+  const comp = conTitulo();
+  const res = ejecutarHerramienta(comp, "definir_entrada", { capaId: "titulo", preset: "subir", en: 0, duracion: 500 });
+  assert.equal((res.comp.capas[0] as CapaTexto).entrada?.escalonado, 35);
+
+  // palabras → 90; y un 0 EXPLÍCITO del agente manda sobre el default
+  const porPalabras = ejecutarHerramienta(comp, "editar_capa", { capaId: "titulo", division: "palabras" }).comp;
+  const conDefault = ejecutarHerramienta(porPalabras, "definir_entrada", { capaId: "titulo", preset: "subir", en: 0, duracion: 500 });
+  assert.equal((conDefault.comp.capas[0] as CapaTexto).entrada?.escalonado, 90);
+  const conCero = ejecutarHerramienta(porPalabras, "definir_entrada", { capaId: "titulo", preset: "subir", en: 0, duracion: 500, escalonado: 0 });
+  assert.equal((conCero.comp.capas[0] as CapaTexto).entrada?.escalonado, 0);
+});
+
+test("editar_capa: activar una división propaga el escalonado sano a segmentos que no tenían", () => {
+  let comp = conTitulo();
+  comp = ejecutarHerramienta(comp, "editar_capa", { capaId: "titulo", division: "ninguna" }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "titulo", preset: "subir", en: 0, duracion: 500 }).comp;
+  assert.equal((comp.capas[0] as CapaTexto).entrada?.escalonado, undefined, "sin división no hay default");
+  const dividida = ejecutarHerramienta(comp, "editar_capa", { capaId: "titulo", division: "palabras" }).comp;
+  assert.equal((dividida.capas[0] as CapaTexto).entrada?.escalonado, 90);
+  // uno puesto a mano NO se pisa
+  const conPropio = ejecutarHerramienta(comp, "definir_entrada", { capaId: "titulo", preset: "subir", en: 0, duracion: 500, escalonado: 120 }).comp;
+  const redividida = ejecutarHerramienta(conPropio, "editar_capa", { capaId: "titulo", division: "lineas" }).comp;
+  assert.equal((redividida.capas[0] as CapaTexto).entrada?.escalonado, 120);
+});
+
+test("escalonadoSano: un valor por división, 0 para «ninguna»", async () => {
+  const { escalonadoSano } = await import("@/lib/motion/presets-puro");
+  assert.equal(escalonadoSano("caracteres"), 35);
+  assert.equal(escalonadoSano("palabras"), 90);
+  assert.equal(escalonadoSano("lineas"), 140);
+  assert.equal(escalonadoSano("ninguna"), 0);
+});
