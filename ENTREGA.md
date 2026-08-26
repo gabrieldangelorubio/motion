@@ -20,13 +20,15 @@ drag de capas EN el lienzo** (hit-test con rotación y escala, umbral 4px,
 Shift = eje dominante, ⌘ = sin snapping, capas bloqueadas seleccionables
 pero no movibles) con **snapping azul** (algoritmo canónico de 3 imanes por
 eje, un ganador por eje, el frame como imán, guías a 1px constante), panel
-de capas, undo por snapshots, autosave con CAS.
+de capas, undo por snapshots, autosave con CAS, y **export a MP4
+frame-exacto** (WebCodecs + `mp4-muxer`, decisión aprobada por Fran
+2026-08-26): la misma `pintar()` del preview frame a frame, H.264 con
+fallback a VP9-en-MP4 (Chromium sin codecs propietarios), **supersampling
+temporal 4×** para motion blur real (media móvil exacta sobre frames
+opacos), back-pressure del encoder y progreso en vivo.
 
 ## Qué NO hace (con motivo)
 
-- **Render a video**: decidido con ustedes antes de construirlo (kit §10.3).
-  El camino elegido en el diseño es WebCodecs + `mp4-muxer` (ya en deps de
-  diosa); el motor ya es frame-determinista así que entra sin re-arquitectura.
 - **Texto multilínea y fuentes cargadas**: hoy una capa de texto es una línea
   con el stack del sistema; `FontFace` + licencias es un P1 declarado.
 - **Audio**: no hay pista de audio en esta versión.
@@ -37,9 +39,12 @@ de capas, undo por snapshots, autosave con CAS.
 
 ## Dependencias nuevas
 
-**Ninguna.** El módulo usa el stack del kit tal cual (Next 16.2.9, React
-19.2.4, TS estricto, Tailwind v4, tsx). Cero librerías de animación, canvas
-o UI.
+- **`mp4-muxer` `^5.2.2`** — muxeo MP4 del export WebCodecs. Es exactamente
+  la versión que diosa ya tiene (anexo E del kit): en la integración no es
+  una dep nueva, es la misma. ~9 KB comprimido, cargada sólo por la page
+  del módulo.
+
+Nada más: cero librerías de animación, canvas o UI.
 
 ## Variables de entorno
 
@@ -140,6 +145,11 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   `ctx.filter: blur(…)` por unidad en CPU: en headless sin GPU el blur no
   compositea. Backlog P1: cachear el pintado desenfocado por capa. Falta
   medir con GPU real (el kit reporta la misma divergencia en sus curvas).
+- **Export MP4** (demo 5s @30fps, 1920×1080, supersampling 4×), Chromium
+  headless **sin GPU ni H.264** (cayó a VP9 software): 150 frames en 104 s.
+  El archivo decodifica exacto: 5.000 s, 1920×1080, contenido verificado
+  muestreando un frame. Con Chrome real (GPU + H.264 por hardware) el
+  tiempo baja fuerte; falta medirlo.
 - **Peso de la page `/motion`**: build estático limpio; First Load JS de la
   ruta según `next build`: ~121 kB compartidos + el chunk propio (ver
   `next build`). Nada del motor entra al shell compartido (imports sólo

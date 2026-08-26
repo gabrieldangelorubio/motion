@@ -1,14 +1,14 @@
 # Backlog — módulo motion
 
-### [P1] Render a video (WebCodecs + mp4-muxer) al catálogo de media
-- **Estado:** abierto — decidir con el equipo antes de construir (kit §10.3)
-- **Qué:** `OffscreenCanvas` + `VideoEncoder` frame a frame con la misma
-  `pintar()`, muxeado con `mp4-muxer` (ya en deps de diosa), subida al
-  catálogo y `renderId` en la fila. Supersampling temporal (N sub-frames
-  promediados) para motion blur direccional real.
-- **Por qué:** es el camino sin infraestructura nueva y frame-exacto
-  (MediaRecorder no lo es).
-- **Dónde:** `lib/motion/exportar.ts` (nuevo), worker
+### [P1] Render en worker + subida al catálogo de media
+- **Estado:** abierto
+- **Qué:** lo que falta encima del export ya hecho: mover el loop de render
+  a un Web Worker (hoy corre en el main thread con yield por frame), y en
+  diosa subir el resultado al catálogo con `renderId` en la fila en vez de
+  descargar.
+- **Por qué:** un export largo no debería congelar la pestaña; el catálogo
+  es el destino real (§10.2).
+- **Dónde:** `lib/motion/exportar.ts`, worker nuevo, `consultas.ts`
 
 ### [P1] Selección múltiple en el lienzo: shift-click, marquee, Alt-duplica
 - **Estado:** abierto

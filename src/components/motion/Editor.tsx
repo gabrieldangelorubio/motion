@@ -25,6 +25,7 @@ import { Lienzo, type ControlLienzo } from "@/components/motion/Lienzo";
 import { LineaDeTiempo } from "@/components/motion/LineaDeTiempo";
 import { Capas } from "@/components/motion/Capas";
 import { Inspector } from "@/components/motion/Inspector";
+import { ExportarVideo } from "@/components/motion/ExportarVideo";
 
 const TOPE_UNDO = 120;
 const DEBOUNCE_GUARDADO = 1500;
@@ -235,12 +236,13 @@ export function Editor({ snapshotInicial, composicionId }: { snapshotInicial: st
             onCheckpoint={registrar}
             onMoverCapa={(id, x, y) => editarEnVivo(id, { x, y })}
           />
-          <div className="absolute right-3 top-3">
+          <div className="absolute right-3 top-3 flex items-start gap-2">
             <ConPista pista={t("Encuadrar todo (⇧1)")}>
               <BotonIcono tam={32} etiqueta={t("Encuadrar todo")} onClick={() => lienzoRef.current?.encuadrar()}>
                 <Icono nombre="encuadrar" width={15} height={15} />
               </BotonIcono>
             </ConPista>
+            <ExportarVideo obtenerComposicion={() => compRef.current} onPausar={() => setReproduciendo(false)} />
           </div>
           {avisoGuardado && (
             <div

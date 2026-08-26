@@ -64,6 +64,11 @@ const ICONOS = {
       <path d="M8 11V8a4 4 0 0 1 8 0v3" />
     </svg>
   ),
+  descargar: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M12 4v10m0 0l-4-4m4 4l4-4M5 19h14" />
+    </svg>
+  ),
   chevronAbajo: (p: IconoProps) => (
     <svg {...base(p)} aria-hidden>
       <path d="M6 9l6 6 6-6" />
