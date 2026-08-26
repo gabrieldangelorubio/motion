@@ -101,6 +101,10 @@ export type CapaBase = {
   motionBlur?: number;
   /** modo de mezcla con lo que hay debajo; ausente = normal */
   mezcla?: MezclaCapa;
+  /** pantalla a la que pertenece la capa (id de su placa de fondo): el
+      grupo liviano del lienzo multi-pantalla — arrastrar la placa mueve
+      la pantalla entera, borrarla la borra completa */
+  grupo?: string;
 };
 
 export type CapaTexto = CapaBase & {

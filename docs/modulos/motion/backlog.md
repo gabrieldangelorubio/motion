@@ -61,13 +61,12 @@
 - **Dónde:** `modelo.ts` (aditivo), `evaluar-puro.ts`, `pintar.ts`
 
 ### [P1] Afinar el lienzo multi-pantalla
-- **Estado:** abierto (la base quedó el 2026-08-26: import aditivo +
-  cámara-capa)
-- **Qué:** mover una pantalla ENTERA como grupo (hoy las capas se mueven de
-  a una), nombrar/organizar pantallas, borrar una pantalla completa, y una
-  vista previa «lo que ve la cámara» conmutables en el editor (hoy el
-  resultado exacto se ve en el export).
-- **Dónde:** `Editor.tsx`, `Lienzo.tsx`, quizá `modelo.ts` (grupo liviano)
+- **Estado:** HECHO (2026-08-26) — grupo liviano `CapaBase.grupo` (la placa
+  de fondo es la manija): arrastrar la placa mueve la pantalla entera con
+  snap, «Borrar la pantalla completa» en el inspector (con lápidas), y
+  toggle Mundo/Cámara en el lienzo (la vista Cámara es el preview exacto
+  del render, recortado al frame, solo lectura). Pendiente menor: renombrar
+  pantallas.
 
 ### [P1] Probar el plugin de Figma en Figma real y ajustar
 - **Estado:** abierto

@@ -18,8 +18,10 @@ import { deserializar, serializar } from "@/lib/motion/serializar-puro";
 import {
   CAMARA_ID,
   agregarKeyframeCamara,
+  borrarGrupo,
   editarCapa,
   fijarValorCamara,
+  moverCapas,
   moverKeyframe,
   moverKeyframeCamara,
 } from "@/lib/motion/herramientas-puro";
@@ -75,6 +77,14 @@ export function Editor({
   const [altoTimeline, setAltoTimeline] = useState(240);
   const [importarAbierto, setImportarAbierto] = useState(false);
   const [fuentesAbierto, setFuentesAbierto] = useState(false);
+  // vista del lienzo: "mundo" = el canvas con el encuadre dibujado (se
+  // edita acá); "camara" = preview de LO QUE VE LA CÁMARA (sólo mirar,
+  // exactamente lo que sale en el render).
+  const [vistaCamara, setVistaCamara] = useState(false);
+  const vistaCamaraRef = useRef(false);
+  useEffect(() => {
+    vistaCamaraRef.current = vistaCamara;
+  }, [vistaCamara]);
   // calidad del preview (Half/Quarter de AE): borrador para armar rápido,
   // nítido para revisar. El export SIEMPRE sale a resolución completa.
   const [calidad, setCalidad] = useState<"baja" | "media" | "alta">("media");
@@ -236,11 +246,26 @@ export function Editor({
     editarEnVivo(capaId, { oculta: !capa?.oculta });
   }, [registrar, editarEnVivo]);
 
+  // drag de una pantalla entera: posiciones absolutas, sin acumulación
+  const moverCapasEnVivo = useCallback((posiciones: { id: string; x: number; y: number }[]) => {
+    setComposicion(moverCapas(compRef.current, posiciones));
+  }, []);
+
+  const borrarPantalla = useCallback((grupo: string) => {
+    registrar();
+    const res = borrarGrupo(compRef.current, grupo);
+    if (res.ok) {
+      setComposicion(res.valor);
+      setSeleccionId(null);
+    }
+  }, [registrar]);
+
   const alternarGrabacion = useCallback(() => {
     if (grabandoRef.current) {
       detenerGrabacion();
       return;
     }
+    setVistaCamara(false); // se graba encuadrando el MUNDO con el viewport
     registrar();
     // la cámara previa se saca ANTES de grabar: si no, el usuario encuadraría
     // sobre un lienzo que ya se mueve solo y la toma saldría doble
@@ -473,18 +498,14 @@ export function Editor({
     registrar();
     // Paradigma canvas: la primera pantalla define el frame de render; las
     // siguientes se SUMAN al lienzo a la derecha — el render es lo que ve
-    // la cámara, que después viaja entre pantallas.
+    // la cámara, que después viaja entre pantallas. TODA pantalla entra por
+    // sumarAlLienzo, así hasta la primera queda agrupada con su placa
+    // (arrastrás la placa = movés la pantalla entera).
     const actual = compRef.current;
     const seSuma = actual.capas.length > 0;
-    let composicionNueva: Composicion;
-    let reajustes = resultado.reajustes;
-    let anclas = resultado.anclas;
-    if (seSuma) {
-      const dx = Math.ceil(bordeDerechoLienzo(actual) + 200);
-      ({ composicion: composicionNueva, reajustes, anclas } = sumarAlLienzo(actual, resultado, dx, 0));
-    } else {
-      composicionNueva = resultado.composicion;
-    }
+    const base: Composicion = seSuma ? actual : { ...resultado.composicion, capas: [] };
+    const dx = seSuma ? Math.ceil(bordeDerechoLienzo(actual) + 200) : 0;
+    const { composicion: composicionNueva, reajustes, anclas } = sumarAlLienzo(base, resultado, dx, 0);
     anclasRef.current = anclas.map((a) => ({ ...a }));
     const final = anclarTextos(reajustarTextos(medirTrazos(composicionNueva), reajustes));
     setComposicion(final);
@@ -579,12 +600,14 @@ export function Editor({
             obtenerMedia={obtenerMedia}
             obtenerCalidad={() => calidadRef.current}
             obtenerTiempo={() => tiempoRef.current}
+            obtenerVistaCamara={() => vistaCamaraRef.current}
             onSeleccionar={setSeleccionId}
             onCheckpoint={registrar}
             onMoverCapa={(id, x, y) => editarEnVivo(id, { x, y })}
+            onMoverCapas={moverCapasEnVivo}
             onMoverCamara={moverCamaraEnVivo}
           />
-          <div className="absolute left-3 top-3">
+          <div className="absolute left-3 top-3 flex items-center gap-2">
             <ConPista pista={t("Calidad del preview — el export siempre sale a resolución completa")}>
               <Segmentado
                 etiquetaAria={t("Calidad del preview")}
@@ -594,6 +617,23 @@ export function Editor({
                   { valor: "baja", nombre: "½" },
                   { valor: "media", nombre: "1×" },
                   { valor: "alta", nombre: t("Máx") },
+                ]}
+              />
+            </ConPista>
+            <ConPista pista={t("Mundo: el lienzo con el encuadre dibujado. Cámara: exactamente lo que sale en el render (sólo mirar)")}>
+              <Segmentado
+                etiquetaAria={t("Vista del lienzo")}
+                valor={vistaCamara ? "camara" : "mundo"}
+                onCambio={(v) => {
+                  const aCamara = v === "camara";
+                  setVistaCamara(aCamara);
+                  requestAnimationFrame(() =>
+                    aCamara ? lienzoRef.current?.encuadrarRender() : lienzoRef.current?.encuadrar(),
+                  );
+                }}
+                opciones={[
+                  { valor: "mundo", nombre: t("Mundo") },
+                  { valor: "camara", nombre: t("Cámara") },
                 ]}
               />
             </ConPista>
@@ -715,7 +755,13 @@ export function Editor({
           <Inspector
             capa={capaSeleccionada}
             duracionComposicion={composicion.duracion}
+            capasDelGrupo={
+              capaSeleccionada?.grupo
+                ? composicion.capas.filter((c) => c.grupo === capaSeleccionada.grupo).length
+                : 0
+            }
             onEditar={editarEnVivo}
+            onBorrarPantalla={borrarPantalla}
             onCheckpoint={registrar}
           />
         )}

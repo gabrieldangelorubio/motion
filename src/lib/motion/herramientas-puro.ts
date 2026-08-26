@@ -94,6 +94,37 @@ export function moverKeyframe(
   return editarCapa(comp, capaId, { pistas: { ...capa.pistas, [propiedad]: nueva } });
 }
 
+/** Posiciones ABSOLUTAS para varias capas de una: la base del drag de una
+    pantalla entera (el caller calcula origen + delta; acá no hay acumulación
+    de error por deltas relativos). */
+export function moverCapas(
+  comp: Composicion,
+  posiciones: { id: string; x: number; y: number }[],
+): Composicion {
+  const porId = new Map(posiciones.map((p) => [p.id, p]));
+  return {
+    ...comp,
+    capas: comp.capas.map((c) => {
+      const p = porId.get(c.id);
+      return p ? { ...c, x: p.x, y: p.y } : c;
+    }),
+  };
+}
+
+/** Borra una pantalla completa (todas las capas del grupo), con lápidas. */
+export function borrarGrupo(comp: Composicion, grupo: string, ahora = Date.now()): Resultado<Composicion> {
+  const ids = comp.capas.filter((c) => c.grupo === grupo).map((c) => c.id);
+  if (ids.length === 0) return { ok: false, error: `No hay ninguna pantalla «${grupo}»` };
+  return {
+    ok: true,
+    valor: {
+      ...comp,
+      capas: comp.capas.filter((c) => c.grupo !== grupo),
+      borrados: [...(comp.borrados ?? []), ...ids.map((id) => ({ id, v: ahora }))],
+    },
+  };
+}
+
 /* ——— Cámara: el render es lo que ella ve; estas ops la editan como a una capa ——— */
 
 /**

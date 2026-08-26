@@ -169,8 +169,12 @@ export function sumarAlLienzo(
     return candidato;
   };
 
+  // La placa de fondo es la MANIJA de la pantalla: su id es el grupo de
+  // todas las capas que llegaron con ella (arrastrarla mueve la pantalla
+  // entera; borrarla desde el inspector borra el grupo completo).
+  const idPantalla = idLibre(`pantalla-${nueva.nombre.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24) || "figma"}`);
   const fondo: Capa = {
-    id: idLibre(`pantalla-${nueva.nombre.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24) || "figma"}`),
+    id: idPantalla,
     nombre: `${nueva.nombre} (fondo)`,
     tipo: "forma",
     forma: "rectangulo",
@@ -179,13 +183,14 @@ export function sumarAlLienzo(
     color: nueva.fondo,
     x: dx + nueva.ancho / 2,
     y: dy + nueva.alto / 2,
+    grupo: idPantalla,
     v: Math.max(0, ...comp.capas.map((c) => c.v ?? 0)) + 1,
   };
 
   const capas = nueva.capas.map((c) => {
     const id = idLibre(c.id);
     renombres.set(c.id, id);
-    return { ...c, id, x: c.x + dx, y: c.y + dy };
+    return { ...c, id, x: c.x + dx, y: c.y + dy, grupo: idPantalla };
   });
 
   return {

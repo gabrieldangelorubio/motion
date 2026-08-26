@@ -38,6 +38,8 @@ export type ControlLienzo = {
   pintarAhora: (t: number) => void;
   encuadrar: () => void;
   escalaUno: () => void;
+  /** encuadra el FRAME de render (0,0,ancho,alto) — para entrar a la vista cámara */
+  encuadrarRender: () => void;
   /** encuadre actual del viewport en coordenadas de la composición (para el modo cámara) */
   vistaActual: () => { x: number; y: number; zoom: number } | null;
 };
@@ -52,13 +54,17 @@ export const Lienzo = forwardRef<
     obtenerCalidad?: () => number;
     /** tiempo actual de la composición (para resolver el encuadre de cámara en gestos) */
     obtenerTiempo?: () => number;
+    /** true = mostrar LO QUE VE LA CÁMARA (preview del render); el mundo queda solo lectura */
+    obtenerVistaCamara?: () => boolean;
     onSeleccionar: (id: string | null) => void;
     onCheckpoint: () => void;
     onMoverCapa: (id: string, x: number, y: number) => void;
+    /** posiciones absolutas para varias capas (drag de una pantalla entera) */
+    onMoverCapas?: (posiciones: { id: string; x: number; y: number }[]) => void;
     /** arrastre del encuadre con la cámara seleccionada: centro nuevo en px del lienzo */
     onMoverCamara?: (x: number, y: number) => void;
   }
->(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerMedia, obtenerCalidad, obtenerTiempo, onSeleccionar, onCheckpoint, onMoverCapa, onMoverCamara }, ref) {
+>(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerMedia, obtenerCalidad, obtenerTiempo, obtenerVistaCamara, onSeleccionar, onCheckpoint, onMoverCapa, onMoverCapas, onMoverCamara }, ref) {
   const contRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const camRef = useRef<Camara>({ x: 0, y: 0, escala: 0.4 });
@@ -110,10 +116,27 @@ export const Lienzo = forwardRef<
     ctx.fillRect(0, 0, ancho, alto);
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.escala, cam.escala);
+    const estado = estadoEn(comp, t);
+
+    // Vista cámara: el preview del RENDER — la transformación de cámara se
+    // aplica y todo se recorta al frame, igual que en el export. Sólo mirar:
+    // los gestos del mundo (selección, drags) quedan apagados.
+    if (obtenerVistaCamara?.()) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, comp.ancho, comp.alto);
+      ctx.clip();
+      pintar(estado, ctx as unknown as Contexto2D, obtenerMedia?.() ?? {});
+      ctx.restore();
+      ctx.strokeStyle = tokensRef.current.linea;
+      ctx.lineWidth = 1 / cam.escala;
+      ctx.strokeRect(0, 0, comp.ancho, comp.alto);
+      return;
+    }
+
     // El lienzo muestra el MUNDO: acá la cámara de la composición no
     // transforma (el export sí la aplica). En su lugar se dibuja el
     // ENCUADRE — el render es exactamente lo que cae adentro.
-    const estado = estadoEn(comp, t);
     pintar(
       { ...estado, camara: { x: comp.ancho / 2, y: comp.alto / 2, zoom: 1 } },
       ctx as unknown as Contexto2D,
@@ -197,6 +220,16 @@ export const Lienzo = forwardRef<
         y: (cont.clientHeight - comp.alto) / 2,
       };
     },
+    encuadrarRender: () => {
+      const cont = contRef.current;
+      if (!cont) return;
+      const comp = obtenerComposicion();
+      camRef.current = camaraQueEncuadra(
+        { x: 0, y: 0, w: comp.ancho, h: comp.alto },
+        { left: 0, top: 0, width: cont.clientWidth, height: cont.clientHeight },
+        { margen: 40 },
+      );
+    },
     vistaActual: () => {
       const cont = contRef.current;
       if (!cont || cont.clientWidth === 0) return null;
@@ -246,6 +279,27 @@ export const Lienzo = forwardRef<
     if (!cont) return;
     const rect = cont.getBoundingClientRect();
     const comp = obtenerComposicion();
+
+    // En vista cámara sólo se mira: el puntero panea el viewport y nada más.
+    if (obtenerVistaCamara?.()) {
+      const pan = { px: e.clientX, py: e.clientY };
+      const alMoverPan = (ev: PointerEvent) => {
+        camRef.current = {
+          ...camRef.current,
+          x: camRef.current.x + (ev.clientX - pan.px),
+          y: camRef.current.y + (ev.clientY - pan.py),
+        };
+        pan.px = ev.clientX;
+        pan.py = ev.clientY;
+      };
+      const alSoltarPan = () => {
+        window.removeEventListener("pointermove", alMoverPan);
+        window.removeEventListener("pointerup", alSoltarPan);
+      };
+      window.addEventListener("pointermove", alMoverPan);
+      window.addEventListener("pointerup", alSoltarPan);
+      return;
+    }
 
     // Con la cámara seleccionada, arrastrar mueve el ENCUADRE (con auto-key
     // arriba, en el Editor); un click seco vuelve a la selección normal.
@@ -307,6 +361,55 @@ export const Lienzo = forwardRef<
 
     onSeleccionar(capa.id);
     if (capa.bloqueada) return; // seleccionable, no movible (§8.3)
+
+    // La placa de fondo es la manija de su pantalla: arrastrarla mueve el
+    // grupo ENTERO (posiciones absolutas desde los orígenes, sin acumular
+    // error). El snap usa la caja de la placa contra lo que no es del grupo.
+    if (capa.grupo && capa.grupo === capa.id && onMoverCapas) {
+      const miembros = comp.capas
+        .filter((c) => c.grupo === capa.grupo)
+        .map((c) => ({ id: c.id, x0: c.x, y0: c.y }));
+      const gestoGrupo = { x0: e.clientX, y0: e.clientY, activo: false };
+      const alMoverGrupo = (ev: PointerEvent) => {
+        const dxP = ev.clientX - gestoGrupo.x0;
+        const dyP = ev.clientY - gestoGrupo.y0;
+        if (!gestoGrupo.activo) {
+          if (Math.abs(dxP) + Math.abs(dyP) < UMBRAL_DRAG_CAPA) return;
+          gestoGrupo.activo = true;
+          onCheckpoint();
+        }
+        const escala = camRef.current.escala;
+        let dx = dxP / escala;
+        let dy = dyP / escala;
+        if (ev.shiftKey) {
+          if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
+          else dx = 0;
+        }
+        if (!ev.metaKey && !ev.ctrlKey) {
+          const compAhora = obtenerComposicion();
+          const movida = cajaMundoDeCapa({ ...capa, x: capa.x + dx, y: capa.y + dy }, medir);
+          const otras = compAhora.capas
+            .filter((c) => c.grupo !== capa.grupo && !c.oculta)
+            .map((c) => cajaMundoDeCapa(c, medir));
+          otras.push({ x: 0, y: 0, w: compAhora.ancho, h: compAhora.alto });
+          const snap = snapArrastre(movida, otras, UMBRAL_SNAP / escala);
+          dx += snap.dx;
+          dy += snap.dy;
+          guiasRef.current = snap.guias;
+        } else {
+          guiasRef.current = [];
+        }
+        onMoverCapas(miembros.map((m) => ({ id: m.id, x: m.x0 + dx, y: m.y0 + dy })));
+      };
+      const alSoltarGrupo = () => {
+        guiasRef.current = [];
+        window.removeEventListener("pointermove", alMoverGrupo);
+        window.removeEventListener("pointerup", alSoltarGrupo);
+      };
+      window.addEventListener("pointermove", alMoverGrupo);
+      window.addEventListener("pointerup", alSoltarGrupo);
+      return;
+    }
 
     const gesto = { x0: e.clientX, y0: e.clientY, capaX0: capa.x, capaY0: capa.y, activo: false };
     const alMover = (ev: PointerEvent) => {

@@ -106,12 +106,17 @@ function SeccionSegmento({
 export function Inspector({
   capa,
   duracionComposicion,
+  capasDelGrupo = 0,
   onEditar,
+  onBorrarPantalla,
   onCheckpoint,
 }: {
   capa: Capa | null;
   duracionComposicion: number;
+  /** cuántas capas comparten el grupo de la seleccionada (pantalla) */
+  capasDelGrupo?: number;
   onEditar: (capaId: string, cambios: Partial<Capa>) => void;
+  onBorrarPantalla?: (grupo: string) => void;
   onCheckpoint: () => void;
 }) {
   if (!capa) {
@@ -289,6 +294,26 @@ export function Inspector({
               onCambio={(v) => editar({ trazoFin: v / 100 })}
             />
           </div>
+        </section>
+      )}
+
+      {capa.grupo === capa.id && onBorrarPantalla && (
+        <section className="border-t border-(--glass-border) px-3 py-3">
+          <Etiqueta className="mb-2">{t("Pantalla")}</Etiqueta>
+          <div className="mb-2 text-xs text-muted">
+            {t.plural(
+              capasDelGrupo,
+              "Esta placa es la manija de su pantalla ({n} capa): arrastrarla en el lienzo mueve la pantalla entera.",
+              "Esta placa es la manija de su pantalla ({n} capas): arrastrarla en el lienzo mueve la pantalla entera.",
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => onBorrarPantalla(capa.grupo!)}
+            className="boton inline-flex h-9 w-full items-center justify-center rounded-control px-3 text-[13px] shadow-control hover:bg-peligro/10 hover:text-peligro"
+          >
+            {t("Borrar la pantalla completa")}
+          </button>
         </section>
       )}
 

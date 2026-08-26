@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import { estadoEn } from "@/lib/motion/evaluar-puro";
 import {
   agregarKeyframeCamara,
+  borrarGrupo,
   fijarValorCamara,
+  moverCapas,
   moverKeyframeCamara,
   describir,
 } from "@/lib/motion/herramientas-puro";
@@ -145,6 +147,41 @@ test("sumarAlLienzo renombra ids que chocan (dos imports de la misma pantalla co
   const ids = segunda.composicion.capas.map((c) => c.id);
   assert.equal(new Set(ids).size, ids.length, "ids únicos");
   assert.equal(segunda.reajustes[0].capaId, segunda.composicion.capas[3].id, "el reajuste apunta al id RENOMBRADO");
+});
+
+test("sumarAlLienzo agrupa la pantalla: la placa de fondo es la manija y todas las capas llevan su grupo", () => {
+  const { composicion } = sumarAlLienzo(base(), resultadoDePantalla(), 0, 0);
+  const placa = composicion.capas[0];
+  assert.equal(placa.grupo, placa.id, "la placa se agrupa consigo misma");
+  for (const capa of composicion.capas) {
+    assert.equal(capa.grupo, placa.id, `«${capa.nombre}» pertenece a la pantalla`);
+  }
+});
+
+test("moverCapas aplica posiciones ABSOLUTAS a varias capas (el drag de pantalla no acumula error)", () => {
+  const { composicion } = sumarAlLienzo(base(), resultadoDePantalla(), 0, 0);
+  const ids = composicion.capas.map((c) => c.id);
+  const movida = moverCapas(composicion, ids.map((id, i) => ({ id, x: 100 + i, y: 50 })));
+  movida.capas.forEach((c, i) => {
+    assert.equal(c.x, 100 + i);
+    assert.equal(c.y, 50);
+  });
+  // una capa fuera de la lista no se toca
+  const parcial = moverCapas(composicion, [{ id: ids[0], x: 9, y: 9 }]);
+  assert.equal(parcial.capas[1].x, composicion.capas[1].x);
+});
+
+test("borrarGrupo saca la pantalla entera CON lápidas (no resucita en el merge)", () => {
+  const { composicion } = sumarAlLienzo(base(), resultadoDePantalla(), 0, 0);
+  const grupo = composicion.capas[0].grupo!;
+  const res = borrarGrupo(composicion, grupo, 777);
+  assert.ok(res.ok);
+  if (res.ok) {
+    assert.equal(res.valor.capas.length, 0);
+    assert.equal(res.valor.borrados?.length, composicion.capas.length);
+    assert.ok(res.valor.borrados?.every((b) => b.v === 777));
+  }
+  assert.ok(!borrarGrupo(composicion, "no-existe").ok, "grupo inexistente = error legible");
 });
 
 /* ——— El agente y la cámara con base ——— */

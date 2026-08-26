@@ -53,7 +53,11 @@ con keyframes arrastrables, inspector con x/y/zoom resueltos al tiempo
 actual y auto-key por canal —si el canal tiene keyframes, editar crea uno
 en el playhead; si no, edita la base—, «keyframe acá», «tomar la vista»,
 y con la cámara seleccionada arrastrar en el lienzo mueve el ENCUADRE con
-auto-key; 2D: posición + zoom), un **modo grabación** (botón de cámara →
+auto-key; 2D: posición + zoom; cada pantalla es un grupo liviano cuya
+placa de fondo es la manija — arrastrarla mueve la pantalla ENTERA con
+snap y el inspector la borra completa con lápidas — y el lienzo conmuta
+Mundo/Cámara: la vista Cámara es el preview exacto del render, recortado
+al frame, solo lectura), un **modo grabación** (botón de cámara →
 reproducís y encuadrás a mano con pan/zoom del lienzo; al terminar,
 `suavizarGrabacion` convierte la toma cruda en pocos keyframes editables:
 media móvil de 350 ms contra el temblor + reducción RDP por canal, extremos
