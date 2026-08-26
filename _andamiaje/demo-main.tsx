@@ -36,6 +36,7 @@ if (raiz) {
       snapshotInicial={serializar(COMPOSICION_DEMO)}
       composicionId="demo"
       entregarExport={entregarExport}
+      conAgente={false} // la página publicada no tiene backend para el agente
     />,
   );
 }
