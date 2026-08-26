@@ -85,7 +85,6 @@ export function Editor({
   const [altoTimeline, setAltoTimeline] = useState(240);
   const [importarAbierto, setImportarAbierto] = useState(false);
   const [fuentesAbierto, setFuentesAbierto] = useState(false);
-  const [bibliotecaAbierta, setBibliotecaAbierta] = useState(false);
   // vista del lienzo: "mundo" = el canvas con el encuadre dibujado;
   // "camara" = lo que ve la cámara (arrastrar ENCUADRA, con auto-key);
   // "ambas" = el mundo con el outline moviéndose + PiP de la cámara.
@@ -135,12 +134,10 @@ export function Editor({
     | null
   >(null);
 
-  // ——— Herramienta del modo cámara (estilo AE): X = posición, Z = zoom ———
-  const [herramientaCamara, setHerramientaCamara] = useState<"posicion" | "zoom">("posicion");
-  const herramientaCamaraRef = useRef<"posicion" | "zoom">("posicion");
-  useEffect(() => {
-    herramientaCamaraRef.current = herramientaCamara;
-  }, [herramientaCamara]);
+  // ——— Herramienta del modo cámara (estilo AE): mantenés X y el mouse mueve
+  // la cámara; mantenés Z y el mouse vertical hace zoom. null = ninguna
+  // sostenida (el gesto vive en el Lienzo; acá sólo se refleja en el chip).
+  const [herramientaCamara, setHerramientaCamara] = useState<"posicion" | "zoom" | null>(null);
   const pasadoRef = useRef<Composicion[]>([]);
   const futuroRef = useRef<Composicion[]>([]);
   const revRef = useRef(composicion.rev ?? 0);
@@ -821,9 +818,6 @@ export function Editor({
       } else if ((e.key === "Delete" || e.key === "Backspace") && (seleccionIdsRef.current.length || (seleccionRef.current && seleccionRef.current !== CAMARA_ID))) {
         e.preventDefault();
         borrarSeleccionadas();
-      } else if (!meta && (e.key === "x" || e.key === "z") && (seleccionRef.current === CAMARA_ID || vistaRef.current === "camara")) {
-        // herramientas del modo cámara estilo AE: X posición, Z zoom
-        setHerramientaCamara(e.key === "z" ? "zoom" : "posicion");
       } else if (e.shiftKey && e.key === "!") {
         e.preventDefault();
         lienzoRef.current?.encuadrar();
@@ -842,9 +836,9 @@ export function Editor({
 
   // Selección con las consecuencias juntas: al cambiar de capa, un keyframe
   // elegido de OTRA capa se suelta (borrar/copiar operan sobre lo que se ve
-  // elegido); al entrar al modo cámara la herramienta arranca en posición (X).
+  // elegido); una tecla de cámara sostenida se suelta con la selección.
   const seleccionar = useCallback((id: string | null) => {
-    if (id === CAMARA_ID) setHerramientaCamara("posicion");
+    setHerramientaCamara(null);
     setSeleccionKf((sel) => {
       if (!sel) return sel;
       const pertenece = sel.tipo === "camara" ? id === CAMARA_ID : id === sel.capaId;
@@ -879,11 +873,13 @@ export function Editor({
   return (
     <div className="grid h-dvh grid-cols-[240px_1fr_300px] overflow-hidden">
       <div className="flex min-h-0 flex-col">
-        <div className={bibliotecaAbierta ? "h-1/2 min-h-0" : "min-h-0 flex-1"}>
+        <div className="h-1/2 min-h-0">
           <Capas
             composicion={composicion}
             seleccionId={seleccionId}
+            seleccionIds={seleccionIds}
             onSeleccionar={seleccionar}
+            onAlternarSeleccion={alternarSeleccion}
             onAlternarVisibilidad={alternarVisibilidad}
             onCheckpoint={registrar}
             onReordenarCapa={reordenarCapaEnVivo}
@@ -891,11 +887,9 @@ export function Editor({
             onBorrarCapa={borrarCapa}
           />
         </div>
-        {bibliotecaAbierta && (
-          <div className="h-1/2 min-h-0 border-r border-(--glass-border)">
-            <PanelBiblioteca onCerrar={() => setBibliotecaAbierta(false)} onAplicar={aplicarEfecto} />
-          </div>
-        )}
+        <div className="h-1/2 min-h-0 border-r border-(--glass-border)">
+          <PanelBiblioteca onAplicar={aplicarEfecto} />
+        </div>
       </div>
       <div className="flex min-h-0 flex-col">
         <div className="relative min-h-0 flex-1">
@@ -908,7 +902,7 @@ export function Editor({
             obtenerCalidad={() => calidadRef.current}
             obtenerTiempo={() => tiempoRef.current}
             obtenerVista={() => vistaRef.current}
-            obtenerHerramientaCamara={() => herramientaCamaraRef.current}
+            onTeclaCamara={setHerramientaCamara}
             onSeleccionar={seleccionar}
             onAlternarSeleccion={alternarSeleccion}
             onSeleccionarVarias={seleccionarVarias}
@@ -919,15 +913,15 @@ export function Editor({
             onZoomCamara={zoomCamaraEnVivo}
           />
           {(seleccionId === CAMARA_ID || vista === "camara") && !grabandoCamara && (
-            <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-control border border-(--glass-border) bg-(--menu-solido-bg) px-3 py-1.5 text-xs text-foreground/80 shadow-(--menu-shadow)">
+            <div className="pointer-events-none absolute bottom-14 left-1/2 -translate-x-1/2 rounded-control border border-(--glass-border) bg-(--menu-solido-bg) px-3 py-1.5 text-xs text-foreground/80 shadow-(--menu-shadow)">
               {herramientaCamara === "zoom"
-                ? t("Cámara · ZOOM (Z) — arrastrá horizontal · X: posición · deja keyframe en el playhead")
-                : vista === "camara"
-                  ? t("Cámara · POSICIÓN (X) — arrastrá la vista para encuadrar · Z: zoom · deja keyframe en el playhead")
-                  : t("Cámara · POSICIÓN (X) — arrastrá el encuadre · Z: zoom · deja keyframe en el playhead")}
+                ? t("Cámara · ZOOM (Z sostenida) — mové el mouse arriba/abajo: entra y sale · deja keyframe en el playhead")
+                : herramientaCamara === "posicion"
+                  ? t("Cámara · POSICIÓN (X sostenida) — la cámara sigue al mouse · deja keyframe en el playhead")
+                  : t("Cámara — mantené X y mové el mouse: posición · mantené Z y mové vertical: zoom · cada gesto deja keyframe en el playhead")}
             </div>
           )}
-          <div className="absolute left-3 top-3 flex items-center gap-2">
+          <div className={["absolute bottom-3 flex items-center gap-2", conAgente ? "left-14" : "left-3"].join(" ")}>
             <ConPista pista={t("Calidad del preview — el export siempre sale a resolución completa")}>
               <Segmentado
                 etiquetaAria={t("Calidad del preview")}
@@ -939,16 +933,6 @@ export function Editor({
                   { valor: "alta", nombre: t("Máx") },
                 ]}
               />
-            </ConPista>
-            <ConPista pista={t("Biblioteca de efectos — hover para verlos, click para ponérselos a la capa seleccionada")}>
-              <BotonIcono
-                tam={32}
-                activo={bibliotecaAbierta}
-                etiqueta={t("Biblioteca de efectos")}
-                onClick={() => setBibliotecaAbierta((a) => !a)}
-              >
-                <Icono nombre="biblioteca" width={15} height={15} />
-              </BotonIcono>
             </ConPista>
             <ConPista pista={t("Mundo: el lienzo con el encuadre. Cámara: lo que sale en el render — arrastrá para encuadrar. Ambas: el mundo + la cámara en miniatura")}>
               <Segmentado
@@ -989,7 +973,7 @@ export function Editor({
               )}
             </div>
             <ConPista
-              pista={t("Modo cámara — pausa y activa los controles: X posición, Z zoom; movete por el timeline y cada gesto deja un keyframe")}
+              pista={t("Modo cámara — pausa y activa los controles: mantené X y el mouse mueve la cámara, mantené Z y el mouse vertical hace zoom; movete por el timeline y cada gesto deja un keyframe")}
             >
               <BotonIcono
                 tam={32}

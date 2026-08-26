@@ -23,8 +23,6 @@ import { estadoEn } from "@/lib/motion/evaluar-puro";
 import { pintar, type Contexto2D } from "@/lib/motion/pintar";
 import { t } from "@/lib/i18n/stub";
 import { Etiqueta } from "@/components/ui/Etiqueta";
-import { Icono } from "@/components/icons";
-import { BotonIcono } from "@/components/ui/BotonIcono";
 
 function Tarjeta({ efecto, onAplicar }: { efecto: EfectoBiblioteca; onAplicar: (nombre: string) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -95,22 +93,13 @@ function Tarjeta({ efecto, onAplicar }: { efecto: EfectoBiblioteca; onAplicar: (
   );
 }
 
-export function PanelBiblioteca({
-  onCerrar,
-  onAplicar,
-}: {
-  onCerrar: () => void;
-  onAplicar: (nombre: string) => void;
-}) {
+export function PanelBiblioteca({ onAplicar }: { onAplicar: (nombre: string) => void }) {
   const secciones = efectosPorCategoria();
 
   return (
     <div className="flex h-full min-h-0 flex-col border-t border-(--glass-border) bg-(--chrome-bg)">
       <div className="flex items-center gap-2 px-3 pb-1 pt-2.5">
         <div className="min-w-0 flex-1 text-[13px] font-semibold text-foreground">{t("Efectos")}</div>
-        <BotonIcono tam={26} etiqueta={t("Cerrar la biblioteca")} onClick={onCerrar}>
-          <Icono nombre="cerrar" width={13} height={13} />
-        </BotonIcono>
       </div>
       <div className="px-3 pb-2 text-xs text-muted">
         {t("Hover para verlo; click se lo pone a la capa seleccionada.")}

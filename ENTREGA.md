@@ -17,7 +17,10 @@ entrada/salida y keyframes (snap al frame, un checkpoint de undo por gesto),
 **inspector de propiedades** (transformación, texto, presets con easing y
 escalonado — cada campo con checkpoint por sesión de foco), **selección MÚLTIPLE y
 drag de capas EN el lienzo** (marquee arrastrando en el vacío — el pan
-del viewport queda en la rueda —, shift+click acumula en lienzo y panel,
+del viewport queda en la rueda — y también sobre la placa de una pantalla
+NO seleccionada: seleccionás adentro del frame sin moverlo — la pantalla
+se mueve arrastrando la placa ya elegida — y la placa sólo entra al
+marquee si el rectángulo la encierra entera; shift+click acumula en lienzo y panel,
 drag de una seleccionada mueve todas juntas, Supr borra la selección
 entera; y la S sostenida hace que el playhead SIGA al mouse) (hit-test con rotación y escala, umbral 4px,
 Shift = eje dominante, ⌘ = sin snapping, capas bloqueadas seleccionables
@@ -52,7 +55,9 @@ plantilla en un mini canvas — hover lo anima en bucle, quieto muestra el
 reposo; nunca un video grabado que envejece —; tocarla aplica el efecto a
 la capa seleccionada reemplazando su entrada o salida según la clase y
 CONSERVANDO el timing existente; los efectos de trazo avisan si la capa no
-es un trazo), **texto multilínea con revelado enmascarado** (`\n` real con interlineado
+es un trazo; el panel vive SIEMPRE abierto — sin botón de toggle ni de
+cerrar — y los controles de calidad y vista se mudaron abajo a la
+izquierda del lienzo, en fila con el botón del agente), **texto multilínea con revelado enmascarado** (`\n` real con interlineado
 propio, división por caracteres/palabras/**líneas**, presets
 `revelar`/`ocultar`: cada unidad sube dentro de su renglón recortada a su
 caja de reposo — el clásico reveal de SplitText con máscara, sin crear
@@ -73,10 +78,13 @@ preview —; la cámara es otra capa, abajo: fila propia en capas y timeline
 con keyframes arrastrables, inspector con x/y/zoom resueltos al tiempo
 actual y auto-key por canal —si el canal tiene keyframes, editar crea uno
 en el playhead; si no, edita la base—, «keyframe acá», «tomar la vista»,
-y el modo cámara es estilo AE: con la cámara seleccionada, X = mover el
-encuadre y Z = zoom (drag horizontal), y TODO gesto en el lienzo deja
-keyframe en el playhead — te movés por la timeline, arrastrás, y la
-animación queda sola; los keyframes de x/y/zoom que caen en el mismo
+y el modo cámara es estilo AE con teclas SOSTENIDAS: mantenés X y el mouse
+mueve la cámara (sin apretar ningún botón — la cámara sigue al mouse),
+mantenés Z y mover el mouse en vertical la hace entrar (arriba) y salir
+(abajo); soltás la tecla y el gesto termina, y TODO movimiento deja
+keyframe en el playhead — te movés por la timeline, sostenés, y la
+animación queda sola (arrastrar el encuadre sin tecla sigue moviendo la
+posición); los keyframes de x/y/zoom que caen en el mismo
 instante son UNA «pose» en la timeline: se selecciona, arrastra, copia
 (⌘C), pega en el playhead (⌘V) y borra (Supr) como unidad — y los
 keyframes de pistas de capas se seleccionan/copian/pegan/borran igual;

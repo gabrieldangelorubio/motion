@@ -59,8 +59,8 @@ export const Lienzo = forwardRef<
     /** mundo = canvas con el encuadre dibujado · camara = lo que ve la cámara
         (arrastrar ENCUADRA, con auto-key) · ambas = mundo + PiP de la cámara */
     obtenerVista?: () => "mundo" | "camara" | "ambas";
-    /** herramienta activa en modo cámara: X mueve el encuadre, Z hace zoom */
-    obtenerHerramientaCamara?: () => "posicion" | "zoom";
+    /** avisa qué tecla de cámara quedó sostenida (X = posición, Z = zoom) — para el chip del Editor */
+    onTeclaCamara?: (herramienta: "posicion" | "zoom" | null) => void;
     onSeleccionar: (id: string | null) => void;
     /** shift+click: suma o saca la capa de la selección múltiple */
     onAlternarSeleccion?: (id: string) => void;
@@ -75,7 +75,7 @@ export const Lienzo = forwardRef<
     /** herramienta Z: zoom nuevo del encuadre (drag horizontal) */
     onZoomCamara?: (zoom: number) => void;
   }
->(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerSeleccionIds, obtenerMedia, obtenerCalidad, obtenerTiempo, obtenerVista, obtenerHerramientaCamara, onSeleccionar, onAlternarSeleccion, onSeleccionarVarias, onCheckpoint, onMoverCapa, onMoverCapas, onMoverCamara, onZoomCamara }, ref) {
+>(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerSeleccionIds, obtenerMedia, obtenerCalidad, obtenerTiempo, obtenerVista, onTeclaCamara, onSeleccionar, onAlternarSeleccion, onSeleccionarVarias, onCheckpoint, onMoverCapa, onMoverCapas, onMoverCamara, onZoomCamara }, ref) {
   const contRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const camRef = useRef<Camara>({ x: 0, y: 0, escala: 0.4 });
@@ -330,19 +330,103 @@ export const Lienzo = forwardRef<
     return () => cont.removeEventListener("wheel", alRodar);
   }, []);
 
+  // ——— Teclas de cámara SOSTENIDAS (estilo AE): mientras mantenés X, el
+  // mouse mueve la cámara sin apretar ningún botón; mientras mantenés Z,
+  // mover el mouse en vertical la hace entrar (arriba) y salir (abajo).
+  // Soltás la tecla y el gesto termina. Cada movimiento pasa por
+  // onMoverCamara/onZoomCamara, que arriba dejan keyframe en el playhead.
+  const sostenidaRef = useRef<{
+    tecla: "x" | "z";
+    tiene: boolean; // ya vimos la primera posición del mouse (origen)
+    ultX: number;
+    ultY: number;
+    camX: number;
+    camY: number;
+    zoom: number;
+    activo: boolean; // hubo movimiento real → checkpoint hecho
+  } | null>(null);
+
+  useEffect(() => {
+    const enInput = () => {
+      const el = document.activeElement as HTMLElement | null;
+      return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+    };
+    const alApretar = (e: KeyboardEvent) => {
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key !== "x" && e.key !== "z") return;
+      if (enInput()) return;
+      const modoCamara = obtenerSeleccionId() === CAMARA_ID || (obtenerVista?.() ?? "mundo") === "camara";
+      if (!modoCamara || !onMoverCamara) return;
+      const cam = estadoEn(obtenerComposicion(), obtenerTiempo?.() ?? 0).camara;
+      sostenidaRef.current = { tecla: e.key, tiene: false, ultX: 0, ultY: 0, camX: cam.x, camY: cam.y, zoom: cam.zoom, activo: false };
+      onTeclaCamara?.(e.key === "z" ? "zoom" : "posicion");
+    };
+    const alMoverMouse = (e: MouseEvent) => {
+      const s = sostenidaRef.current;
+      if (!s) return;
+      if (!s.tiene) {
+        s.tiene = true;
+        s.ultX = e.clientX;
+        s.ultY = e.clientY;
+        return;
+      }
+      const dx = e.clientX - s.ultX;
+      const dy = e.clientY - s.ultY;
+      s.ultX = e.clientX;
+      s.ultY = e.clientY;
+      if (!dx && !dy) return;
+      if (!s.activo) {
+        s.activo = true;
+        onCheckpoint(); // el gesto entero (apretar→soltar) es UN paso de undo
+      }
+      if (s.tecla === "z") {
+        s.zoom = Math.min(10, Math.max(0.1, s.zoom * Math.exp(-dy * 0.004)));
+        onZoomCamara?.(s.zoom);
+        return;
+      }
+      // la cámara SIGUE al mouse: el delta de pantalla llevado a mundo (en
+      // la vista cámara el mundo se ve escalado además por el zoom actual)
+      const esc = camRef.current.escala * ((obtenerVista?.() ?? "mundo") === "camara" ? s.zoom : 1);
+      s.camX += dx / esc;
+      s.camY += dy / esc;
+      onMoverCamara?.(s.camX, s.camY);
+    };
+    const soltar = () => {
+      if (!sostenidaRef.current) return;
+      sostenidaRef.current = null;
+      onTeclaCamara?.(null);
+    };
+    const alSoltarTecla = (e: KeyboardEvent) => {
+      if (sostenidaRef.current && e.key === sostenidaRef.current.tecla) soltar();
+    };
+    window.addEventListener("keydown", alApretar);
+    window.addEventListener("keyup", alSoltarTecla);
+    window.addEventListener("mousemove", alMoverMouse);
+    window.addEventListener("blur", soltar);
+    return () => {
+      window.removeEventListener("keydown", alApretar);
+      window.removeEventListener("keyup", alSoltarTecla);
+      window.removeEventListener("mousemove", alMoverMouse);
+      window.removeEventListener("blur", soltar);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onMoverCamara, onZoomCamara, onCheckpoint, onTeclaCamara]);
+
   const alBajarPuntero = (e: React.PointerEvent) => {
+    // con una tecla de cámara sostenida el mouse YA está moviendo la cámara:
+    // un drag encima duplicaría el gesto
+    if (sostenidaRef.current) return;
     const cont = contRef.current;
     if (!cont) return;
     const rect = cont.getBoundingClientRect();
     const comp = obtenerComposicion();
 
     // En vista cámara arrastrar ENCUADRA: movés la imagen como quien acomoda
-    // una foto (el contenido sigue al puntero, la cámara va al revés), y con
-    // Z el drag horizontal hace zoom. Auto-key arriba, como todo gesto.
+    // una foto (el contenido sigue al puntero, la cámara va al revés).
+    // Auto-key arriba, como todo gesto.
     if ((obtenerVista?.() ?? "mundo") === "camara") {
       if (!onMoverCamara) return;
       const vistaCam = estadoEn(comp, obtenerTiempo?.() ?? 0).camara;
-      const herramienta = obtenerHerramientaCamara?.() ?? "posicion";
       const gestoVista = { x0: e.clientX, y0: e.clientY, camX0: vistaCam.x, camY0: vistaCam.y, zoom0: vistaCam.zoom, activo: false };
       const alMoverVista = (ev: PointerEvent) => {
         const dxP = ev.clientX - gestoVista.x0;
@@ -351,10 +435,6 @@ export const Lienzo = forwardRef<
           if (Math.abs(dxP) + Math.abs(dyP) < UMBRAL_DRAG_CAPA) return;
           gestoVista.activo = true;
           onCheckpoint();
-        }
-        if (herramienta === "zoom" && onZoomCamara) {
-          onZoomCamara(Math.min(10, Math.max(0.1, gestoVista.zoom0 * Math.exp(dxP * 0.004))));
-          return;
         }
         // en la vista, el mundo está escalado por (viewport × zoom de cámara)
         const esc = camRef.current.escala * gestoVista.zoom0;
@@ -373,7 +453,6 @@ export const Lienzo = forwardRef<
     // arriba, en el Editor); un click seco vuelve a la selección normal.
     if (obtenerSeleccionId() === CAMARA_ID && onMoverCamara) {
       const vistaCam = estadoEn(comp, obtenerTiempo?.() ?? 0).camara;
-      const herramienta = obtenerHerramientaCamara?.() ?? "posicion";
       const gestoCam = { x0: e.clientX, y0: e.clientY, camX0: vistaCam.x, camY0: vistaCam.y, zoom0: vistaCam.zoom, activo: false };
       const alMoverCam = (ev: PointerEvent) => {
         const dxP = ev.clientX - gestoCam.x0;
@@ -382,11 +461,6 @@ export const Lienzo = forwardRef<
           if (Math.abs(dxP) + Math.abs(dyP) < UMBRAL_DRAG_CAPA) return;
           gestoCam.activo = true;
           onCheckpoint();
-        }
-        if (herramienta === "zoom" && onZoomCamara) {
-          // estilo AE: arrastrar a la derecha acerca, a la izquierda aleja
-          onZoomCamara(Math.min(10, Math.max(0.1, gestoCam.zoom0 * Math.exp(dxP * 0.004))));
-          return;
         }
         const esc = camRef.current.escala;
         onMoverCamara(gestoCam.camX0 + dxP / esc, gestoCam.camY0 + dyP / esc);
@@ -408,9 +482,9 @@ export const Lienzo = forwardRef<
     const punto = pantallaAMundo(e.clientX, e.clientY, rect, camRef.current);
     const capa = capaEnPunto(comp.capas, medir, punto.x, punto.y);
 
-    if (!capa) {
-      // vacío: MARQUEE de selección múltiple (el pan queda en la rueda);
-      // un click seco deselecciona al soltar
+    // MARQUEE de selección múltiple: arrastrás y el rectángulo elige; un
+    // click seco hace lo que diga el caller (deseleccionar o elegir la placa)
+    const iniciarMarquee = (alClickSeco: () => void) => {
       const origen = { x: e.clientX, y: e.clientY, movio: false };
       const alMover = (ev: PointerEvent) => {
         if (Math.abs(ev.clientX - origen.x) + Math.abs(ev.clientY - origen.y) > 3) origen.movio = true;
@@ -424,7 +498,7 @@ export const Lienzo = forwardRef<
         const marquee = marqueeRef.current;
         marqueeRef.current = null;
         if (!origen.movio || !marquee) {
-          onSeleccionar(null);
+          alClickSeco();
           return;
         }
         const mx0 = Math.min(marquee.x0, marquee.x1);
@@ -436,20 +510,43 @@ export const Lienzo = forwardRef<
           .filter((c) => {
             if (c.oculta) return false;
             const caja = cajaMundoDeCapa(c, medir);
+            // una PLACA (la manija de su pantalla) entra sólo si el marquee
+            // la encierra ENTERA: un marquee adentro del frame selecciona
+            // las capas, no la pantalla (borrar la placa borra la pantalla)
+            if (c.grupo === c.id)
+              return caja.x >= mx0 && caja.y >= my0 && caja.x + caja.w <= mx1 && caja.y + caja.h <= my1;
             return caja.x < mx1 && caja.x + caja.w > mx0 && caja.y < my1 && caja.y + caja.h > my0;
           })
           .map((c) => c.id);
         if (ids.length && onSeleccionarVarias) onSeleccionarVarias(ids);
-        else onSeleccionar(null);
+        else alClickSeco();
       };
       window.addEventListener("pointermove", alMover);
       window.addEventListener("pointerup", alSoltar);
+    };
+
+    if (!capa) {
+      // vacío: marquee (el pan queda en la rueda); click seco deselecciona
+      iniciarMarquee(() => onSeleccionar(null));
       return;
     }
 
     // shift+click sobre una capa: entra o sale de la selección múltiple
     if (e.shiftKey && onAlternarSeleccion) {
       onAlternarSeleccion(capa.id);
+      return;
+    }
+
+    // sobre la PLACA de una pantalla que NO está seleccionada, arrastrar
+    // también hace marquee: seleccionás varias capas ADENTRO del frame sin
+    // mover la pantalla (la pantalla se mueve arrastrando la placa ya
+    // elegida); el click seco elige la placa como siempre
+    if (
+      capa.grupo === capa.id &&
+      obtenerSeleccionId() !== capa.id &&
+      !(obtenerSeleccionIds?.() ?? []).includes(capa.id)
+    ) {
+      iniciarMarquee(() => onSeleccionar(capa.id));
       return;
     }
 
