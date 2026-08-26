@@ -44,9 +44,13 @@ export function Editor({ snapshotInicial, composicionId }: { snapshotInicial: st
   const [altoTimeline, setAltoTimeline] = useState(240);
 
   const compRef = useRef(composicion);
+  const seleccionRef = useRef(seleccionId);
   useEffect(() => {
     compRef.current = composicion;
   }, [composicion]);
+  useEffect(() => {
+    seleccionRef.current = seleccionId;
+  }, [seleccionId]);
   const tiempoRef = useRef(0);
   const lienzoRef = useRef<ControlLienzo>(null);
   const pasadoRef = useRef<Composicion[]>([]);
@@ -223,7 +227,14 @@ export function Editor({ snapshotInicial, composicionId }: { snapshotInicial: st
       </div>
       <div className="flex min-h-0 flex-col">
         <div className="relative min-h-0 flex-1">
-          <Lienzo ref={lienzoRef} obtenerComposicion={() => compRef.current} />
+          <Lienzo
+            ref={lienzoRef}
+            obtenerComposicion={() => compRef.current}
+            obtenerSeleccionId={() => seleccionRef.current}
+            onSeleccionar={setSeleccionId}
+            onCheckpoint={registrar}
+            onMoverCapa={(id, x, y) => editarEnVivo(id, { x, y })}
+          />
           <div className="absolute right-3 top-3">
             <ConPista pista={t("Encuadrar todo (⇧1)")}>
               <BotonIcono tam={32} etiqueta={t("Encuadrar todo")} onClick={() => lienzoRef.current?.encuadrar()}>

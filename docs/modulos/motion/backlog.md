@@ -10,12 +10,13 @@
   (MediaRecorder no lo es).
 - **Dónde:** `lib/motion/exportar.ts` (nuevo), worker
 
-### [P1] Selección y drag de capas en el lienzo + snapping azul
+### [P1] Selección múltiple en el lienzo: shift-click, marquee, Alt-duplica
 - **Estado:** abierto
-- **Qué:** click/shift-click/marquee, drag con umbral de 4px y checkpoint de
-  undo al cruzarlo, `snapArrastre` con guías a 1px constante en pantalla.
+- **Qué:** lo que falta encima de la selección simple ya hecha: shift-click
+  acumula, marquee desde el fondo, Alt = duplicar y arrastrar la copia,
+  mover la selección múltiple por delta con orígenes guardados.
 - **Por qué:** «el editor se siente como los otros dos lienzos» (kit §10.6).
-- **Dónde:** `components/motion/Lienzo.tsx`, `lib/motion/camara-puro.ts`
+- **Dónde:** `components/motion/Lienzo.tsx`
 
 ### [P1] Texto multilínea, métricas reales y carga de fuentes
 - **Estado:** abierto

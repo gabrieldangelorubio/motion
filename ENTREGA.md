@@ -15,8 +15,12 @@ las constantes de la casa), línea de tiempo **redimensionable** (agarradera
 superior) con scrub, transport, y **edición por drag** de spans de
 entrada/salida y keyframes (snap al frame, un checkpoint de undo por gesto),
 **inspector de propiedades** (transformación, texto, presets con easing y
-escalonado — cada campo con checkpoint por sesión de foco), panel de capas,
-undo por snapshots, autosave con CAS.
+escalonado — cada campo con checkpoint por sesión de foco), **selección y
+drag de capas EN el lienzo** (hit-test con rotación y escala, umbral 4px,
+Shift = eje dominante, ⌘ = sin snapping, capas bloqueadas seleccionables
+pero no movibles) con **snapping azul** (algoritmo canónico de 3 imanes por
+eje, un ganador por eje, el frame como imán, guías a 1px constante), panel
+de capas, undo por snapshots, autosave con CAS.
 
 ## Qué NO hace (con motivo)
 
@@ -26,9 +30,8 @@ undo por snapshots, autosave con CAS.
 - **Texto multilínea y fuentes cargadas**: hoy una capa de texto es una línea
   con el stack del sistema; `FontFace` + licencias es un P1 declarado.
 - **Audio**: no hay pista de audio en esta versión.
-- **Selección/drag de elementos EN el lienzo y snapping**: el lienzo hoy
-  panea/zoomea; mover capas se hace por datos. P1 con el algoritmo canónico
-  de `snapArrastre`.
+- **Selección múltiple en el lienzo** (shift-click, marquee, Alt-duplica):
+  la selección y el drag simples ya están; lo múltiple es P1.
 - **Permisos reales**: `exigirEdicion(actor, composicionId)` es el único
   punto de entrada de mutación, listo para cablear (§2.3).
 
@@ -85,14 +88,16 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **49
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **60
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`.
 - **Sabotajes vistos en rojo** (§2.5): (1) `interpolar` ignorando el easing
   del tramo → falló exactamente «el easing del tramo lo declara el keyframe
   de SALIDA»; (2) gate del motion blur apagado en `evaluar-puro` → falló
   exactamente «el motion blur sintetizado es >0 durante el movimiento…» (que
-  además lleva su control positivo). Restaurados, 49/49 verdes.
+  además lleva su control positivo); (3) regla de un-solo-ganador del
+  snapping invertida → falló exactamente «UN solo ganador por eje — gana la
+  distancia mínima». Restaurados, 60/60 verdes.
 
 ## Qué necesita cablearse de su lado
 
