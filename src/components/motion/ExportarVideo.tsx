@@ -32,10 +32,17 @@ export function ExportarVideo({
   const [progreso, setProgreso] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   // La capacidad se chequea en el cliente (en SSR no hay VideoEncoder y el
-  // botón nacería deshabilitado con hidratación desparejada).
+  // botón nacería deshabilitado con hidratación desparejada). El setState
+  // va en un microtask para no disparar un render en cascada del effect.
   const [soportado, setSoportado] = useState(true);
   useEffect(() => {
-    setSoportado(exportSoportado());
+    let vivo = true;
+    queueMicrotask(() => {
+      if (vivo) setSoportado(exportSoportado());
+    });
+    return () => {
+      vivo = false;
+    };
   }, []);
 
   const exportar = async () => {
