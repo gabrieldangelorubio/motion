@@ -156,6 +156,15 @@ async function nodoAIR(nodo, marco, salida) {
       interlineado = Math.round((nodo.height / lineasEstimadas) * 100) / 100;
     }
 
+    // La TINTA: dónde quedaron pintados los píxeles del texto en Figma
+    // (absoluteRenderBounds). Su tope es el dato duro para el anclaje
+    // vertical del editor — sin depender de modelos de métricas.
+    var tintaY;
+    var rb = nodo.absoluteRenderBounds;
+    if (rb && marco.absoluteBoundingBox) {
+      tintaY = Math.round((rb.y - marco.absoluteBoundingBox.y) * 100) / 100;
+    }
+
     salida.push({
       tipo: "texto",
       nombre: nodo.name,
@@ -171,6 +180,7 @@ async function nodoAIR(nodo, marco, salida) {
         interletrado: Math.abs(espaciado) > 0.01 ? Math.round(espaciado * 100) / 100 : undefined,
         interlineado: interlineado,
         lineasEstimadas: lineasEstimadas > 1 && contenido.indexOf("\n") < 0 ? lineasEstimadas : undefined,
+        tintaY: tintaY,
         alineacion: alineacionDe(nodo),
         color: colorDePintura(pintura),
       },

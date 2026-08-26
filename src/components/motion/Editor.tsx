@@ -330,13 +330,15 @@ export function Editor({
     return { ...comp, capas };
   }, [envolverCapaTexto]);
 
-  // Anclaje vertical fiel a Figma: Figma centra los glifos en la caja de
-  // línea, así que la baseline real depende del ascenso/descenso de la
-  // FUENTE (fontBoundingBox del canvas), no de un 0.8 fijo. Se recalcula
-  // desde el tope de la caja del nodo — al importar con la fuente que haya,
-  // y de nuevo al cargar la tipografía real. Sólo toca capas cuya y sigue
-  // siendo la que pusimos nosotros (si el usuario la movió, es suya).
-  const anclasRef = useRef<{ capaId: string; topCaja: number; yAplicada?: number }[]>([]);
+  // Anclaje vertical fiel a Figma. El dato duro es la TINTA: dónde quedaron
+  // pintados los píxeles en Figma (tintaY, del absoluteRenderBounds). La
+  // baseline exacta sale de tintaY + el ascenso de tinta del MISMO texto
+  // medido acá (actualBoundingBoxAscent) — geometría contra geometría, sin
+  // modelos de métricas. Sin tinta, degrada al centrado en la caja de línea
+  // con las métricas de la fuente (fontBoundingBox). Se recalcula al
+  // importar y de nuevo al cargar la tipografía real; sólo toca capas cuya
+  // y sigue siendo la que pusimos nosotros (si el usuario la movió, es suya).
+  const anclasRef = useRef<{ capaId: string; topCaja: number; tintaY?: number; yAplicada?: number }[]>([]);
 
   const anclarTextos = useCallback((comp: Composicion): Composicion => {
     if (!anclasRef.current.length) return comp;
@@ -349,13 +351,25 @@ export function Editor({
       const { tamano, peso, familia } = c.fuente;
       const interlineado = c.fuente.interlineado ?? tamano * 1.15;
       ctx.font = `${peso} ${tamano}px ${familia}`;
-      const m = ctx.measureText("Híg");
-      const ascenso = m.fontBoundingBoxAscent ?? 0;
-      const descenso = m.fontBoundingBoxDescent ?? 0;
-      const cuerpo = ascenso + descenso;
-      const baseline = cuerpo > 0 && cuerpo < interlineado * 3
-        ? (interlineado - cuerpo) / 2 + ascenso
-        : baselineAproximada(tamano, c.fuente.interlineado);
+
+      const primeraLinea = c.texto.split("\n")[0];
+      const tinta = ancla.tintaY !== undefined && primeraLinea.trim() !== ""
+        ? ctx.measureText(primeraLinea).actualBoundingBoxAscent
+        : undefined;
+
+      let baseline: number;
+      if (ancla.tintaY !== undefined && tinta !== undefined && Number.isFinite(tinta) && tinta > 0) {
+        // baseline absoluta = tope de tinta de Figma + ascenso de tinta local
+        baseline = ancla.tintaY - ancla.topCaja + tinta;
+      } else {
+        const m = ctx.measureText("Híg");
+        const ascenso = m.fontBoundingBoxAscent ?? 0;
+        const descenso = m.fontBoundingBoxDescent ?? 0;
+        const cuerpo = ascenso + descenso;
+        baseline = cuerpo > 0 && cuerpo < interlineado * 3
+          ? (interlineado - cuerpo) / 2 + ascenso
+          : baselineAproximada(tamano, c.fuente.interlineado);
+      }
       const n = c.texto.split("\n").length;
       const y = ancla.topCaja + baseline + ((n - 1) / 2) * interlineado;
       ancla.yAplicada = y;

@@ -38,6 +38,9 @@ export type NodoFigma = {
     /** líneas RENDERIZADAS que el wrap de la caja produjo (la API no da los
         cortes: el plugin las estima por geometría y el editor re-envuelve) */
     lineasEstimadas?: number;
+    /** tope de la TINTA renderizada (absoluteRenderBounds) en px del frame:
+        el dato duro del anclaje vertical, independiente de métricas */
+    tintaY?: number;
     alineacion: "izquierda" | "centro" | "derecha";
     color: string;
   };
@@ -67,7 +70,7 @@ export type ResultadoImport = {
 };
 
 export type ReajusteTexto = { capaId: string; anchoCaja: number; lineas: number };
-export type AnclaTexto = { capaId: string; topCaja: number };
+export type AnclaTexto = { capaId: string; topCaja: number; tintaY?: number };
 
 /**
  * Baseline de la primera línea desde el tope de la caja, con el modelo de
@@ -184,7 +187,7 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
         // el quiebre era wrap de la caja: el editor lo reconstruye midiendo
         reajustes.push({ capaId: id, anchoCaja: nodo.ancho, lineas: t.lineasEstimadas! });
       }
-      anclas.push({ capaId: id, topCaja: nodo.y });
+      anclas.push({ capaId: id, topCaja: nodo.y, tintaY: t.tintaY });
       capas.push({
         ...base,
         tipo: "texto",

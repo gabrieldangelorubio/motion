@@ -151,13 +151,15 @@ test("la baseline sigue el modelo de Figma: glifos centrados en la caja de líne
     frame: { nombre: "F", ancho: 1920, alto: 1080, fondo: "#000" },
     nodos: [{
       tipo: "texto", nombre: "FANS", x: 900, y: 500, ancho: 460, alto: 150,
-      texto: { contenido: "FANS", familia: "Arial", peso: 900, tamano: 180, interlineado: 150, alineacion: "izquierda", color: "#fff" },
+      texto: { contenido: "FANS", familia: "Arial", peso: 900, tamano: 180, interlineado: 150, tintaY: 502.5, alineacion: "izquierda", color: "#fff" },
     }],
   };
   const { composicion, anclas } = normalizarFigma(datos);
   const fans = composicion.capas[0];
   assert.ok(Math.abs(fans.y - (500 + baselineAproximada(180, 150))) < 0.001);
-  assert.deepEqual(anclas, [{ capaId: fans.id, topCaja: 500 }]);
+  // el ancla lleva el tope de caja Y el tope de tinta: con la tinta el editor
+  // resuelve la baseline exacta midiendo el mismo texto (geometría, no modelo)
+  assert.deepEqual(anclas, [{ capaId: fans.id, topCaja: 500, tintaY: 502.5 }]);
 });
 
 test("la mezcla viaja del IR a la capa; una desconocida degrada a normal CON aviso", () => {
