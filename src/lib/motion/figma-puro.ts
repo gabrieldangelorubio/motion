@@ -35,6 +35,9 @@ export type NodoFigma = {
     interletrado?: number;
     /** lineHeight en px si Figma lo tenía en px; ausente = tamano × 1.15 */
     interlineado?: number;
+    /** líneas RENDERIZADAS que el wrap de la caja produjo (la API no da los
+        cortes: el plugin las estima por geometría y el editor re-envuelve) */
+    lineasEstimadas?: number;
     alineacion: "izquierda" | "centro" | "derecha";
     color: string;
   };
@@ -55,7 +58,61 @@ export type ImportFigma = {
 export type ResultadoImport = {
   composicion: Composicion;
   avisos: string[];
+  /** textos cuyo salto de línea era wrap de la caja en Figma: el editor los
+      re-envuelve al ancho de la caja (acá no se puede medir texto) */
+  reajustes: ReajusteTexto[];
 };
+
+export type ReajusteTexto = { capaId: string; anchoCaja: number; lineas: number };
+
+export type MedirAncho = (texto: string) => number;
+
+function envolverGreedy(palabras: string[], anchoMax: number, medir: MedirAncho): string[] {
+  const lineas: string[] = [];
+  let actual = "";
+  for (const palabra of palabras) {
+    const candidata = actual ? `${actual} ${palabra}` : palabra;
+    if (actual && medir(candidata) > anchoMax) {
+      lineas.push(actual);
+      actual = palabra;
+    } else {
+      actual = candidata;
+    }
+  }
+  if (actual) lineas.push(actual);
+  return lineas;
+}
+
+/**
+ * Reconstruye el wrap que Figma hizo en su caja. Pura: la medición entra
+ * como función. Primero prueba el ancho de la caja; si el conteo no coincide
+ * con las líneas que Figma REALMENTE renderizó (las métricas de la fuente
+ * medida pueden diferir de la real), busca por bisección el ancho más
+ * angosto que produce exactamente ese conteo — el dato fuerte es el conteo,
+ * no el ancho. Una palabra más ancha que la caja desborda, no se corta.
+ */
+export function envolverEnLineas(
+  texto: string,
+  anchoMax: number,
+  medir: MedirAncho,
+  lineasObjetivo?: number,
+): string {
+  const palabras = texto.split(/\s+/).filter(Boolean);
+  if (palabras.length < 2) return texto;
+
+  const porCaja = envolverGreedy(palabras, anchoMax, medir);
+  const objetivo = Math.min(lineasObjetivo ?? 0, palabras.length);
+  if (objetivo <= 1 || porCaja.length === objetivo) return porCaja.join("\n");
+
+  let angosto = Math.max(...palabras.map(medir));
+  let ancho = medir(palabras.join(" "));
+  for (let i = 0; i < 30; i++) {
+    const medio = (angosto + ancho) / 2;
+    if (envolverGreedy(palabras, medio, medir).length > objetivo) angosto = medio;
+    else ancho = medio;
+  }
+  return envolverGreedy(palabras, ancho, medir).join("\n");
+}
 
 const sanitizarId = (nombre: string, indice: number) =>
   `fig-${indice}-${nombre.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32) || "capa"}`;
@@ -76,6 +133,7 @@ export function validarImportFigma(datos: unknown): datos is ImportFigma {
 export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): ResultadoImport {
   const avisos: string[] = [];
   const capas: Capa[] = [];
+  const reajustes: ReajusteTexto[] = [];
 
   datos.nodos.forEach((nodo, i) => {
     if (nodo.aviso) avisos.push(`«${nodo.nombre}»: ${nodo.aviso}`);
@@ -105,6 +163,10 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
       // así que el ancla baja media altura de bloque extra por línea adicional.
       const lineas = t.contenido.split("\n").length;
       const interlineado = t.interlineado ?? t.tamano * 1.15;
+      if (lineas === 1 && (t.lineasEstimadas ?? 1) > 1) {
+        // el quiebre era wrap de la caja: el editor lo reconstruye midiendo
+        reajustes.push({ capaId: id, anchoCaja: nodo.ancho, lineas: t.lineasEstimadas! });
+      }
       capas.push({
         ...base,
         tipo: "texto",
@@ -188,5 +250,6 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
       capas,
     },
     avisos,
+    reajustes,
   };
 }

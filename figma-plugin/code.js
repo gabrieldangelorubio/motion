@@ -123,20 +123,46 @@ async function nodoAIR(nodo, marco, salida) {
       if (nodo.lineHeight.unit === "PIXELS") interlineado = Math.round(nodo.lineHeight.value * 100) / 100;
       else if (nodo.lineHeight.unit === "PERCENT") interlineado = Math.round(nodo.fontSize * nodo.lineHeight.value) / 100;
     }
+
+    // textCase es un ESTILO en Figma: los caracteres quedan como se tipearon
+    // y el render los transforma. Acá se aplica al contenido, que es lo que
+    // el motor pinta tal cual.
+    var contenido = nodo.characters;
+    var avisoCaso = null;
+    var caso = nodo.textCase === figma.mixed ? "MIXED" : (nodo.textCase || "ORIGINAL");
+    if (caso === "UPPER") contenido = contenido.toUpperCase();
+    else if (caso === "LOWER") contenido = contenido.toLowerCase();
+    else if (caso === "TITLE") {
+      contenido = contenido.replace(/\S+/g, function (p) {
+        return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+      });
+    } else if (caso === "MIXED") {
+      avisoCaso = "mayúsculas/minúsculas con estilos mixtos: quedó el texto tal como se tipeó";
+    } else if (caso.indexOf("SMALL_CAPS") === 0) {
+      avisoCaso = "versalitas (small caps) no existen en canvas: quedó el texto tal como se tipeó";
+    }
+
+    // El wrap automático de la caja NO deja \n en characters: estimamos las
+    // líneas renderizadas por geometría y el editor re-envuelve al importar
+    // (acá no hay medición de texto; allá sí).
+    var lh = interlineado || nodo.fontSize * 1.15;
+    var lineasEstimadas = Math.max(1, Math.round(nodo.height / lh));
+
     salida.push({
       tipo: "texto",
       nombre: nodo.name,
       x: c.x, y: c.y, ancho: c.ancho, alto: c.alto,
       opacidad: nodo.opacity < 1 ? nodo.opacity : undefined,
       mezcla: mezclaTexto.mezcla,
-      aviso: mezclaTexto.aviso || undefined,
+      aviso: conAviso({ aviso: mezclaTexto.aviso || undefined }, avisoCaso) || undefined,
       texto: {
-        contenido: nodo.characters,
+        contenido: contenido,
         familia: nodo.fontName.family,
         peso: nodo.fontWeight,
         tamano: nodo.fontSize,
         interletrado: Math.abs(espaciado) > 0.01 ? Math.round(espaciado * 100) / 100 : undefined,
         interlineado: interlineado,
+        lineasEstimadas: lineasEstimadas > 1 && contenido.indexOf("\n") < 0 ? lineasEstimadas : undefined,
         alineacion: alineacionDe(nodo),
         color: colorDePintura(pintura),
       },

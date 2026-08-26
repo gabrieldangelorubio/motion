@@ -13,7 +13,7 @@
 ----------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Capa, Composicion, NombrePropiedad } from "@/lib/motion/modelo";
+import type { Capa, CapaTexto, Composicion, NombrePropiedad } from "@/lib/motion/modelo";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
 import { editarCapa, moverKeyframe } from "@/lib/motion/herramientas-puro";
 import { guardarComposicionAction } from "@/app/(app)/(modulos)/motion/acciones";
@@ -32,7 +32,7 @@ import { PanelFuentes } from "@/components/motion/PanelFuentes";
 import { Segmentado } from "@/components/ui/Segmentado";
 import { familiasDeComposicion, familiaDisponible } from "@/lib/motion/fuentes-puro";
 import { suavizarGrabacion, type MuestraCamara } from "@/lib/motion/suavizar-puro";
-import type { ResultadoImport } from "@/lib/motion/figma-puro";
+import { envolverEnLineas, type ResultadoImport } from "@/lib/motion/figma-puro";
 import type { FuentesDeMedia } from "@/lib/motion/pintar";
 
 const TOPE_UNDO = 120;
@@ -294,9 +294,68 @@ export function Editor({
     }
   }, []);
 
+  // Los textos que en Figma quebraban por el wrap de la caja llegan en una
+  // sola línea (la API no expone los cortes): acá se re-envuelven midiendo
+  // al ancho de la caja — y el conteo de líneas que Figma renderizó manda si
+  // las métricas difieren. El ancla baja media altura de bloque por línea
+  // extra (el motor centra el bloque en el ancla). El 2% de tolerancia
+  // absorbe la diferencia de métricas entre Figma y canvas.
+  const reajustesRef = useRef<
+    { capaId: string; anchoCaja: number; lineas: number; original: string; yOriginal: number; aplicado: string }[]
+  >([]);
+
+  const envolverCapaTexto = useCallback((capa: CapaTexto, anchoCaja: number, lineas: number, original: string, yOriginal: number, ctx: CanvasRenderingContext2D) => {
+    ctx.font = `${capa.fuente.peso} ${capa.fuente.tamano}px ${capa.fuente.familia}`;
+    const interletrado = capa.fuente.interletrado ?? 0;
+    const medir = (t: string) => ctx.measureText(t).width + interletrado * Math.max(0, t.length - 1);
+    const texto = envolverEnLineas(original, anchoCaja * 1.02, medir, lineas);
+    const n = texto.split("\n").length;
+    const interlineado = capa.fuente.interlineado ?? capa.fuente.tamano * 1.15;
+    return { texto, y: yOriginal + ((n - 1) / 2) * interlineado };
+  }, []);
+
+  const reajustarTextos = useCallback((comp: Composicion, reajustes: ResultadoImport["reajustes"]): Composicion => {
+    reajustesRef.current = [];
+    if (!reajustes.length) return comp;
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (!ctx) return comp;
+    const capas = comp.capas.map((c) => {
+      const ajuste = reajustes.find((r) => r.capaId === c.id);
+      if (!ajuste || c.tipo !== "texto" || c.texto.includes("\n")) return c;
+      const { texto, y } = envolverCapaTexto(c, ajuste.anchoCaja, ajuste.lineas, c.texto, c.y, ctx);
+      if (texto === c.texto) return c;
+      reajustesRef.current.push({ ...ajuste, original: c.texto, yOriginal: c.y, aplicado: texto });
+      return { ...c, texto, y };
+    });
+    return { ...comp, capas };
+  }, [envolverCapaTexto]);
+
+  // El panel de fuentes se abre solo tras un import con familias faltantes:
+  // al cerrarlo, la fuente REAL ya está cargada y el wrap se recalcula con
+  // sus métricas verdaderas — sólo en capas que el usuario no tocó.
+  const reaplicarReajustes = useCallback(() => {
+    if (!reajustesRef.current.length) return;
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (!ctx) return;
+    let cambio = false;
+    const capas = compRef.current.capas.map((c) => {
+      const p = reajustesRef.current.find((r) => r.capaId === c.id);
+      if (!p || c.tipo !== "texto" || c.texto !== p.aplicado) return c;
+      const { texto, y } = envolverCapaTexto(c, p.anchoCaja, p.lineas, p.original, p.yOriginal, ctx);
+      if (texto === c.texto) return c;
+      cambio = true;
+      p.aplicado = texto;
+      return { ...c, texto, y };
+    });
+    if (cambio) {
+      registrar();
+      setComposicion({ ...compRef.current, capas });
+    }
+  }, [envolverCapaTexto, registrar]);
+
   const importarDeFigma = useCallback((resultado: ResultadoImport) => {
     registrar();
-    setComposicion(medirTrazos(resultado.composicion));
+    setComposicion(reajustarTextos(medirTrazos(resultado.composicion), resultado.reajustes));
     setSeleccionId(null);
     tiempoRef.current = 0;
     setTiempoUI(0);
@@ -312,7 +371,7 @@ export function Editor({
       pesos.some((peso) => !familiaDisponible(familia, peso)),
     );
     if (faltantes) setFuentesAbierto(true);
-  }, [registrar, medirTrazos]);
+  }, [registrar, medirTrazos, reajustarTextos]);
 
   const familiasFaltantes = familiasDeComposicion(composicion).filter(({ familia, pesos }) =>
     pesos.some((peso) => !familiaDisponible(familia, peso)),
@@ -463,7 +522,10 @@ export function Editor({
           />
           <PanelFuentes
             abierto={fuentesAbierto}
-            onCerrar={() => setFuentesAbierto(false)}
+            onCerrar={() => {
+              setFuentesAbierto(false);
+              reaplicarReajustes();
+            }}
             composicion={composicion}
           />
           {conAgente && (
