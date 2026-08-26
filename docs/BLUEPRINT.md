@@ -1,6 +1,6 @@
 # Blueprint — plataforma de motion para case studies
 
-> Estado: DRAFT v0 — secciones marcadas ⏳ se completan con el research en curso.
+> Estado: v1 — research completo integrado (ver docs/research-*.md).
 
 ## Visión
 
@@ -28,8 +28,11 @@ luz/color, transiciones entre secciones, loops de fondo, contadores.
 ## Decisión de motor: GSAP sobre DOM/CSS
 
 Cambio respecto a v1 (WAAPI puro): **GSAP pasa a ser el motor de timeline**.
-Uso interno, sin redistribución ni comercialización → sin conflicto de
-licencia (⏳ confirmar términos exactos post-Webflow).
+Licencia confirmada (docs/research-ia-y-gsap.md): GSAP es 100% gratis desde
+abril 2025, todos los plugins incluidos, uso comercial permitido. Única
+cláusula a vigilar: no ofrecer a terceros una herramienta no-code de
+animación visual que compita con Webflow — uso interno no la toca; si algún
+día se comercializa la plataforma, re-evaluar.
 
 Qué nos da GSAP que WAAPI no:
 - Timeline maestro anidable con labels, `seek()`, `timeScale()`, `progress()`
@@ -81,15 +84,24 @@ Principios:
   inverso del contenedor mundo (rig 2.5D con perspective).
 - Todo id es estable: es el ancla para el chat IA, la UI y el export AE.
 
-### M2 — Ingest de Figma  ⏳ research en curso
+### M2 — Ingest de Figma  ✅ validado (docs/research-figma-ingest.md)
 
-Plan base (a validar):
-- **Plugin de Figma** que exporta selección/página como JSON de scene graph
-  parcial + assets (texto como texto real con estilos; vectores como SVG por
-  nodo; imágenes rasterizadas; jerarquía, nombres y z-order intactos).
-- Alternativa REST API para automatización sin abrir Figma.
-- Normalizador: Figma tree → Scene Graph v2 (coordenadas, rotaciones,
-  blend modes, fuentes → Google Fonts match o fuentes locales).
+- **Plugin de Figma** (no REST: el plugin da vectorNetwork completo, fuentes
+  enumeradas, selección como scope y cero rate limits). Patrón copy/paste al
+  estilo Jitter/Fable, o POST local.
+- Normalizador con **IR intermedio** (patrón FigmaToCode): Figma tree → IR →
+  Scene Graph v2, con warnings de conversión visibles.
+- Mapeo por nodo: texto → HTML real con spans por run de estilo (la mayor
+  ganancia de fidelidad); vectores → SVG inline por nodo; rects simples →
+  divs con CSS; imágenes → raster 2–4×; lo no expresable en CSS →
+  **raster por-nodo con flag "flattened"** (nunca all-or-nothing).
+- Fuentes: match Google Fonts; sin match → flag explícito + upload/sustituto
+  elegido por el usuario. Nunca sustitución silenciosa.
+- Transforms: siempre `relativeTransform` (nunca absoluteBoundingBox),
+  rotación con origin top-left, matriz row→column-major. Checklist completo
+  en el doc de research.
+- A monitorear: **Figma Motion** (keyframes nativos de Figma, beta 2026) —
+  cuando la API los exponga, importaremos también intención de animación.
 
 ### M3 — Motor de render (DOM/CSS + GSAP)
 
@@ -100,22 +112,36 @@ Plan base (a validar):
   cámara (transform inverso del mundo).
 - Motion blur direccional por velocidad (heredado de v1, fuente GSAP).
 - Efectos: máscaras/clip-path, gradientes animados vía @property,
-  glows/duotone con filter y blend modes.  ⏳ taxonomía completa en research.
+  glows/duotone con filter y blend modes. Taxonomía completa de 12
+  categorías (títulos, mockups, grillas Flip, cámara 2.5D, grain
+  feTurbulence, transiciones, contadores, logos DrawSVG/MorphSVG, loops) con
+  técnica y dificultad por elemento: docs/research-vocabulario-motion.md.
+  Regla de escala: DOM/CSS aguanta ~1000 elementos animados; WebGL solo si
+  hiciera falta 3D real o >10k partículas (hasta ahora, nada lo exige).
 
-### M4 — Asistente IA (chatbox)
+### M4 — Asistente IA (chatbox)  ✅ validado (docs/research-ia-y-gsap.md)
 
-Arquitectura (a validar con SOTA ⏳):
+Validado contra el SOTA (LottieFiles Motion Copilot, motion.so, Framer
+Agents, papers SceneCraft/MapStory/AI Prototyper):
 - Claude API con **tool calling sobre operaciones del scene graph**, nunca
   regeneración total: `applyPreset`, `setTrack`, `retime`, `addLayer`,
   `groupLayers`, `setCamera`, `reorderSection`… Ops incrementales
-  validadas contra el schema + undo stack.
-- Contexto del asistente: scene graph resumido + frame actual capturado +
-  librería de presets disponible.
-- Dos niveles de dirección: alto nivel ("más energía", "estilo editorial
-  sobrio") → política de estilo que mapea a elecciones de presets/easings;
-  bajo nivel ("el logo entra a los 2.3s con spring suave").
-- Tokenomics: el chat usa el modelo que corresponda a la tarea (ops
-  mecánicas → modelo económico; dirección creativa → modelo grande).
+  validadas contra el schema antes de tocar estado.
+- **Retrieval en dos pasos** en escenas grandes: elegir nodos/presets
+  relevantes primero, instanciar parámetros después (evita referencias a
+  layers inexistentes).
+- **Validación semántica** además de schema: loop render + verificación
+  (captura de frame) al estilo SceneCraft — nuestro render determinístico lo
+  hace barato.
+- **Mismo undo stack** que las ediciones manuales; **mostrar el diff** de
+  cada edición mientras ocurre; **no resolver ambigüedad en silencio**;
+  **clampear números del LLM** a rangos sanos y tokens de diseño (la falla
+  típica es alucinación numérica, no estructural).
+- Dos niveles de dirección: "moods" acotados (editorial/enérgico/sobrio…) →
+  familias de presets/easings (patrón Jitter); y bajo nivel ("el logo entra
+  a los 2.3s con spring suave").
+- Tokenomics: ops mecánicas → modelo económico; dirección creativa → modelo
+  grande.
 
 ### M5 — Controles manuales
 
@@ -132,12 +158,22 @@ CDP `HeadlessExperimental.beginFrame` + `--deterministic-mode` + WebCodecs;
 supersampling temporal para motion blur AE-grade. GSAP hace esto más simple
 aún: `timeline.progress(frame / totalFrames)` por frame.
 
-### M7 — Export After Effects  ⏳ research en curso
+### M7 — Export After Effects  ✅ validado (docs/research-ae-export.md)
 
-Plan base (a validar): scene graph → JSON estilo AEUX + script/panel
-ExtendScript que reconstruye comps, layers y keyframes en AE (easings
-muestreados a keyframes con influencia, o baked a N keyframes). Assets del
-ingest viajan como footage. Camera → AE camera layer.
+Dato clave del research: AEUX **no transfiere keyframes** (solo capas
+estáticas) y está archivado — sirve de referencia de patrón, no de base.
+Pipeline en tres etapas de madurez:
+1. **MVP: `.jsx` generado por export** ("File > Scripts > Run Script") —
+   comps, layers, precomps para groups, keyframes vía `setValueAtTime`,
+   easing vía `KeyframeEase(speed, influence)` (conversión desde
+   cubic-bezier) y **bake denso** para springs/curvas sampleadas. Cámara
+   2.5D → AE camera con keyframes de Position/Zoom, mapeo 1:1.
+2. **Export Lottie en paralelo** (gratis de mantener): el plugin de
+   LottieFiles importa Lottie a AE como capas editables, y el easing de
+   Lottie es cubic-bezier normalizado — match exacto con nuestras curvas.
+3. **Panel CEP residente** con importador JSON genérico (el patrón de
+   Overlord/Bodymovin) cuando el volumen lo justifique. Core separado del
+   shell CEP para portar a UXP cuando Adobe lo lance para AE.
 
 ## Fases
 

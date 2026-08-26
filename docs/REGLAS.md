@@ -59,10 +59,14 @@ no les superpone blur.
 
 ## 7. Licencias
 
-- Solo se incorpora código de presets con licencia MIT/Apache/permisiva.
-  **GSAP queda fuera** (prohíbe redistribución en templates). Animate.css es
-  Hippocratic (aceptable para uso propio; revisar si algún día se
-  redistribuye el módulo).
+- **GSAP habilitado** (actualización: gratis al 100% desde abr-2025, todos
+  los plugins, uso comercial incluido — ver docs/research-ia-y-gsap.md).
+  Condición de uso: esta plataforma es interna. ⚠️ Si algún día se ofrece a
+  terceros como producto no-code de animación visual, re-evaluar la cláusula
+  "Prohibited Uses" de Webflow antes de lanzar.
+- Presets/código externo que se incorpore al repo: MIT/Apache/permisiva.
+  Animate.css es Hippocratic (aceptable para uso propio; revisar si algún
+  día se redistribuye el módulo).
 - Toda importación de un preset externo se adapta al contrato (identidad,
   tokens de easing) y se anota su origen en el comentario del preset.
 
