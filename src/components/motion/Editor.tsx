@@ -36,7 +36,16 @@ function enInput(): boolean {
   return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || (el as HTMLElement).isContentEditable);
 }
 
-export function Editor({ snapshotInicial, composicionId }: { snapshotInicial: string; composicionId: string }) {
+export function Editor({
+  snapshotInicial,
+  composicionId,
+  entregarExport,
+}: {
+  snapshotInicial: string;
+  composicionId: string;
+  /** canal de entrega del MP4 exportado; default: descarga del browser */
+  entregarExport?: (blob: Blob, nombre: string) => void | Promise<void>;
+}) {
   const [composicion, setComposicion] = useState<Composicion>(() => deserializar(snapshotInicial));
   const [reproduciendo, setReproduciendo] = useState(true);
   const [tiempoUI, setTiempoUI] = useState(0);
@@ -242,7 +251,11 @@ export function Editor({ snapshotInicial, composicionId }: { snapshotInicial: st
                 <Icono nombre="encuadrar" width={15} height={15} />
               </BotonIcono>
             </ConPista>
-            <ExportarVideo obtenerComposicion={() => compRef.current} onPausar={() => setReproduciendo(false)} />
+            <ExportarVideo
+              obtenerComposicion={() => compRef.current}
+              onPausar={() => setReproduciendo(false)}
+              entregar={entregarExport}
+            />
           </div>
           {avisoGuardado && (
             <div
