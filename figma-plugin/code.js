@@ -160,10 +160,24 @@ async function nodoAIR(nodo, marco, salida) {
   salida.push(await rasterizar(nodo, marco, "tipo " + nodo.type + ": se rasterizó a 2×"));
 }
 
+var CONTENEDORES = ["FRAME", "COMPONENT", "INSTANCE", "SECTION", "GROUP"];
+
 async function exportarSeleccion() {
   var seleccion = figma.currentPage.selection;
-  if (seleccion.length !== 1 || (seleccion[0].type !== "FRAME" && seleccion[0].type !== "COMPONENT")) {
-    figma.notify("Seleccioná UN frame (la pantalla) y volvé a correr el plugin");
+  if (seleccion.length === 0) {
+    figma.notify("No hay nada seleccionado: hacé click en el frame de la pantalla y volvé a correr el plugin");
+    figma.closePlugin();
+    return;
+  }
+  if (seleccion.length > 1) {
+    figma.notify("Hay " + seleccion.length + " cosas seleccionadas: dejá seleccionado SOLO el frame de la pantalla");
+    figma.closePlugin();
+    return;
+  }
+  if (CONTENEDORES.indexOf(seleccion[0].type) < 0) {
+    figma.notify(
+      "Seleccionaste un " + seleccion[0].type + " («" + seleccion[0].name + "»): subí un nivel (Esc) hasta el frame de la pantalla",
+    );
     figma.closePlugin();
     return;
   }
