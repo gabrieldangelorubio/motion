@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "rev": 3,
+  "nombre": "título de ejemplo",
+  "ancho": 1920,
+  "alto": 1080,
+  "fps": 30,
+  "duracion": 5000,
+  "fondo": "#0c0c11",
+  "capas": [
+    {
+      "id": "titulo",
+      "nombre": "Título",
+      "tipo": "texto",
+      "texto": "MOTION",
+      "fuente": { "familia": "sans-serif", "tamano": 220, "peso": 900 },
+      "color": "#e8e8ee",
+      "division": "caracteres",
+      "x": 960,
+      "y": 540,
+      "motionBlur": 0.8,
+      "entrada": { "preset": "subir", "en": 600, "duracion": 950, "easing": "salidaExpo", "escalonado": 45, "ordenEscalonado": "centro", "params": { "distancia": 140 } },
+      "salida": { "preset": "elevarDesenfocado", "en": 4000, "duracion": 700, "easing": "entradaExpo", "escalonado": 25 },
+      "v": 1724660000000
+    },
+    {
+      "id": "bajada",
+      "nombre": "Bajada",
+      "tipo": "texto",
+      "texto": "case study dos mil veintiséis",
+      "fuente": { "familia": "sans-serif", "tamano": 30, "peso": 400 },
+      "color": "#84848c",
+      "division": "palabras",
+      "x": 960,
+      "y": 680,
+      "entrada": { "preset": "subirDesenfocado", "en": 1500, "duracion": 800, "easing": "salidaQuart", "escalonado": 60 },
+      "salida": { "preset": "desvanecer", "en": 4100, "duracion": 500 },
+      "v": 1724660000001
+    },
+    {
+      "id": "placa",
+      "nombre": "Placa",
+      "tipo": "forma",
+      "forma": "rectangulo",
+      "ancho": 640,
+      "alto": 360,
+      "radio": 16,
+      "color": "#33333c",
+      "x": 400,
+      "y": 300,
+      "rotacion": -4,
+      "entrada": { "preset": "escalar", "en": 200, "duracion": 700, "easing": "resorteTenso" },
+      "pistas": {
+        "x": [
+          { "t": 1000, "v": 400, "easing": "entradaSalidaCubic" },
+          { "t": 3000, "v": 1400 },
+          { "t": 3500, "v": 1400, "hold": true },
+          { "t": 4200, "v": 1600 }
+        ],
+        "opacidad": [
+          { "t": 4300, "v": 1 },
+          { "t": 4800, "v": 0 }
+        ]
+      },
+      "v": 1724660000002
+    },
+    {
+      "id": "foto",
+      "nombre": "Foto hero",
+      "tipo": "media",
+      "mediaId": "media_abc123",
+      "ancho": 480,
+      "alto": 270,
+      "ajuste": "cubrir",
+      "x": 1500,
+      "y": 800,
+      "oculta": false,
+      "entrada": { "preset": "aparecer", "en": 900, "duracion": 600 },
+      "v": 1724660000003
+    }
+  ],
+  "borrados": [{ "id": "capa-vieja", "v": 1724650000000 }]
+}

@@ -1,6 +1,25 @@
 # Blueprint — plataforma de motion para case studies
 
-> Estado: v1 — research completo integrado (ver docs/research-*.md).
+> Estado: v2 — research completo integrado (ver research/*.md) y **corregido
+> por el kit de diosa** (docs/kit-diosa-2026-08-26.md), que manda sobre este
+> documento en todo lo que choquen. Correcciones principales:
+>
+> 1. **El motor NO es DOM/CSS + GSAP: es una librería TS pura con canvas 2D**
+>    (`estadoEn(comp, t)` + `pintar(estado, ctx)`), como exige la §10 del kit
+>    — GSAP queda descartado (diosa no admite motores de animación; además el
+>    modelo puro lo vuelve innecesario). La regla fundacional (frame = función
+>    pura del tiempo) se conserva intacta.
+> 2. **M4 (asistente IA) se achica**: diosa ya trae el asistente; el módulo
+>    sólo expone ops puras como tools (§10.5). La arquitectura de ops
+>    incrementales validadas sigue siendo la de este documento.
+> 3. **M6 (export video)**: el camino con precedente en diosa es WebCodecs +
+>    `mp4-muxer` en el browser (no CDP headless) — el supersampling temporal
+>    para motion blur sigue aplicando.
+> 4. El stack es Next 16 + React 19 + Tailwind v4, castellano, y las
+>    convenciones del kit (tres capas, jsonb + CAS + merge, tokens, i18n).
+>
+> Implementación en curso: `src/lib/motion` + `src/components/motion`. Estado
+> real en `../../../ENTREGA.md` y `backlog.md`.
 
 ## Visión
 

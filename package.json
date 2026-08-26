@@ -1,0 +1,28 @@
+{
+  "name": "motion-modulo",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint src tests",
+    "test": "node --import tsx --test tests/motion/*.test.ts"
+  },
+  "dependencies": {
+    "next": "16.2.9",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.9",
+    "tailwindcss": "^4",
+    "@tailwindcss/postcss": "^4",
+    "tsx": "^4.19.2",
+    "typescript": "^5"
+  }
+}
