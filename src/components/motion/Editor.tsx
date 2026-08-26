@@ -13,9 +13,9 @@
 ----------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Composicion } from "@/lib/motion/modelo";
+import type { Capa, Composicion, NombrePropiedad } from "@/lib/motion/modelo";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
-import { editarCapa } from "@/lib/motion/herramientas-puro";
+import { editarCapa, moverKeyframe } from "@/lib/motion/herramientas-puro";
 import { guardarComposicionAction } from "@/app/(app)/(modulos)/motion/acciones";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
@@ -24,6 +24,7 @@ import { ConPista } from "@/components/ui/ConPista";
 import { Lienzo, type ControlLienzo } from "@/components/motion/Lienzo";
 import { LineaDeTiempo } from "@/components/motion/LineaDeTiempo";
 import { Capas } from "@/components/motion/Capas";
+import { Inspector } from "@/components/motion/Inspector";
 
 const TOPE_UNDO = 120;
 const DEBOUNCE_GUARDADO = 1500;
@@ -40,6 +41,7 @@ export function Editor({ snapshotInicial, composicionId }: { snapshotInicial: st
   const [tiempoUI, setTiempoUI] = useState(0);
   const [seleccionId, setSeleccionId] = useState<string | null>(null);
   const [avisoGuardado, setAvisoGuardado] = useState<string | null>(null);
+  const [altoTimeline, setAltoTimeline] = useState(240);
 
   const compRef = useRef(composicion);
   useEffect(() => {
@@ -130,13 +132,35 @@ export function Editor({ snapshotInicial, composicionId }: { snapshotInicial: st
     };
   }, [composicion, composicionId, snapshotInicial]);
 
-  // ——— Mutaciones (registrar SIEMPRE antes) ———
+  // ——— Mutaciones ———
+  // El checkpoint lo pone el CALLER al arrancar el gesto (drag que cruza el
+  // umbral, foco de un campo): así un gesto entero es UN paso de undo y las
+  // ediciones en vivo no inflan el historial.
+  const editarEnVivo = useCallback((capaId: string, cambios: Partial<Capa>) => {
+    const res = editarCapa(compRef.current, capaId, cambios);
+    if (res.ok) setComposicion(res.valor);
+  }, []);
+
+  const retimarSegmento = useCallback((capaId: string, clave: "entrada" | "salida", nuevoEn: number) => {
+    const capa = compRef.current.capas.find((c) => c.id === capaId);
+    const seg = capa?.[clave];
+    if (!seg) return;
+    editarEnVivo(capaId, { [clave]: { ...seg, en: nuevoEn } });
+  }, [editarEnVivo]);
+
+  const moverKeyframeEnVivo = useCallback(
+    (capaId: string, propiedad: NombrePropiedad, tActual: number, nuevoT: number) => {
+      const res = moverKeyframe(compRef.current, capaId, propiedad, tActual, nuevoT);
+      if (res.ok) setComposicion(res.valor);
+    },
+    [],
+  );
+
   const alternarVisibilidad = useCallback((capaId: string) => {
     registrar();
     const capa = compRef.current.capas.find((c) => c.id === capaId);
-    const res = editarCapa(compRef.current, capaId, { oculta: !capa?.oculta });
-    if (res.ok) setComposicion(res.valor);
-  }, [registrar]);
+    editarEnVivo(capaId, { oculta: !capa?.oculta });
+  }, [registrar, editarEnVivo]);
 
   // ——— Transport ———
   const saltarFrame = useCallback((dir: 1 | -1) => {
@@ -185,9 +209,11 @@ export function Editor({ snapshotInicial, composicionId }: { snapshotInicial: st
     return () => window.removeEventListener("keydown", alTeclear);
   }, [deshacer, rehacer, saltarFrame]);
 
+  const capaSeleccionada = composicion.capas.find((c) => c.id === seleccionId) ?? null;
+
   return (
-    <div className="grid h-dvh grid-cols-[240px_1fr] grid-rows-[1fr_auto] overflow-hidden">
-      <div className="row-span-2 min-h-0">
+    <div className="grid h-dvh grid-cols-[240px_1fr_300px] overflow-hidden">
+      <div className="min-h-0">
         <Capas
           composicion={composicion}
           seleccionId={seleccionId}
@@ -195,34 +221,49 @@ export function Editor({ snapshotInicial, composicionId }: { snapshotInicial: st
           onAlternarVisibilidad={alternarVisibilidad}
         />
       </div>
-      <div className="relative min-h-0">
-        <Lienzo ref={lienzoRef} obtenerComposicion={() => compRef.current} />
-        <div className="absolute right-3 top-3">
-          <ConPista pista={t("Encuadrar todo (⇧1)")}>
-            <BotonIcono tam={32} etiqueta={t("Encuadrar todo")} onClick={() => lienzoRef.current?.encuadrar()}>
-              <Icono nombre="encuadrar" width={15} height={15} />
-            </BotonIcono>
-          </ConPista>
-        </div>
-        {avisoGuardado && (
-          <div
-            role="status"
-            className="absolute left-1/2 top-3 -translate-x-1/2 rounded-control border border-peligro/30 bg-(--menu-solido-bg) px-3 py-1.5 text-xs text-foreground shadow-(--menu-shadow)"
-          >
-            {avisoGuardado}
+      <div className="flex min-h-0 flex-col">
+        <div className="relative min-h-0 flex-1">
+          <Lienzo ref={lienzoRef} obtenerComposicion={() => compRef.current} />
+          <div className="absolute right-3 top-3">
+            <ConPista pista={t("Encuadrar todo (⇧1)")}>
+              <BotonIcono tam={32} etiqueta={t("Encuadrar todo")} onClick={() => lienzoRef.current?.encuadrar()}>
+                <Icono nombre="encuadrar" width={15} height={15} />
+              </BotonIcono>
+            </ConPista>
           </div>
-        )}
+          {avisoGuardado && (
+            <div
+              role="status"
+              className="absolute left-1/2 top-3 -translate-x-1/2 rounded-control border border-peligro/30 bg-(--menu-solido-bg) px-3 py-1.5 text-xs text-foreground shadow-(--menu-shadow)"
+            >
+              {avisoGuardado}
+            </div>
+          )}
+        </div>
+        <LineaDeTiempo
+          composicion={composicion}
+          tiempo={tiempoUI}
+          reproduciendo={reproduciendo}
+          seleccionId={seleccionId}
+          alto={altoTimeline}
+          onAlto={setAltoTimeline}
+          onScrub={escrub}
+          onTogglePlay={() => setReproduciendo((r) => !r)}
+          onSaltarFrame={saltarFrame}
+          onSeleccionar={setSeleccionId}
+          onCheckpoint={registrar}
+          onRetimarSegmento={retimarSegmento}
+          onMoverKeyframe={moverKeyframeEnVivo}
+        />
       </div>
-      <LineaDeTiempo
-        composicion={composicion}
-        tiempo={tiempoUI}
-        reproduciendo={reproduciendo}
-        seleccionId={seleccionId}
-        onScrub={escrub}
-        onTogglePlay={() => setReproduciendo((r) => !r)}
-        onSaltarFrame={saltarFrame}
-        onSeleccionar={setSeleccionId}
-      />
+      <div className="min-h-0">
+        <Inspector
+          capa={capaSeleccionada}
+          duracionComposicion={composicion.duracion}
+          onEditar={editarEnVivo}
+          onCheckpoint={registrar}
+        />
+      </div>
     </div>
   );
 }

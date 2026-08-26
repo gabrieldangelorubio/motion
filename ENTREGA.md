@@ -10,17 +10,19 @@ Presets de entrada/salida con escalonado por caracteres/palabras, easings con
 nombre (incl. resortes), pistas crudas de keyframes con hold, motion blur
 sintetizado desde la velocidad del easing, merge por elemento con lápidas
 para guardado concurrente, y operaciones puras listas para tools de Diosa.
-Encima, la cáscara mínima: page `/motion` con lienzo (cámara pan/zoom al
-cursor con las constantes de la casa), línea de tiempo con scrub y transport,
-panel de capas, undo por snapshots, autosave con CAS.
+Encima, el editor: page `/motion` con lienzo (cámara pan/zoom al cursor con
+las constantes de la casa), línea de tiempo **redimensionable** (agarradera
+superior) con scrub, transport, y **edición por drag** de spans de
+entrada/salida y keyframes (snap al frame, un checkpoint de undo por gesto),
+**inspector de propiedades** (transformación, texto, presets con easing y
+escalonado — cada campo con checkpoint por sesión de foco), panel de capas,
+undo por snapshots, autosave con CAS.
 
 ## Qué NO hace (con motivo)
 
 - **Render a video**: decidido con ustedes antes de construirlo (kit §10.3).
   El camino elegido en el diseño es WebCodecs + `mp4-muxer` (ya en deps de
   diosa); el motor ya es frame-determinista así que entra sin re-arquitectura.
-- **Inspector de propiedades / edición de keyframes en la UI**: el motor lo
-  soporta (`moverKeyframe`, `editarCapa`); la UI está en el backlog P1.
 - **Texto multilínea y fuentes cargadas**: hoy una capa de texto es una línea
   con el stack del sistema; `FontFace` + licencias es un P1 declarado.
 - **Audio**: no hay pista de audio en esta versión.
@@ -116,8 +118,11 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 - **Teléfono** (390×844 emulado): la vista no desborda horizontalmente; el
   lienzo se ve y panea; el editor completo es de escritorio (precedente
   AdiosJam: en teléfono, visor) — captura en la entrega.
-- Scrub frame a frame, espacio para play/pausa, ⌘0 / ⇧1, flechas, undo de
-  visibilidad con ⌘Z.
+- Scrub frame a frame, espacio para play/pausa, ⌘0 / ⇧1, flechas, undo con
+  ⌘Z (visibilidad, drags de spans y keyframes verificados con capturas
+  antes/después: dos gestos, dos pasos de undo).
+- Timeline redimensionable con la agarradera; drag de span de entrada y de
+  un keyframe con snap al frame, verificados en Chromium.
 - No probado: Safari/Firefox, iOS real, `prefers-reduced-motion` a ojo (la
   UI usa las clases del kit que ya lo respetan; el preview reproduce igual
   por regla §4.1).

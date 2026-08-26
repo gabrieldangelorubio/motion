@@ -1,14 +1,5 @@
 # Backlog — módulo motion
 
-### [P1] Inspector de propiedades y edición de keyframes en la UI
-- **Estado:** abierto
-- **Qué:** panel derecho para editar la capa seleccionada (posición, escala,
-  presets, easing, escalonado) y arrastrar keyframes/spans en la línea de
-  tiempo, con checkpoint de undo por gesto.
-- **Por qué:** el motor ya soporta todas las ops (`herramientas-puro`); sin
-  UI, editar es tocar JSON.
-- **Dónde:** `components/motion/Inspector.tsx`, `LineaDeTiempo.tsx`
-
 ### [P1] Render a video (WebCodecs + mp4-muxer) al catálogo de media
 - **Estado:** abierto — decidir con el equipo antes de construir (kit §10.3)
 - **Qué:** `OffscreenCanvas` + `VideoEncoder` frame a frame con la misma
