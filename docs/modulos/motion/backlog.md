@@ -80,3 +80,10 @@
 - **Qué:** registrar las 11 herramientas + system prompt como tools del
   área motion de Diosa y decidir el destino del panel local.
 - **Dónde:** de nuestro lado, con el catálogo tipado de diosa
+
+### [P2] Persistir fuentes subidas en el catálogo de media
+- **Estado:** abierto
+- **Qué:** el archivo de fuente subido hoy vive en la sesión del browser; al
+  integrar, subirlo al catálogo (con su licencia declarada) y recargarlo por
+  FontFace al abrir la composición.
+- **Dónde:** `lib/motion/fuentes-puro.ts`, `consultas.ts`

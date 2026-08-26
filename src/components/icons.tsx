@@ -64,6 +64,11 @@ const ICONOS = {
       <path d="M8 11V8a4 4 0 0 1 8 0v3" />
     </svg>
   ),
+  tipografia: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M5 19L11 5h2l6 14M7.5 14h9" />
+    </svg>
+  ),
   ia: (p: IconoProps) => (
     <svg {...base(p)} aria-hidden>
       <path d="M12 3l1.8 4.8L18.5 9l-4.7 1.7L12 15l-1.8-4.3L5.5 9l4.7-1.2zM18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z" />

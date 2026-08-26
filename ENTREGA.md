@@ -24,7 +24,7 @@ de capas, undo por snapshots, autosave con CAS, **import de una pantalla de
 Figma** (plugin propio en `figma-plugin/` → JSON por copy/paste →
 normalizador puro con degradación por-nodo y avisos visibles; texto real,
 formas nativas, lo demás rasterizado a data-uri que el editor resuelve),
-**el agente director de motion** (ruta `/api/motion/agente`: loop agéntico
+**gestión de tipografías** (detección real de familias faltantes por medición — `document.fonts.check` miente —, panel que se abre solo tras un import con fuentes ajenas, carga desde Google Fonts con fallo detectable o subiendo el archivo .otf/.ttf/.woff2; sin sustitución silenciosa), **el agente director de motion** (ruta `/api/motion/agente`: loop agéntico
 con la API de Claude sobre 11 herramientas incrementales validadas y
 clampeadas — panel de chat que aplica cada respuesta como UN paso de undo y
 muestra las ops), y **export a MP4 frame-exacto** (WebCodecs + `mp4-muxer`, decisión aprobada por Fran
@@ -49,8 +49,9 @@ opacos), back-pressure del encoder y progreso en vivo.
   integre, las 11 herramientas y el system prompt migran a tools del
   asistente real (§10.5) y este panel puede quedar o irse — las firmas ya
   son las que Diosa espera (ops puras sobre la composición).
-- **Texto multilínea y fuentes cargadas**: hoy una capa de texto es una línea
-  con el stack del sistema; `FontFace` + licencias es un P1 declarado.
+- **Texto multilínea**: una capa de texto sigue siendo una línea (P1). Las
+  fuentes YA se cargan (Google Fonts o archivo); las licencias de las
+  subidas las declara el usuario y la persistencia va al catálogo (P2).
 - **Audio**: no hay pista de audio en esta versión.
 - **Selección múltiple en el lienzo** (shift-click, marquee, Alt-duplica):
   la selección y el drag simples ya están; lo múltiple es P1.

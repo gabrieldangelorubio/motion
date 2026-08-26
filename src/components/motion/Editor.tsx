@@ -28,6 +28,8 @@ import { Inspector } from "@/components/motion/Inspector";
 import { ExportarVideo } from "@/components/motion/ExportarVideo";
 import { PanelImportar } from "@/components/motion/PanelImportar";
 import { PanelAgente } from "@/components/motion/PanelAgente";
+import { PanelFuentes } from "@/components/motion/PanelFuentes";
+import { familiasDeComposicion, familiaDisponible } from "@/lib/motion/fuentes-puro";
 import type { ResultadoImport } from "@/lib/motion/figma-puro";
 import type { FuentesDeMedia } from "@/lib/motion/pintar";
 
@@ -60,6 +62,7 @@ export function Editor({
   const [avisoGuardado, setAvisoGuardado] = useState<string | null>(null);
   const [altoTimeline, setAltoTimeline] = useState(240);
   const [importarAbierto, setImportarAbierto] = useState(false);
+  const [fuentesAbierto, setFuentesAbierto] = useState(false);
 
   const compRef = useRef(composicion);
   const seleccionRef = useRef(seleccionId);
@@ -215,7 +218,17 @@ export function Editor({
         : null,
     );
     requestAnimationFrame(() => lienzoRef.current?.encuadrar());
+    // si la pantalla usa tipografías que este browser no tiene, abrir el
+    // panel de fuentes de una — nunca sustituir en silencio
+    const faltantes = familiasDeComposicion(resultado.composicion).some(({ familia, pesos }) =>
+      pesos.some((peso) => !familiaDisponible(familia, peso)),
+    );
+    if (faltantes) setFuentesAbierto(true);
   }, [registrar]);
+
+  const familiasFaltantes = familiasDeComposicion(composicion).filter(({ familia, pesos }) =>
+    pesos.some((peso) => !familiaDisponible(familia, peso)),
+  ).length;
 
   // ——— Transport ———
   const saltarFrame = useCallback((dir: 1 | -1) => {
@@ -293,6 +306,18 @@ export function Editor({
                 <Icono nombre="subir" width={15} height={15} />
               </BotonIcono>
             </ConPista>
+            <div className="relative">
+              <ConPista pista={familiasFaltantes > 0 ? t.plural(familiasFaltantes, "Tipografías ({n} faltante)", "Tipografías ({n} faltantes)") : t("Tipografías")}>
+                <BotonIcono tam={32} etiqueta={t("Tipografías")} onClick={() => setFuentesAbierto(true)}>
+                  <Icono nombre="tipografia" width={15} height={15} />
+                </BotonIcono>
+              </ConPista>
+              {familiasFaltantes > 0 && (
+                <span className="pointer-events-none absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-peligro font-mono text-[10px] font-semibold text-white">
+                  {familiasFaltantes}
+                </span>
+              )}
+            </div>
             <ConPista pista={t("Encuadrar todo (⇧1)")}>
               <BotonIcono tam={32} etiqueta={t("Encuadrar todo")} onClick={() => lienzoRef.current?.encuadrar()}>
                 <Icono nombre="encuadrar" width={15} height={15} />
@@ -309,6 +334,11 @@ export function Editor({
             abierto={importarAbierto}
             onCerrar={() => setImportarAbierto(false)}
             onImportar={importarDeFigma}
+          />
+          <PanelFuentes
+            abierto={fuentesAbierto}
+            onCerrar={() => setFuentesAbierto(false)}
+            composicion={composicion}
           />
           {conAgente && (
             <PanelAgente
