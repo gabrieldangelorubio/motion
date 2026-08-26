@@ -54,8 +54,9 @@ export const Lienzo = forwardRef<
     obtenerCalidad?: () => number;
     /** tiempo actual de la composición (para resolver el encuadre de cámara en gestos) */
     obtenerTiempo?: () => number;
-    /** true = mostrar LO QUE VE LA CÁMARA (preview del render); el mundo queda solo lectura */
-    obtenerVistaCamara?: () => boolean;
+    /** mundo = canvas con el encuadre dibujado · camara = lo que ve la cámara
+        (arrastrar ENCUADRA, con auto-key) · ambas = mundo + PiP de la cámara */
+    obtenerVista?: () => "mundo" | "camara" | "ambas";
     /** herramienta activa en modo cámara: X mueve el encuadre, Z hace zoom */
     obtenerHerramientaCamara?: () => "posicion" | "zoom";
     onSeleccionar: (id: string | null) => void;
@@ -68,7 +69,7 @@ export const Lienzo = forwardRef<
     /** herramienta Z: zoom nuevo del encuadre (drag horizontal) */
     onZoomCamara?: (zoom: number) => void;
   }
->(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerMedia, obtenerCalidad, obtenerTiempo, obtenerVistaCamara, obtenerHerramientaCamara, onSeleccionar, onCheckpoint, onMoverCapa, onMoverCapas, onMoverCamara, onZoomCamara }, ref) {
+>(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerMedia, obtenerCalidad, obtenerTiempo, obtenerVista, obtenerHerramientaCamara, onSeleccionar, onCheckpoint, onMoverCapa, onMoverCapas, onMoverCamara, onZoomCamara }, ref) {
   const contRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const camRef = useRef<Camara>({ x: 0, y: 0, escala: 0.4 });
@@ -121,11 +122,12 @@ export const Lienzo = forwardRef<
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.escala, cam.escala);
     const estado = estadoEn(comp, t);
+    const vistaModo = obtenerVista?.() ?? "mundo";
 
     // Vista cámara: el preview del RENDER — la transformación de cámara se
-    // aplica y todo se recorta al frame, igual que en el export. Sólo mirar:
-    // los gestos del mundo (selección, drags) quedan apagados.
-    if (obtenerVistaCamara?.()) {
+    // aplica y todo se recorta al frame, igual que en el export. Acá también
+    // se ENCUADRA: arrastrar mueve la cámara (auto-key arriba, en el Editor).
+    if (vistaModo === "camara") {
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, 0, comp.ancho, comp.alto);
@@ -186,6 +188,30 @@ export const Lienzo = forwardRef<
         }
         ctx.stroke();
       }
+    }
+
+    // Vista «ambas»: además del mundo con su encuadre, un PiP con LO QUE VE
+    // la cámara, abajo a la derecha, en espacio de pantalla (el viewport no
+    // lo mueve). El mismo pintar() del export, en chiquito.
+    if (vistaModo === "ambas") {
+      ctx.setTransform(factor, 0, 0, factor, 0, 0);
+      const margen = 12;
+      const pipW = Math.max(180, ancho * 0.26);
+      const pipH = pipW * (comp.alto / comp.ancho);
+      const px = ancho - pipW - margen;
+      const py = alto - pipH - margen;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(px, py, pipW, pipH);
+      ctx.clip();
+      ctx.translate(px, py);
+      const s = pipW / comp.ancho;
+      ctx.scale(s, s);
+      pintar(estado, ctx as unknown as Contexto2D, obtenerMedia?.() ?? {});
+      ctx.restore();
+      ctx.strokeStyle = tokensRef.current.acento;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(px + 0.5, py + 0.5, pipW - 1, pipH - 1);
     }
   };
 
@@ -284,24 +310,36 @@ export const Lienzo = forwardRef<
     const rect = cont.getBoundingClientRect();
     const comp = obtenerComposicion();
 
-    // En vista cámara sólo se mira: el puntero panea el viewport y nada más.
-    if (obtenerVistaCamara?.()) {
-      const pan = { px: e.clientX, py: e.clientY };
-      const alMoverPan = (ev: PointerEvent) => {
-        camRef.current = {
-          ...camRef.current,
-          x: camRef.current.x + (ev.clientX - pan.px),
-          y: camRef.current.y + (ev.clientY - pan.py),
-        };
-        pan.px = ev.clientX;
-        pan.py = ev.clientY;
+    // En vista cámara arrastrar ENCUADRA: movés la imagen como quien acomoda
+    // una foto (el contenido sigue al puntero, la cámara va al revés), y con
+    // Z el drag horizontal hace zoom. Auto-key arriba, como todo gesto.
+    if ((obtenerVista?.() ?? "mundo") === "camara") {
+      if (!onMoverCamara) return;
+      const vistaCam = estadoEn(comp, obtenerTiempo?.() ?? 0).camara;
+      const herramienta = obtenerHerramientaCamara?.() ?? "posicion";
+      const gestoVista = { x0: e.clientX, y0: e.clientY, camX0: vistaCam.x, camY0: vistaCam.y, zoom0: vistaCam.zoom, activo: false };
+      const alMoverVista = (ev: PointerEvent) => {
+        const dxP = ev.clientX - gestoVista.x0;
+        const dyP = ev.clientY - gestoVista.y0;
+        if (!gestoVista.activo) {
+          if (Math.abs(dxP) + Math.abs(dyP) < UMBRAL_DRAG_CAPA) return;
+          gestoVista.activo = true;
+          onCheckpoint();
+        }
+        if (herramienta === "zoom" && onZoomCamara) {
+          onZoomCamara(Math.min(10, Math.max(0.1, gestoVista.zoom0 * Math.exp(dxP * 0.004))));
+          return;
+        }
+        // en la vista, el mundo está escalado por (viewport × zoom de cámara)
+        const esc = camRef.current.escala * gestoVista.zoom0;
+        onMoverCamara(gestoVista.camX0 - dxP / esc, gestoVista.camY0 - dyP / esc);
       };
-      const alSoltarPan = () => {
-        window.removeEventListener("pointermove", alMoverPan);
-        window.removeEventListener("pointerup", alSoltarPan);
+      const alSoltarVista = () => {
+        window.removeEventListener("pointermove", alMoverVista);
+        window.removeEventListener("pointerup", alSoltarVista);
       };
-      window.addEventListener("pointermove", alMoverPan);
-      window.addEventListener("pointerup", alSoltarPan);
+      window.addEventListener("pointermove", alMoverVista);
+      window.addEventListener("pointerup", alSoltarVista);
       return;
     }
 

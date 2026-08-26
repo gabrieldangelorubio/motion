@@ -81,14 +81,14 @@ export function Editor({
   const [altoTimeline, setAltoTimeline] = useState(240);
   const [importarAbierto, setImportarAbierto] = useState(false);
   const [fuentesAbierto, setFuentesAbierto] = useState(false);
-  // vista del lienzo: "mundo" = el canvas con el encuadre dibujado (se
-  // edita acá); "camara" = preview de LO QUE VE LA CÁMARA (sólo mirar,
-  // exactamente lo que sale en el render).
-  const [vistaCamara, setVistaCamara] = useState(false);
-  const vistaCamaraRef = useRef(false);
+  // vista del lienzo: "mundo" = el canvas con el encuadre dibujado;
+  // "camara" = lo que ve la cámara (arrastrar ENCUADRA, con auto-key);
+  // "ambas" = el mundo con el outline moviéndose + PiP de la cámara.
+  const [vista, setVista] = useState<"mundo" | "camara" | "ambas">("mundo");
+  const vistaRef = useRef<"mundo" | "camara" | "ambas">("mundo");
   useEffect(() => {
-    vistaCamaraRef.current = vistaCamara;
-  }, [vistaCamara]);
+    vistaRef.current = vista;
+  }, [vista]);
   // calidad del preview (Half/Quarter de AE): borrador para armar rápido,
   // nítido para revisar. El export SIEMPRE sale a resolución completa.
   const [calidad, setCalidad] = useState<"baja" | "media" | "alta">("media");
@@ -294,7 +294,7 @@ export function Editor({
       detenerGrabacion();
       return;
     }
-    setVistaCamara(false); // se graba encuadrando el MUNDO con el viewport
+    setVista("mundo"); // se graba encuadrando el MUNDO con el viewport
     registrar();
     // la cámara previa se saca ANTES de grabar: si no, el usuario encuadraría
     // sobre un lienzo que ya se mueve solo y la toma saldría doble
@@ -718,7 +718,7 @@ export function Editor({
       } else if ((e.key === "Delete" || e.key === "Backspace") && seleccionKfRef.current) {
         e.preventDefault();
         borrarKfSeleccionado();
-      } else if (!meta && (e.key === "x" || e.key === "z") && seleccionRef.current === CAMARA_ID) {
+      } else if (!meta && (e.key === "x" || e.key === "z") && (seleccionRef.current === CAMARA_ID || vistaRef.current === "camara")) {
         // herramientas del modo cámara estilo AE: X posición, Z zoom
         setHerramientaCamara(e.key === "z" ? "zoom" : "posicion");
       } else if (e.shiftKey && e.key === "!") {
@@ -771,7 +771,7 @@ export function Editor({
             obtenerMedia={obtenerMedia}
             obtenerCalidad={() => calidadRef.current}
             obtenerTiempo={() => tiempoRef.current}
-            obtenerVistaCamara={() => vistaCamaraRef.current}
+            obtenerVista={() => vistaRef.current}
             obtenerHerramientaCamara={() => herramientaCamaraRef.current}
             onSeleccionar={seleccionar}
             onCheckpoint={registrar}
@@ -780,11 +780,13 @@ export function Editor({
             onMoverCamara={moverCamaraEnVivo}
             onZoomCamara={zoomCamaraEnVivo}
           />
-          {seleccionId === CAMARA_ID && !vistaCamara && !grabandoCamara && (
+          {(seleccionId === CAMARA_ID || vista === "camara") && !grabandoCamara && (
             <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-control border border-(--glass-border) bg-(--menu-solido-bg) px-3 py-1.5 text-xs text-foreground/80 shadow-(--menu-shadow)">
               {herramientaCamara === "zoom"
                 ? t("Cámara · ZOOM (Z) — arrastrá horizontal · X: posición · deja keyframe en el playhead")
-                : t("Cámara · POSICIÓN (X) — arrastrá el encuadre · Z: zoom · deja keyframe en el playhead")}
+                : vista === "camara"
+                  ? t("Cámara · POSICIÓN (X) — arrastrá la vista para encuadrar · Z: zoom · deja keyframe en el playhead")
+                  : t("Cámara · POSICIÓN (X) — arrastrá el encuadre · Z: zoom · deja keyframe en el playhead")}
             </div>
           )}
           <div className="absolute left-3 top-3 flex items-center gap-2">
@@ -800,20 +802,22 @@ export function Editor({
                 ]}
               />
             </ConPista>
-            <ConPista pista={t("Mundo: el lienzo con el encuadre dibujado. Cámara: exactamente lo que sale en el render (sólo mirar)")}>
+            <ConPista pista={t("Mundo: el lienzo con el encuadre. Cámara: lo que sale en el render — arrastrá para encuadrar. Ambas: el mundo + la cámara en miniatura")}>
               <Segmentado
                 etiquetaAria={t("Vista del lienzo")}
-                valor={vistaCamara ? "camara" : "mundo"}
+                valor={vista}
                 onCambio={(v) => {
-                  const aCamara = v === "camara";
-                  setVistaCamara(aCamara);
+                  const nueva = v as "mundo" | "camara" | "ambas";
+                  setVista(nueva);
+                  if (nueva === "camara") seleccionar(CAMARA_ID);
                   requestAnimationFrame(() =>
-                    aCamara ? lienzoRef.current?.encuadrarRender() : lienzoRef.current?.encuadrar(),
+                    nueva === "camara" ? lienzoRef.current?.encuadrarRender() : lienzoRef.current?.encuadrar(),
                   );
                 }}
                 opciones={[
                   { valor: "mundo", nombre: t("Mundo") },
                   { valor: "camara", nombre: t("Cámara") },
+                  { valor: "ambas", nombre: t("Ambas") },
                 ]}
               />
             </ConPista>
