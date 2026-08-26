@@ -94,6 +94,19 @@ const ICONOS = {
       <path d="M6 9l6 6 6-6" />
     </svg>
   ),
+  biblioteca: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <rect x="3.5" y="3.5" width="7.2" height="7.2" rx="1.5" />
+      <rect x="13.3" y="3.5" width="7.2" height="7.2" rx="1.5" />
+      <rect x="3.5" y="13.3" width="7.2" height="7.2" rx="1.5" />
+      <rect x="13.3" y="13.3" width="7.2" height="7.2" rx="1.5" />
+    </svg>
+  ),
+  cerrar: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  ),
   basura: (p: IconoProps) => (
     <svg {...base(p)} aria-hidden>
       <path d="M4.5 7h15M9.5 7V5.2a1.2 1.2 0 0 1 1.2-1.2h2.6a1.2 1.2 0 0 1 1.2 1.2V7M7 7l.9 12.3h8.2L17 7M10 10.5v5.5M14 10.5v5.5" />

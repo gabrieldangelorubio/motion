@@ -38,7 +38,13 @@ con las métricas verdaderas; el anclaje vertical usa la TINTA renderizada de Fi
 del mismo texto medido acá, geometría contra geometría — con fallback al
 centrado en caja de línea si no hay tinta — y se re-ancla al cargar la
 tipografía real),
-**modos de mezcla** (multiply, screen, overlay… — viajan desde Figma, se pintan con globalCompositeOperation, editables en inspector y agente; LINEAR_BURN/DODGE se aproximan con aviso), **calidad de preview** (½ / 1× / Máx al estilo Half/Quarter de AE — menos píxeles de render mientras armás; el export SIEMPRE sale a resolución completa), **gestión de tipografías** (detección real de familias faltantes por medición — `document.fonts.check` miente —, panel que se abre solo tras un import con fuentes ajenas, carga desde Google Fonts con fallo detectable o subiendo el archivo .otf/.ttf/.woff2; sin sustitución silenciosa), **texto multilínea con revelado enmascarado** (`\n` real con interlineado
+**modos de mezcla** (multiply, screen, overlay… — viajan desde Figma, se pintan con globalCompositeOperation, editables en inspector y agente; LINEAR_BURN/DODGE se aproximan con aviso), **calidad de preview** (½ / 1× / Máx al estilo Half/Quarter de AE — menos píxeles de render mientras armás; el export SIEMPRE sale a resolución completa), **gestión de tipografías** (detección real de familias faltantes por medición — `document.fonts.check` miente —, panel que se abre solo tras un import con fuentes ajenas, carga desde Google Fonts con fallo detectable o subiendo el archivo .otf/.ttf/.woff2; sin sustitución silenciosa), **biblioteca de efectos**
+(panel con todos los presets: cada carta corre el MOTOR REAL sobre una
+plantilla en un mini canvas — hover lo anima en bucle, quieto muestra el
+reposo; nunca un video grabado que envejece —; tocarla aplica el efecto a
+la capa seleccionada reemplazando su entrada o salida según la clase y
+CONSERVANDO el timing existente; los efectos de trazo avisan si la capa no
+es un trazo), **texto multilínea con revelado enmascarado** (`\n` real con interlineado
 propio, división por caracteres/palabras/**líneas**, presets
 `revelar`/`ocultar`: cada unidad sube dentro de su renglón recortada a su
 caja de reposo — el clásico reveal de SplitText con máscara, sin crear

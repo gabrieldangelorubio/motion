@@ -13,7 +13,8 @@
 ----------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CanalCamara, Capa, CapaTexto, Composicion, Keyframe, NombrePropiedad } from "@/lib/motion/modelo";
+import type { CanalCamara, Capa, CapaTexto, Composicion, Keyframe, NombrePropiedad, Segmento } from "@/lib/motion/modelo";
+import { PRESETS } from "@/lib/motion/presets-puro";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
 import {
   CAMARA_ID,
@@ -45,6 +46,7 @@ import { Inspector } from "@/components/motion/Inspector";
 import { InspectorCamara } from "@/components/motion/InspectorCamara";
 import { ExportarVideo } from "@/components/motion/ExportarVideo";
 import { PanelImportar, type PantallaImportada } from "@/components/motion/PanelImportar";
+import { PanelBiblioteca } from "@/components/motion/PanelBiblioteca";
 import { PanelAgente } from "@/components/motion/PanelAgente";
 import { PanelFuentes } from "@/components/motion/PanelFuentes";
 import { Segmentado } from "@/components/ui/Segmentado";
@@ -83,6 +85,7 @@ export function Editor({
   const [altoTimeline, setAltoTimeline] = useState(240);
   const [importarAbierto, setImportarAbierto] = useState(false);
   const [fuentesAbierto, setFuentesAbierto] = useState(false);
+  const [bibliotecaAbierta, setBibliotecaAbierta] = useState(false);
   // vista del lienzo: "mundo" = el canvas con el encuadre dibujado;
   // "camara" = lo que ve la cámara (arrastrar ENCUADRA, con auto-key);
   // "ambas" = el mundo con el outline moviéndose + PiP de la cámara.
@@ -306,6 +309,37 @@ export function Editor({
       if (seleccionRef.current === capaId) setSeleccionId(null);
     }
   }, [registrar, borrarPantalla]);
+
+  // Aplicar un efecto de la biblioteca a la capa seleccionada: reemplaza la
+  // entrada o la salida (según la clase del preset) CONSERVANDO el timing del
+  // segmento existente — recambiás el efecto, no la coreografía.
+  const aplicarEfecto = useCallback((preset: string) => {
+    const def = PRESETS[preset];
+    const id = seleccionRef.current;
+    if (!def) return;
+    if (!id || id === CAMARA_ID) {
+      setAvisoGuardado(t("Seleccioná una capa para ponerle «{preset}»", { preset }));
+      return;
+    }
+    const comp = compRef.current;
+    const capa = comp.capas.find((c) => c.id === id);
+    if (!capa) return;
+    const compilado = def.compilar({});
+    if ((compilado.pista.dTrazoInicio || compilado.pista.dTrazoFin) && capa.tipo !== "trazo") {
+      setAvisoGuardado(t("«{preset}» es un efecto de trazos: «{nombre}» es {tipo}", { preset, nombre: capa.nombre, tipo: capa.tipo }));
+      return;
+    }
+    registrar();
+    const clase = def.clase;
+    const previo = capa[clase];
+    const seg: Segmento = previo
+      ? { ...previo, preset }
+      : clase === "entrada"
+        ? { preset, en: 0, duracion: 700, easing: "salidaExpo", escalonado: capa.tipo === "texto" ? 40 : undefined }
+        : { preset, en: Math.max(0, comp.duracion - 900), duracion: 600, easing: "entradaCubic", escalonado: capa.tipo === "texto" ? 25 : undefined };
+    editarEnVivo(id, { [clase]: seg });
+    setAvisoGuardado(t("«{preset}» puesto como {clase} de «{nombre}»", { preset, clase, nombre: capa.nombre }));
+  }, [registrar, editarEnVivo]);
 
   // reorden del z-order desde el panel de capas, en vivo durante el drag
   const reordenarCapaEnVivo = useCallback((capaId: string, referenciaId: string, despues: boolean) => {
@@ -847,6 +881,16 @@ export function Editor({
                 ]}
               />
             </ConPista>
+            <ConPista pista={t("Biblioteca de efectos — hover para verlos, click para ponérselos a la capa seleccionada")}>
+              <BotonIcono
+                tam={32}
+                activo={bibliotecaAbierta}
+                etiqueta={t("Biblioteca de efectos")}
+                onClick={() => setBibliotecaAbierta((a) => !a)}
+              >
+                <Icono nombre="biblioteca" width={15} height={15} />
+              </BotonIcono>
+            </ConPista>
             <ConPista pista={t("Mundo: el lienzo con el encuadre. Cámara: lo que sale en el render — arrastrá para encuadrar. Ambas: el mundo + la cámara en miniatura")}>
               <Segmentado
                 etiquetaAria={t("Vista del lienzo")}
@@ -929,6 +973,11 @@ export function Editor({
               entregar={entregarExport}
             />
           </div>
+          <PanelBiblioteca
+            abierto={bibliotecaAbierta}
+            onCerrar={() => setBibliotecaAbierta(false)}
+            onAplicar={aplicarEfecto}
+          />
           <PanelImportar
             abierto={importarAbierto}
             onCerrar={() => setImportarAbierto(false)}
