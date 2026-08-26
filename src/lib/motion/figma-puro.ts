@@ -54,8 +54,17 @@ export type NodoFigma = {
 export type ImportFigma = {
   origen: "figma";
   version: 1;
-  frame: { nombre: string; ancho: number; alto: number; fondo: string };
+  /** x/y = posición absoluta del frame en el canvas de Figma: al importar un
+      lote, las pantallas conservan su disposición relativa */
+  frame: { nombre: string; ancho: number; alto: number; fondo: string; x?: number; y?: number };
   nodos: NodoFigma[];
+};
+
+/** Varios frames exportados juntos: entran todos al lienzo de una. */
+export type ImportFigmaLote = {
+  origen: "figma";
+  version: 1;
+  pantallas: ImportFigma[];
 };
 
 export type ResultadoImport = {
@@ -142,6 +151,37 @@ export function validarImportFigma(datos: unknown): datos is ImportFigma {
     typeof d === "object" && d !== null && d.origen === "figma" && d.version === 1 &&
     typeof d.frame === "object" && Array.isArray(d.nodos)
   );
+}
+
+/** Normaliza pegar UNA pantalla o un LOTE a la misma lista de pantallas. */
+export function pantallasDeImport(datos: unknown): ImportFigma[] | null {
+  if (validarImportFigma(datos)) return [datos];
+  const d = datos as ImportFigmaLote;
+  if (
+    typeof d === "object" && d !== null && d.origen === "figma" && d.version === 1 &&
+    Array.isArray(d.pantallas) && d.pantallas.length > 0 && d.pantallas.every(validarImportFigma)
+  ) {
+    return d.pantallas;
+  }
+  return null;
+}
+
+/**
+ * Desplazamientos de cada pantalla del lote RESPECTO DE LA PRIMERA. Si el
+ * plugin mandó posiciones absolutas de Figma, se conserva la disposición
+ * que el diseñador ya armó; si no (JSON viejo), quedan en fila con calle.
+ */
+export function offsetsDeLote(pantallas: ImportFigma[]): { dx: number; dy: number }[] {
+  const primero = pantallas[0].frame;
+  if (pantallas.every((p) => p.frame.x !== undefined && p.frame.y !== undefined)) {
+    return pantallas.map((p) => ({ dx: p.frame.x! - primero.x!, dy: p.frame.y! - primero.y! }));
+  }
+  let x = 0;
+  return pantallas.map((p) => {
+    const offset = { dx: x, dy: 0 };
+    x += p.frame.ancho + 200;
+    return offset;
+  });
 }
 
 /**

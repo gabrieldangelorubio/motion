@@ -20,17 +20,22 @@ import { CampoNumero } from "@/components/ui/CampoNumero";
 export function InspectorCamara({
   composicion,
   tiempo,
+  grabando = false,
   onFijar,
   onKeyframe,
   onTomarVista,
+  onGrabar,
   onQuitar,
   onCheckpoint,
 }: {
   composicion: Composicion;
   tiempo: number;
+  /** hay una toma en vivo corriendo (opción secundaria al modo por keyframes) */
+  grabando?: boolean;
   onFijar: (canal: CanalCamara, v: number) => void;
   onKeyframe: () => void;
   onTomarVista: () => void;
+  onGrabar?: () => void;
   onQuitar: () => void;
   onCheckpoint: () => void;
 }) {
@@ -104,6 +109,20 @@ export function InspectorCamara({
           >
             {t("Tomar la vista actual del lienzo")}
           </button>
+          {onGrabar && (
+            <button
+              type="button"
+              onClick={onGrabar}
+              aria-pressed={grabando}
+              className={[
+                "boton inline-flex h-9 items-center justify-center gap-2 rounded-control px-3 text-[13px] shadow-control",
+                grabando ? "bg-peligro/10 text-peligro" : "hover:bg-ink/[0.06]",
+              ].join(" ")}
+            >
+              {grabando && <span className="size-2 animate-pulse rounded-full bg-peligro" />}
+              {grabando ? t("Terminar la toma en vivo") : t("Grabar el gesto en vivo (reemplaza la cámara)")}
+            </button>
+          )}
           {composicion.camara && (
             <button
               type="button"

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { baselineAproximada, envolverEnLineas, normalizarFigma, validarImportFigma, type ImportFigma } from "@/lib/motion/figma-puro";
+import { baselineAproximada, envolverEnLineas, normalizarFigma, offsetsDeLote, pantallasDeImport, validarImportFigma, type ImportFigma } from "@/lib/motion/figma-puro";
 import { validar } from "@/lib/motion/validar-puro";
 import type { CapaForma, CapaMedia, CapaTexto } from "@/lib/motion/modelo";
 
@@ -160,6 +160,37 @@ test("la baseline sigue el modelo de Figma: glifos centrados en la caja de líne
   // el ancla lleva el tope de caja Y el tope de tinta: con la tinta el editor
   // resuelve la baseline exacta midiendo el mismo texto (geometría, no modelo)
   assert.deepEqual(anclas, [{ capaId: fans.id, topCaja: 500, tintaY: 502.5 }]);
+});
+
+test("pantallasDeImport acepta una pantalla o un lote; offsetsDeLote conserva la disposición de Figma", () => {
+  const una = fixture();
+  assert.deepEqual(pantallasDeImport(una), [una]);
+  const lote = { origen: "figma", version: 1, pantallas: [fixture(), fixture()] };
+  assert.equal(pantallasDeImport(lote)!.length, 2);
+  assert.equal(pantallasDeImport({ origen: "figma", version: 1, pantallas: [] }), null);
+  assert.equal(pantallasDeImport({ origen: "sketch" }), null);
+
+  // con posiciones absolutas del canvas de Figma → offsets relativos al PRIMERO
+  const marco = (nombre: string, x: number, y: number): ImportFigma => ({
+    origen: "figma",
+    version: 1,
+    frame: { nombre, ancho: 1920, alto: 1080, fondo: "#000", x, y },
+    nodos: [],
+  });
+  assert.deepEqual(offsetsDeLote([marco("a", 5000, 200), marco("b", 7200, 200), marco("c", 5000, 1500)]), [
+    { dx: 0, dy: 0 },
+    { dx: 2200, dy: 0 },
+    { dx: 0, dy: 1300 },
+  ]);
+  // sin posiciones (JSON viejo) → en fila con calle de 200
+  const viejo = (nombre: string): ImportFigma => ({
+    origen: "figma", version: 1, frame: { nombre, ancho: 1000, alto: 600, fondo: "#000" }, nodos: [],
+  });
+  assert.deepEqual(offsetsDeLote([viejo("a"), viejo("b"), viejo("c")]), [
+    { dx: 0, dy: 0 },
+    { dx: 1200, dy: 0 },
+    { dx: 2400, dy: 0 },
+  ]);
 });
 
 test("la mezcla viaja del IR a la capa; una desconocida degrada a normal CON aviso", () => {

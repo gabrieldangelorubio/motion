@@ -45,7 +45,10 @@ propiedades `trazoInicio`/`trazoFin` 0–1 keyframeables — implementado con
 `setLineDash`/`lineDashOffset` sobre el largo real medido al importar, y un
 trazo sin medir degrada a entero), **el paradigma canvas + cámara** (el lienzo es
 infinito: cada import de Figma se SUMA a la derecha de lo existente con su
-fondo como placa — ids únicos, anclas remapeadas —, y el render es LO QUE VE
+fondo como placa — ids únicos, anclas remapeadas — y el plugin exporta
+VARIOS frames seleccionados en un solo JSON: entran todos al lienzo
+conservando la disposición que tienen en el canvas de Figma, con el primer
+frame seleccionado definiendo el tamaño del render, y el render es LO QUE VE
 LA CÁMARA; el editor muestra el mundo con el rectángulo de encuadre
 dibujado encima — la transformación de cámara la aplica el export, no el
 preview —; la cámara es otra capa, abajo: fila propia en capas y timeline
@@ -59,7 +62,12 @@ animación queda sola; los keyframes de x/y/zoom que caen en el mismo
 instante son UNA «pose» en la timeline: se selecciona, arrastra, copia
 (⌘C), pega en el playhead (⌘V) y borra (Supr) como unidad — y los
 keyframes de pistas de capas se seleccionan/copian/pegan/borran igual;
-2D: posición + zoom; cada pantalla es un grupo liviano cuya
+el botón de cámara de la toolbar entra al modo en PAUSA — no reproduce ni
+graba: activa los controles y vas dejando keyframes moviéndote por la
+timeline (la toma en vivo quedó como opción secundaria en el inspector de
+cámara); botones de centrar horizontal/vertical: una capa se centra por su
+caja en su pantalla (o el frame), la placa centra su pantalla entera, la
+cámara centra el encuadre; 2D: posición + zoom; cada pantalla es un grupo liviano cuya
 placa de fondo es la manija — arrastrarla mueve la pantalla ENTERA con
 snap y el inspector la borra completa con lápidas — y el lienzo conmuta
 Mundo/Cámara: la vista Cámara es el preview exacto del render, recortado

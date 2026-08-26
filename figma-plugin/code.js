@@ -284,32 +284,14 @@ async function nodoAIR(nodo, marco, salida) {
 
 var CONTENEDORES = ["FRAME", "COMPONENT", "INSTANCE", "SECTION", "GROUP"];
 
-async function exportarSeleccion() {
-  var seleccion = figma.currentPage.selection;
-  if (seleccion.length === 0) {
-    figma.notify("No hay nada seleccionado: hacé click en el frame de la pantalla y volvé a correr el plugin");
-    figma.closePlugin();
-    return;
-  }
-  if (seleccion.length > 1) {
-    figma.notify("Hay " + seleccion.length + " cosas seleccionadas: dejá seleccionado SOLO el frame de la pantalla");
-    figma.closePlugin();
-    return;
-  }
-  if (CONTENEDORES.indexOf(seleccion[0].type) < 0) {
-    figma.notify(
-      "Seleccionaste un " + seleccion[0].type + " («" + seleccion[0].name + "»): subí un nivel (Esc) hasta el frame de la pantalla",
-    );
-    figma.closePlugin();
-    return;
-  }
-  var marco = seleccion[0];
+async function marcoAIR(marco) {
   var nodos = [];
   for (var i = 0; i < marco.children.length; i++) {
     await nodoAIR(marco.children[i], marco, nodos);
   }
   var fondoMarco = pinturaSolida(marco.fills);
-  var ir = {
+  var b = marco.absoluteBoundingBox;
+  return {
     origen: "figma",
     version: 1,
     frame: {
@@ -317,13 +299,53 @@ async function exportarSeleccion() {
       ancho: marco.width,
       alto: marco.height,
       fondo: fondoMarco ? colorDePintura(fondoMarco) : "#ffffff",
+      // posición ABSOLUTA en el canvas de Figma: el editor conserva la
+      // disposición relativa cuando entran varias pantallas juntas
+      x: b ? Math.round(b.x * 100) / 100 : undefined,
+      y: b ? Math.round(b.y * 100) / 100 : undefined,
     },
     nodos: nodos,
   };
-  var json = JSON.stringify(ir);
+}
+
+async function exportarSeleccion() {
+  var seleccion = figma.currentPage.selection;
+  if (seleccion.length === 0) {
+    figma.notify("No hay nada seleccionado: hacé click en el/los frames de pantalla y volvé a correr el plugin");
+    figma.closePlugin();
+    return;
+  }
+  for (var s = 0; s < seleccion.length; s++) {
+    if (CONTENEDORES.indexOf(seleccion[s].type) < 0) {
+      figma.notify(
+        "Seleccionaste un " + seleccion[s].type + " («" + seleccion[s].name + "»): subí un nivel (Esc) hasta los frames de pantalla",
+      );
+      figma.closePlugin();
+      return;
+    }
+  }
+
+  // Varias pantallas seleccionadas → un lote: entran todas al lienzo del
+  // editor conservando su disposición relativa. El PRIMER frame que
+  // seleccionaste define el tamaño del render.
+  var pantallas = [];
+  var totalCapas = 0;
+  for (var m = 0; m < seleccion.length; m++) {
+    var ir = await marcoAIR(seleccion[m]);
+    pantallas.push(ir);
+    totalCapas += ir.nodos.length;
+  }
+  var salidaFinal = pantallas.length === 1
+    ? pantallas[0]
+    : { origen: "figma", version: 1, pantallas: pantallas };
+  var titulo = pantallas.length === 1
+    ? "<b>" + pantallas[0].frame.nombre + "</b> — " + totalCapas + " capas listas."
+    : "<b>" + pantallas.length + " pantallas</b> — " + totalCapas + " capas listas. La primera que seleccionaste define el tamaño del render.";
+
+  var json = JSON.stringify(salidaFinal);
   var html =
     '<div style="font: 12px -apple-system, sans-serif; padding: 12px; color: #333">' +
-    "<p><b>" + marco.name + "</b> — " + nodos.length + " capas listas.</p>" +
+    "<p>" + titulo + "</p>" +
     '<p>1. Copiá el JSON · 2. En el editor de motion: <b>Importar de Figma</b> · 3. Pegá.</p>' +
     '<textarea id="j" style="width:100%; height:150px; font: 10px monospace" readonly></textarea><br><br>' +
     '<button id="c" style="padding:8px 16px; cursor:pointer">Copiar JSON</button> <span id="ok"></span>' +

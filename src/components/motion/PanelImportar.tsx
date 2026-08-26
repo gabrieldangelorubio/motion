@@ -11,10 +11,13 @@
 ----------------------------------------------------------------------------- */
 
 import { useState } from "react";
-import type { ResultadoImport } from "@/lib/motion/figma-puro";
-import { normalizarFigma, validarImportFigma } from "@/lib/motion/figma-puro";
+import type { ImportFigma, ResultadoImport } from "@/lib/motion/figma-puro";
+import { normalizarFigma, offsetsDeLote, pantallasDeImport } from "@/lib/motion/figma-puro";
 import { t } from "@/lib/i18n/stub";
 import { Etiqueta } from "@/components/ui/Etiqueta";
+
+/** Una pantalla normalizada + dónde va respecto de la primera del lote. */
+export type PantallaImportada = { resultado: ResultadoImport; dx: number; dy: number };
 
 export function PanelImportar({
   abierto,
@@ -23,11 +26,11 @@ export function PanelImportar({
 }: {
   abierto: boolean;
   onCerrar: () => void;
-  onImportar: (resultado: ResultadoImport) => void;
+  onImportar: (pantallas: PantallaImportada[]) => void;
 }) {
   const [json, setJson] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [previa, setPrevia] = useState<ResultadoImport | null>(null);
+  const [previa, setPrevia] = useState<PantallaImportada[] | null>(null);
 
   if (!abierto) return null;
 
@@ -38,11 +41,13 @@ export function PanelImportar({
     if (!texto.trim()) return;
     try {
       const datos: unknown = JSON.parse(texto);
-      if (!validarImportFigma(datos)) {
+      const pantallas: ImportFigma[] | null = pantallasDeImport(datos);
+      if (!pantallas) {
         setError(t("Esto no parece el JSON del plugin de Figma del módulo"));
         return;
       }
-      setPrevia(normalizarFigma(datos));
+      const offsets = offsetsDeLote(pantallas);
+      setPrevia(pantallas.map((p, i) => ({ resultado: normalizarFigma(p), ...offsets[i] })));
     } catch {
       setError(t("El texto pegado no es un JSON válido"));
     }
@@ -77,18 +82,24 @@ export function PanelImportar({
         {previa && (
           <div className="mt-3">
             <div className="text-[13px] text-foreground">
-              {t("«{nombre}» — {ancho}×{alto}, {n} capas", {
-                nombre: previa.composicion.nombre,
-                ancho: previa.composicion.ancho,
-                alto: previa.composicion.alto,
-                n: previa.composicion.capas.length,
-              })}
+              {previa.length === 1
+                ? t("«{nombre}» — {ancho}×{alto}, {n} capas", {
+                    nombre: previa[0].resultado.composicion.nombre,
+                    ancho: previa[0].resultado.composicion.ancho,
+                    alto: previa[0].resultado.composicion.alto,
+                    n: previa[0].resultado.composicion.capas.length,
+                  })
+                : t("{p} pantallas ({nombres}) — {n} capas; conservan su disposición de Figma", {
+                    p: previa.length,
+                    nombres: previa.map((x) => `«${x.resultado.composicion.nombre}»`).join(", "),
+                    n: previa.reduce((s, x) => s + x.resultado.composicion.capas.length, 0),
+                  })}
             </div>
-            {previa.avisos.length > 0 && (
+            {previa.some((p) => p.resultado.avisos.length > 0) && (
               <ul className="mt-2 max-h-24 overflow-y-auto text-xs text-muted">
-                {previa.avisos.map((aviso, i) => (
-                  <li key={i}>· {aviso}</li>
-                ))}
+                {previa.flatMap((p, j) =>
+                  p.resultado.avisos.map((aviso, i) => <li key={`${j}-${i}`}>· {aviso}</li>),
+                )}
               </ul>
             )}
           </div>

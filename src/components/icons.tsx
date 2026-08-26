@@ -94,6 +94,18 @@ const ICONOS = {
       <path d="M6 9l6 6 6-6" />
     </svg>
   ),
+  centrarH: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M12 3v3.5M12 17.5V21M12 9.5v5" strokeDasharray="2 2.4" />
+      <rect x="6.5" y="8" width="11" height="8" rx="1.5" />
+    </svg>
+  ),
+  centrarV: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M3 12h3.5M17.5 12H21M9.5 12h5" strokeDasharray="2 2.4" />
+      <rect x="8" y="6.5" width="8" height="11" rx="1.5" />
+    </svg>
+  ),
   camara: (p: IconoProps) => (
     <svg {...base(p)} aria-hidden>
       <rect x="3" y="7" width="13" height="10" rx="2" />

@@ -42,7 +42,7 @@ import { Capas } from "@/components/motion/Capas";
 import { Inspector } from "@/components/motion/Inspector";
 import { InspectorCamara } from "@/components/motion/InspectorCamara";
 import { ExportarVideo } from "@/components/motion/ExportarVideo";
-import { PanelImportar } from "@/components/motion/PanelImportar";
+import { PanelImportar, type PantallaImportada } from "@/components/motion/PanelImportar";
 import { PanelAgente } from "@/components/motion/PanelAgente";
 import { PanelFuentes } from "@/components/motion/PanelFuentes";
 import { Segmentado } from "@/components/ui/Segmentado";
@@ -353,6 +353,48 @@ export function Editor({
     );
   }, [registrar, alFrameActual]);
 
+  // Centrar lo seleccionado: una capa se centra por su CAJA (el ancla puede
+  // no ser el centro visual) respecto de su pantalla si pertenece a una, o
+  // del frame de render si no; una placa centra su pantalla ENTERA respecto
+  // del frame; la cámara centra el encuadre (con su auto-key de siempre).
+  const centrarSeleccion = useCallback((eje: "x" | "y") => {
+    const comp = compRef.current;
+    const id = seleccionRef.current;
+    if (!id) return;
+    if (id === CAMARA_ID) {
+      registrar();
+      setComposicion(fijarValorCamara(comp, eje, alFrameActual(), eje === "x" ? comp.ancho / 2 : comp.alto / 2));
+      return;
+    }
+    const capa = comp.capas.find((c) => c.id === id);
+    if (!capa || capa.bloqueada) return;
+    registrar();
+    if (capa.grupo === capa.id) {
+      const destino = eje === "x" ? comp.ancho / 2 : comp.alto / 2;
+      const d = destino - (eje === "x" ? capa.x : capa.y);
+      const miembros = comp.capas.filter((c) => c.grupo === capa.grupo);
+      setComposicion(moverCapas(comp, miembros.map((m) => ({
+        id: m.id,
+        x: m.x + (eje === "x" ? d : 0),
+        y: m.y + (eje === "y" ? d : 0),
+      }))));
+      return;
+    }
+    const ctx = document.createElement("canvas").getContext("2d");
+    const medir = (texto: string, font: string) => {
+      if (!ctx) return 0;
+      ctx.font = font;
+      return ctx.measureText(texto).width;
+    };
+    const placa = capa.grupo ? comp.capas.find((c) => c.id === capa.grupo) : null;
+    const destino = eje === "x"
+      ? (placa ? placa.x : comp.ancho / 2)
+      : (placa ? placa.y : comp.alto / 2);
+    const caja = cajaMundoDeCapa(capa, medir);
+    const delta = destino - (eje === "x" ? caja.x + caja.w / 2 : caja.y + caja.h / 2);
+    editarEnVivo(capa.id, eje === "x" ? { x: capa.x + delta } : { y: capa.y + delta });
+  }, [registrar, alFrameActual, editarEnVivo]);
+
   const moverPoseCamaraEnVivo = useCallback((tActual: number, nuevoT: number) => {
     const res = moverPoseCamara(compRef.current, tActual, nuevoT);
     if (res.ok) {
@@ -586,30 +628,41 @@ export function Editor({
     return max;
   }, []);
 
-  const importarDeFigma = useCallback((resultado: ResultadoImport) => {
+  const importarDeFigma = useCallback((pantallas: PantallaImportada[]) => {
+    if (!pantallas.length) return;
     registrar();
-    // Paradigma canvas: la primera pantalla define el frame de render; las
-    // siguientes se SUMAN al lienzo a la derecha — el render es lo que ve
-    // la cámara, que después viaja entre pantallas. TODA pantalla entra por
-    // sumarAlLienzo, así hasta la primera queda agrupada con su placa
-    // (arrastrás la placa = movés la pantalla entera).
+    // Paradigma canvas: la primera pantalla del lote define el frame de
+    // render (si el lienzo está vacío) y las demás conservan su disposición
+    // relativa de Figma; sobre un lienzo con contenido, el lote ENTERO se
+    // suma a la derecha. TODA pantalla entra por sumarAlLienzo, así queda
+    // agrupada con su placa (arrastrás la placa = movés la pantalla entera).
     const actual = compRef.current;
     const seSuma = actual.capas.length > 0;
-    const base: Composicion = seSuma ? actual : { ...resultado.composicion, capas: [] };
-    const dx = seSuma ? Math.ceil(bordeDerechoLienzo(actual) + 200) : 0;
-    const { composicion: composicionNueva, reajustes, anclas } = sumarAlLienzo(base, resultado, dx, 0);
+    let comp: Composicion = seSuma ? actual : { ...pantallas[0].resultado.composicion, capas: [] };
+    const origenX = seSuma ? Math.ceil(bordeDerechoLienzo(actual) + 200) : 0;
+    const reajustes: ResultadoImport["reajustes"] = [];
+    const anclas: ResultadoImport["anclas"] = [];
+    for (const pantalla of pantallas) {
+      const paso = sumarAlLienzo(comp, pantalla.resultado, origenX + pantalla.dx, pantalla.dy);
+      comp = paso.composicion;
+      reajustes.push(...paso.reajustes);
+      anclas.push(...paso.anclas);
+    }
     anclasRef.current = anclas.map((a) => ({ ...a }));
-    const final = anclarTextos(reajustarTextos(medirTrazos(composicionNueva), reajustes));
+    const final = anclarTextos(reajustarTextos(medirTrazos(comp), reajustes));
     setComposicion(final);
     setSeleccionId(null);
     tiempoRef.current = 0;
     setTiempoUI(0);
+    const avisos = pantallas.reduce((s, p) => s + p.resultado.avisos.length, 0);
     setAvisoGuardado(
       seSuma
-        ? t("«{nombre}» se sumó al lienzo, a la derecha de lo existente", { nombre: resultado.composicion.nombre })
-        : resultado.avisos.length
-          ? t.plural(resultado.avisos.length, "Importado con {n} aviso de conversión", "Importado con {n} avisos de conversión")
-          : null,
+        ? t.plural(pantallas.length, "{n} pantalla sumada al lienzo, a la derecha de lo existente", "{n} pantallas sumadas al lienzo, a la derecha de lo existente")
+        : avisos
+          ? t.plural(avisos, "Importado con {n} aviso de conversión", "Importado con {n} avisos de conversión")
+          : pantallas.length > 1
+            ? t("{n} pantallas importadas con su disposición de Figma", { n: pantallas.length })
+            : null,
     );
     requestAnimationFrame(() => lienzoRef.current?.encuadrar());
     // si la pantalla usa tipografías que este browser no tiene, abrir el
@@ -783,22 +836,31 @@ export function Editor({
                 </span>
               )}
             </div>
-            <div className="relative">
-              <ConPista
-                pista={
-                  grabandoCamara
-                    ? t("Grabando la cámara: mové y hacé zoom en el lienzo; click para terminar")
-                    : t("Grabar movimiento de cámara — reproducí y encuadrá a mano; después se suaviza solo")
-                }
+            <ConPista
+              pista={t("Modo cámara — pausa y activa los controles: X posición, Z zoom; movete por el timeline y cada gesto deja un keyframe")}
+            >
+              <BotonIcono
+                tam={32}
+                activo={seleccionId === CAMARA_ID}
+                etiqueta={t("Modo cámara")}
+                onClick={() => {
+                  setReproduciendo(false);
+                  seleccionar(seleccionId === CAMARA_ID ? null : CAMARA_ID);
+                }}
               >
-                <BotonIcono tam={32} activo={grabandoCamara} etiqueta={t("Grabar movimiento de cámara")} onClick={alternarGrabacion}>
-                  <Icono nombre="camara" width={15} height={15} />
-                </BotonIcono>
-              </ConPista>
-              {grabandoCamara && (
-                <span className="pointer-events-none absolute -right-1 -top-1 size-2.5 animate-pulse rounded-full bg-peligro" />
-              )}
-            </div>
+                <Icono nombre="camara" width={15} height={15} />
+              </BotonIcono>
+            </ConPista>
+            <ConPista pista={t("Centrar horizontal — la capa en su pantalla (o el frame); la placa centra su pantalla; la cámara, el encuadre")}>
+              <BotonIcono tam={32} etiqueta={t("Centrar horizontal")} deshabilitado={!seleccionId} onClick={() => centrarSeleccion("x")}>
+                <Icono nombre="centrarH" width={15} height={15} />
+              </BotonIcono>
+            </ConPista>
+            <ConPista pista={t("Centrar vertical")}>
+              <BotonIcono tam={32} etiqueta={t("Centrar vertical")} deshabilitado={!seleccionId} onClick={() => centrarSeleccion("y")}>
+                <Icono nombre="centrarV" width={15} height={15} />
+              </BotonIcono>
+            </ConPista>
             {composicion.camara && !grabandoCamara && (
               <ConPista pista={t("Quitar el movimiento de cámara grabado")}>
                 <BotonIcono tam={32} tono="peligro" etiqueta={t("Quitar cámara")} onClick={quitarCamara}>
@@ -874,9 +936,11 @@ export function Editor({
           <InspectorCamara
             composicion={composicion}
             tiempo={tiempoUI}
+            grabando={grabandoCamara}
             onFijar={fijarCamara}
             onKeyframe={keyframeCamaraAhora}
             onTomarVista={tomarVistaCamara}
+            onGrabar={alternarGrabacion}
             onQuitar={quitarCamara}
             onCheckpoint={registrar}
           />
