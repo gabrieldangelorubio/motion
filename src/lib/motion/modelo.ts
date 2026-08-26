@@ -45,7 +45,10 @@ export type NombrePropiedad =
   | "escala"
   | "rotacion"
   | "opacidad"
-  | "desenfoque";
+  | "desenfoque"
+  /** trim del trazo (capas tipo trazo), 0–1 como en AE */
+  | "trazoInicio"
+  | "trazoFin";
 
 export type Pistas = Partial<Record<NombrePropiedad, Keyframe[]>>;
 
@@ -102,10 +105,18 @@ export type CapaBase = {
 
 export type CapaTexto = CapaBase & {
   tipo: "texto";
+  /** puede tener \n: el motor pinta multilínea con interlineado */
   texto: string;
-  fuente: { familia: string; tamano: number; peso: number; interletrado?: number };
+  fuente: {
+    familia: string;
+    tamano: number;
+    peso: number;
+    interletrado?: number;
+    /** alto de línea en px; ausente = tamano × 1.15 */
+    interlineado?: number;
+  };
   color: string;
-  division: "ninguna" | "caracteres" | "palabras";
+  division: "ninguna" | "caracteres" | "palabras" | "lineas";
   alineacion?: "izquierda" | "centro" | "derecha";
 };
 
@@ -118,6 +129,23 @@ export type CapaForma = CapaBase & {
   radio?: number;
 };
 
+/** Trazo vectorial (línea/path de Figma): se anima con trim como en AE. */
+export type CapaTrazo = CapaBase & {
+  tipo: "trazo";
+  /** path SVG en coordenadas locales del nodo (0,0 = esquina sup-izq) */
+  path: string;
+  ancho: number;
+  alto: number;
+  color: string;
+  grosor: number;
+  /** largo total del path en px — lo mide el editor al importar (SVG getTotalLength) */
+  largo: number;
+  /** trim base 0–1; los presets trazar/retraer animan sobre esto */
+  trazoInicio?: number;
+  trazoFin?: number;
+  remate?: "redondo" | "recto";
+};
+
 /** Referencia media por id del catálogo (nunca URL cruda — §10.2 del kit). */
 export type CapaMedia = CapaBase & {
   tipo: "media";
@@ -127,7 +155,12 @@ export type CapaMedia = CapaBase & {
   ajuste: "cubrir" | "contener";
 };
 
-export type Capa = CapaTexto | CapaForma | CapaMedia;
+export type Capa = CapaTexto | CapaForma | CapaMedia | CapaTrazo;
+
+/** Cámara de la composición: keyframes de centro (x, y en px del lienzo) y zoom (1 = todo el frame). */
+export type Camara = {
+  pistas: { x?: Keyframe[]; y?: Keyframe[]; zoom?: Keyframe[] };
+};
 
 export type Composicion = {
   version: 1;
@@ -141,6 +174,8 @@ export type Composicion = {
   duracion: number;
   fondo: string;
   capas: Capa[];
+  /** movimiento de cámara; ausente = plano fijo */
+  camara?: Camara;
   borrados?: { id: string; v: number }[];
 };
 

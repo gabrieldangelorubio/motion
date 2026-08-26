@@ -19,12 +19,9 @@
 - **Dónde:** `components/motion/Lienzo.tsx`
 
 ### [P1] Texto multilínea, métricas reales y carga de fuentes
-- **Estado:** abierto
-- **Qué:** líneas múltiples con interlineado, división por líneas, y
-  `FontFace` + `document.fonts.load` con licencias declaradas.
-- **Por qué:** los títulos de case study no son una línea con la fuente del
-  sistema.
-- **Dónde:** `lib/motion/pintar.ts`, `modelo.ts` (aditivo)
+- **Estado:** HECHO (2026-08-26) — `\n` real con `interlineado`, división
+  por líneas, presets `revelar`/`ocultar` con máscara por renglón. Las
+  fuentes ya cargaban; licencias/persistencia siguen en su P2.
 
 ### [P1] Cachear el pintado con blur por capa
 - **Estado:** abierto
@@ -36,9 +33,9 @@
 
 ### [P2] Más presets y capa de énfasis (loops)
 - **Estado:** abierto
-- **Qué:** portar el set completo del prototipo v0 (`_andamiaje/studio-v0`):
-  reveal enmascarado, tracking, flip, pop, pulse/float/shimmer con
-  `composite` aditivo.
+- **Qué:** portar lo que falta del prototipo v0 (`_andamiaje/studio-v0`):
+  tracking, flip, pop, pulse/float/shimmer con `composite` aditivo (el
+  reveal enmascarado ya está: `revelar`/`ocultar`).
 - **Dónde:** `lib/motion/presets-puro.ts`, `evaluar-puro.ts`
 
 ### [P2] Export Lottie (formato, no runtime)
@@ -56,9 +53,10 @@
 - **Dónde:** `modelo.ts` (aditivo), `Editor.tsx`
 
 ### [P2] Capas de textura y cámara 2.5D del blueprint
-- **Estado:** abierto
-- **Qué:** grain determinista, duotono, y capa cámara con tracks aplicada
-  como transform inverso del mundo.
+- **Estado:** parcial (2026-08-26) — la cámara 2D YA está: pistas x/y/zoom
+  como transform de mundo + modo grabación con suavizado
+  (`suavizar-puro.ts`). Falta: rotación de cámara, parallax 2.5D por capa
+  (factor de profundidad), grain determinista y duotono.
 - **Dónde:** `modelo.ts` (aditivo), `evaluar-puro.ts`, `pintar.ts`
 
 ### [P1] Probar el plugin de Figma en Figma real y ajustar

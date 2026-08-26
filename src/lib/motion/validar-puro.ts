@@ -26,6 +26,17 @@ export function validar(comp: Composicion): Problema[] {
     problemas.push({ mensaje: "El lienzo necesita ancho y alto positivos" });
   }
 
+  for (const [canal, keyframes] of Object.entries(comp.camara?.pistas ?? {})) {
+    for (const kf of keyframes ?? []) {
+      if (kf.t < 0 || kf.t > comp.duracion) {
+        problemas.push({ mensaje: `Cámara: un keyframe de ${canal} en ${kf.t}ms cae fuera de la duración (${comp.duracion}ms)` });
+      }
+      if (canal === "zoom" && kf.v <= 0) {
+        problemas.push({ mensaje: `Cámara: el zoom tiene que ser positivo (vino ${kf.v} en ${kf.t}ms)` });
+      }
+    }
+  }
+
   const ids = new Set<string>();
   for (const capa of comp.capas) {
     if (ids.has(capa.id)) {
@@ -41,6 +52,10 @@ export function validar(comp: Composicion): Problema[] {
       if (seg.en < 0 || seg.en > comp.duracion) {
         problemas.push({ capaId: capa.id, mensaje: `«${capa.nombre}»: un segmento arranca fuera de la composición` });
       }
+    }
+
+    if (capa.tipo === "trazo" && (capa.trazoFin ?? 1) <= (capa.trazoInicio ?? 0)) {
+      problemas.push({ capaId: capa.id, mensaje: `«${capa.nombre}»: el trim base deja el trazo vacío (fin ≤ inicio)` });
     }
 
     for (const [prop, keyframes] of Object.entries(capa.pistas ?? {})) {

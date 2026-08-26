@@ -11,8 +11,8 @@
 import type { Segmento } from "@/lib/motion/modelo";
 
 export type PistaRelativa = {
-  /** progreso 0–1 del segmento → valor OFFSET (dx, dy, dEscala, dOpacidad, desenfoque px) */
-  [k in "dx" | "dy" | "dEscala" | "dOpacidad" | "desenfoque"]?: { p: number; v: number }[];
+  /** progreso 0–1 del segmento → valor OFFSET (dx, dy, dEscala, dOpacidad, desenfoque px, dTrazo 0–1) */
+  [k in "dx" | "dy" | "dEscala" | "dOpacidad" | "desenfoque" | "dTrazoInicio" | "dTrazoFin"]?: { p: number; v: number }[];
 };
 
 export type PresetCompilado = {
@@ -21,6 +21,10 @@ export type PresetCompilado = {
   distancia: number;
   /** el preset anima desenfoque propio: el blur sintetizado no se superpone */
   desenfoquePropio?: boolean;
+  /** la unidad se pinta RECORTADA a su caja de reposo (revelado con máscara) */
+  recorte?: boolean;
+  /** los dy del preset son múltiplos del alto de la unidad (para revelados de texto) */
+  relativo?: boolean;
 };
 
 type DefPreset = {
@@ -113,6 +117,26 @@ export const PRESETS: Record<string, DefPreset> = {
       };
     },
   },
+  revelar: {
+    clase: "entrada",
+    // el clásico reveal enmascarado: la unidad sube DENTRO de su caja de línea
+    compilar: (params) => ({
+      pista: { dy: [{ p: 0, v: d(params, "distancia", 1.1) }, { p: 1, v: 0 }] },
+      eje: "y",
+      distancia: 0, // el recorte da corte seco: sin blur sintetizado encima
+      recorte: true,
+      relativo: true,
+    }),
+  },
+  trazar: {
+    clase: "entrada",
+    // trim path estilo AE: la línea se dibuja de 0 al 100 %
+    compilar: () => ({
+      pista: { dTrazoFin: [{ p: 0, v: -1 }, { p: 1, v: 0 }] },
+      eje: null,
+      distancia: 0,
+    }),
+  },
   desvanecer: {
     clase: "salida",
     compilar: () => ({
@@ -151,6 +175,34 @@ export const PRESETS: Record<string, DefPreset> = {
         desenfoquePropio: true,
       };
     },
+  },
+  ocultar: {
+    clase: "salida",
+    compilar: (params) => ({
+      pista: { dy: [{ p: 0, v: 0 }, { p: 1, v: d(params, "distancia", 1.1) }] },
+      eje: "y",
+      distancia: 0,
+      recorte: true,
+      relativo: true,
+    }),
+  },
+  retraer: {
+    clase: "salida",
+    // la línea se des-dibuja retrocediendo desde el final
+    compilar: () => ({
+      pista: { dTrazoFin: [{ p: 0, v: 0 }, { p: 1, v: -1 }] },
+      eje: null,
+      distancia: 0,
+    }),
+  },
+  borrar: {
+    clase: "salida",
+    // la línea se borra avanzando desde el inicio
+    compilar: () => ({
+      pista: { dTrazoInicio: [{ p: 0, v: 0 }, { p: 1, v: 1 }] },
+      eje: null,
+      distancia: 0,
+    }),
   },
 };
 

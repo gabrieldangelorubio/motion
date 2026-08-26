@@ -37,6 +37,8 @@ export type ControlLienzo = {
   pintarAhora: (t: number) => void;
   encuadrar: () => void;
   escalaUno: () => void;
+  /** encuadre actual del viewport en coordenadas de la composición (para el modo cámara) */
+  vistaActual: () => { x: number; y: number; zoom: number } | null;
 };
 
 export const Lienzo = forwardRef<
@@ -166,6 +168,19 @@ export const Lienzo = forwardRef<
         escala: 1,
         x: (cont.clientWidth - comp.ancho) / 2,
         y: (cont.clientHeight - comp.alto) / 2,
+      };
+    },
+    vistaActual: () => {
+      const cont = contRef.current;
+      if (!cont || cont.clientWidth === 0) return null;
+      const cam = camRef.current;
+      const comp = obtenerComposicion();
+      return {
+        // centro del viewport llevado a coordenadas del lienzo de la composición
+        x: (cont.clientWidth / 2 - cam.x) / cam.escala,
+        y: (cont.clientHeight / 2 - cam.y) / cam.escala,
+        // zoom 1 = el ancho de la composición ocupa exactamente el viewport
+        zoom: (comp.ancho * cam.escala) / cont.clientWidth,
       };
     },
   }));

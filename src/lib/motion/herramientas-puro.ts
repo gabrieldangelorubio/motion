@@ -96,8 +96,17 @@ export function describir(comp: Composicion): string {
   const lineas = [
     `«${comp.nombre}» — ${comp.ancho}×${comp.alto} @ ${comp.fps}fps, ${(comp.duracion / 1000).toFixed(2)}s, ${comp.capas.length} capas`,
   ];
+  if (comp.camara) {
+    const canales = (["x", "y", "zoom"] as const)
+      .filter((c) => comp.camara?.pistas[c]?.length)
+      .map((c) => `${c} ${comp.camara!.pistas[c]!.length} kf`);
+    lineas.push(`  cámara: ${canales.join(", ") || "sin pistas"}`);
+  }
   for (const capa of comp.capas) {
     const partes = [`  · [${capa.tipo}] «${capa.nombre}» en (${Math.round(capa.x)}, ${Math.round(capa.y)})`];
+    if (capa.tipo === "texto" && capa.division !== "ninguna") partes.push(`división ${capa.division}`);
+    if (capa.tipo === "texto" && capa.texto.includes("\n")) partes.push(`${capa.texto.split("\n").length} líneas`);
+    if (capa.tipo === "trazo") partes.push(`largo ${Math.round(capa.largo)}px`);
     if (capa.entrada) partes.push(`entrada ${capa.entrada.preset} @${capa.entrada.en}ms`);
     if (capa.salida) partes.push(`salida ${capa.salida.preset} @${capa.salida.en}ms`);
     const pistas = Object.keys(capa.pistas ?? {});

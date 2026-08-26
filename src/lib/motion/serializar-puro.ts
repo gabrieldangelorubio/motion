@@ -55,5 +55,12 @@ function normalizar(comp: Composicion): Composicion {
           )
         : undefined,
     })),
+    camara: comp.camara
+      ? {
+          pistas: Object.fromEntries(
+            Object.entries(comp.camara.pistas ?? {}).map(([k, v]) => [k, v ? ordenarKeyframes(v) : v]),
+          ),
+        }
+      : undefined,
   };
 }

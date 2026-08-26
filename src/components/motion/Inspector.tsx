@@ -197,12 +197,12 @@ export function Inspector({
           <div className="flex flex-col gap-2.5">
             <label className="block">
               <Etiqueta className="mb-1">{t("Contenido")}</Etiqueta>
-              <input
-                type="text"
+              <textarea
                 value={capa.texto}
+                rows={Math.min(5, capa.texto.split("\n").length)}
                 onFocus={onCheckpoint}
                 onChange={(e) => editar({ texto: e.target.value })}
-                className="w-full rounded-control bg-transparent px-2 py-1.5 text-base text-foreground shadow-hueco outline-none"
+                className="w-full resize-y rounded-control bg-transparent px-2 py-1.5 text-base text-foreground shadow-hueco outline-none"
               />
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -225,6 +225,17 @@ export function Inspector({
                 onCambio={(peso) => editar({ fuente: { ...capa.fuente, peso } })}
               />
             </div>
+            {capa.texto.includes("\n") && (
+              <CampoNumero
+                etiqueta={t("Interlineado")}
+                valor={capa.fuente.interlineado ?? Math.round(capa.fuente.tamano * 1.15)}
+                min={4}
+                paso={2}
+                sufijo="px"
+                onInicio={onCheckpoint}
+                onCambio={(interlineado) => editar({ fuente: { ...capa.fuente, interlineado } })}
+              />
+            )}
             <Desplegable
               etiqueta={t("División")}
               valor={capa.division}
@@ -232,11 +243,50 @@ export function Inspector({
                 { valor: "ninguna", nombre: t("sin dividir") },
                 { valor: "caracteres", nombre: t("por caracteres") },
                 { valor: "palabras", nombre: t("por palabras") },
+                { valor: "lineas", nombre: t("por líneas") },
               ]}
               onCambio={(division) => {
                 onCheckpoint();
-                editar({ division: division as "ninguna" | "caracteres" | "palabras" });
+                editar({ division: division as "ninguna" | "caracteres" | "palabras" | "lineas" });
               }}
+            />
+          </div>
+        </section>
+      )}
+
+      {capa.tipo === "trazo" && (
+        <section className="border-t border-(--glass-border) px-3 py-3">
+          <Etiqueta className="mb-2">{t("Trazo")}</Etiqueta>
+          <div className="grid grid-cols-2 gap-2">
+            <CampoNumero
+              etiqueta={t("Grosor")}
+              valor={capa.grosor}
+              min={0.5}
+              paso={0.5}
+              sufijo="px"
+              onInicio={onCheckpoint}
+              onCambio={(grosor) => editar({ grosor })}
+            />
+            <div />
+            <CampoNumero
+              etiqueta={t("Inicio")}
+              valor={Math.round((capa.trazoInicio ?? 0) * 100)}
+              min={0}
+              max={100}
+              paso={5}
+              sufijo="%"
+              onInicio={onCheckpoint}
+              onCambio={(v) => editar({ trazoInicio: v / 100 })}
+            />
+            <CampoNumero
+              etiqueta={t("Fin")}
+              valor={Math.round((capa.trazoFin ?? 1) * 100)}
+              min={0}
+              max={100}
+              paso={5}
+              sufijo="%"
+              onInicio={onCheckpoint}
+              onCambio={(v) => editar({ trazoFin: v / 100 })}
             />
           </div>
         </section>

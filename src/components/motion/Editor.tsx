@@ -31,6 +31,7 @@ import { PanelAgente } from "@/components/motion/PanelAgente";
 import { PanelFuentes } from "@/components/motion/PanelFuentes";
 import { Segmentado } from "@/components/ui/Segmentado";
 import { familiasDeComposicion, familiaDisponible } from "@/lib/motion/fuentes-puro";
+import { suavizarGrabacion, type MuestraCamara } from "@/lib/motion/suavizar-puro";
 import type { ResultadoImport } from "@/lib/motion/figma-puro";
 import type { FuentesDeMedia } from "@/lib/motion/pintar";
 
@@ -82,11 +83,32 @@ export function Editor({
   }, [seleccionId]);
   const tiempoRef = useRef(0);
   const lienzoRef = useRef<ControlLienzo>(null);
+  // ——— Modo cámara: grabar el gesto del viewport y suavizarlo a keyframes ———
+  const [grabandoCamara, setGrabandoCamara] = useState(false);
+  const grabandoRef = useRef(false);
+  const muestrasRef = useRef<MuestraCamara[]>([]);
   const pasadoRef = useRef<Composicion[]>([]);
   const futuroRef = useRef<Composicion[]>([]);
   const revRef = useRef(composicion.rev ?? 0);
   const fallosRef = useRef(0);
   const timerGuardadoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Al terminar la toma (botón o fin de la composición): la grabación cruda
+  // pasa por suavizarGrabacion y queda como pistas de cámara editables. El
+  // checkpoint de undo se puso al ARRANCAR la toma: grabar es UN paso.
+  const detenerGrabacion = useCallback(() => {
+    if (!grabandoRef.current) return;
+    grabandoRef.current = false;
+    setGrabandoCamara(false);
+    const camara = suavizarGrabacion(muestrasRef.current) ?? undefined;
+    muestrasRef.current = [];
+    setComposicion({ ...compRef.current, camara });
+    // rebobinar y encuadrar: la toma se revisa de una, desde afuera
+    tiempoRef.current = 0;
+    setTiempoUI(0);
+    setReproduciendo(true);
+    requestAnimationFrame(() => lienzoRef.current?.encuadrar());
+  }, []);
 
   // ——— Reloj: un solo rAF que avanza, pinta y avisa a React a baja frecuencia ———
   useEffect(() => {
@@ -98,7 +120,16 @@ export function Editor({
       const dt = ahora - anterior;
       anterior = ahora;
       if (reproduciendo && !document.hidden) {
+        const previo = tiempoRef.current;
         tiempoRef.current = (tiempoRef.current + dt) % compRef.current.duracion;
+        if (grabandoRef.current) {
+          if (tiempoRef.current < previo) {
+            detenerGrabacion(); // la composición dio la vuelta: la toma terminó
+          } else {
+            const vista = lienzoRef.current?.vistaActual();
+            if (vista) muestrasRef.current.push({ t: tiempoRef.current, ...vista });
+          }
+        }
       }
       lienzoRef.current?.pintarAhora(tiempoRef.current);
       if (ahora - ultimoAvisoUI > 125) {
@@ -112,7 +143,7 @@ export function Editor({
       vivo = false;
       cancelAnimationFrame(id);
     };
-  }, [reproduciendo]);
+  }, [reproduciendo, detenerGrabacion]);
 
   // ——— Undo por snapshots ———
   const registrar = useCallback(() => {
@@ -195,6 +226,28 @@ export function Editor({
     editarEnVivo(capaId, { oculta: !capa?.oculta });
   }, [registrar, editarEnVivo]);
 
+  const alternarGrabacion = useCallback(() => {
+    if (grabandoRef.current) {
+      detenerGrabacion();
+      return;
+    }
+    registrar();
+    // la cámara previa se saca ANTES de grabar: si no, el usuario encuadraría
+    // sobre un lienzo que ya se mueve solo y la toma saldría doble
+    setComposicion({ ...compRef.current, camara: undefined });
+    muestrasRef.current = [];
+    grabandoRef.current = true;
+    setGrabandoCamara(true);
+    tiempoRef.current = 0;
+    setTiempoUI(0);
+    setReproduciendo(true);
+  }, [registrar, detenerGrabacion]);
+
+  const quitarCamara = useCallback(() => {
+    registrar();
+    setComposicion({ ...compRef.current, camara: undefined });
+  }, [registrar]);
+
   // ——— Media: resolución de imágenes (data URIs del import de Figma) ———
   // El motor no sabe de red: recibe un resolver. Las imágenes se cargan
   // perezosas la primera vez que pintar() las pide; el loop del preview
@@ -214,9 +267,36 @@ export function Editor({
     },
   }), []);
 
+  // El largo real de un path sólo lo sabe el DOM de SVG (getTotalLength):
+  // se mide UNA vez al importar y queda guardado en la capa — el motor puro
+  // y el export nunca tocan el DOM. Si algo falla, largo 0 = trazo completo.
+  const medirTrazos = useCallback((comp: Composicion): Composicion => {
+    if (!comp.capas.some((c) => c.tipo === "trazo" && c.largo === 0)) return comp;
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("aria-hidden", "true");
+    svg.style.position = "absolute";
+    svg.style.pointerEvents = "none";
+    document.body.appendChild(svg);
+    try {
+      const capas = comp.capas.map((c) => {
+        if (c.tipo !== "trazo" || c.largo > 0) return c;
+        const path = document.createElementNS(NS, "path");
+        path.setAttribute("d", c.path);
+        svg.appendChild(path);
+        return { ...c, largo: Math.round(path.getTotalLength() * 100) / 100 };
+      });
+      return { ...comp, capas };
+    } catch {
+      return comp;
+    } finally {
+      svg.remove();
+    }
+  }, []);
+
   const importarDeFigma = useCallback((resultado: ResultadoImport) => {
     registrar();
-    setComposicion(resultado.composicion);
+    setComposicion(medirTrazos(resultado.composicion));
     setSeleccionId(null);
     tiempoRef.current = 0;
     setTiempoUI(0);
@@ -232,7 +312,7 @@ export function Editor({
       pesos.some((peso) => !familiaDisponible(familia, peso)),
     );
     if (faltantes) setFuentesAbierto(true);
-  }, [registrar]);
+  }, [registrar, medirTrazos]);
 
   const familiasFaltantes = familiasDeComposicion(composicion).filter(({ familia, pesos }) =>
     pesos.some((peso) => !familiaDisponible(familia, peso)),
@@ -341,6 +421,29 @@ export function Editor({
                 </span>
               )}
             </div>
+            <div className="relative">
+              <ConPista
+                pista={
+                  grabandoCamara
+                    ? t("Grabando la cámara: mové y hacé zoom en el lienzo; click para terminar")
+                    : t("Grabar movimiento de cámara — reproducí y encuadrá a mano; después se suaviza solo")
+                }
+              >
+                <BotonIcono tam={32} activo={grabandoCamara} etiqueta={t("Grabar movimiento de cámara")} onClick={alternarGrabacion}>
+                  <Icono nombre="camara" width={15} height={15} />
+                </BotonIcono>
+              </ConPista>
+              {grabandoCamara && (
+                <span className="pointer-events-none absolute -right-1 -top-1 size-2.5 animate-pulse rounded-full bg-peligro" />
+              )}
+            </div>
+            {composicion.camara && !grabandoCamara && (
+              <ConPista pista={t("Quitar el movimiento de cámara grabado")}>
+                <BotonIcono tam={32} tono="peligro" etiqueta={t("Quitar cámara")} onClick={quitarCamara}>
+                  <Icono nombre="ojoTachado" width={15} height={15} />
+                </BotonIcono>
+              </ConPista>
+            )}
             <ConPista pista={t("Encuadrar todo (⇧1)")}>
               <BotonIcono tam={32} etiqueta={t("Encuadrar todo")} onClick={() => lienzoRef.current?.encuadrar()}>
                 <Icono nombre="encuadrar" width={15} height={15} />

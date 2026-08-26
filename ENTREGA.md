@@ -24,9 +24,26 @@ de capas, undo por snapshots, autosave con CAS, **import de una pantalla de
 Figma** (plugin propio en `figma-plugin/` → JSON por copy/paste →
 normalizador puro con degradación por-nodo y avisos visibles; texto real,
 formas nativas, lo demás rasterizado a data-uri que el editor resuelve),
-**modos de mezcla** (multiply, screen, overlay… — viajan desde Figma, se pintan con globalCompositeOperation, editables en inspector y agente; LINEAR_BURN/DODGE se aproximan con aviso), **calidad de preview** (½ / 1× / Máx al estilo Half/Quarter de AE — menos píxeles de render mientras armás; el export SIEMPRE sale a resolución completa), **gestión de tipografías** (detección real de familias faltantes por medición — `document.fonts.check` miente —, panel que se abre solo tras un import con fuentes ajenas, carga desde Google Fonts con fallo detectable o subiendo el archivo .otf/.ttf/.woff2; sin sustitución silenciosa), **el agente director de motion** (ruta `/api/motion/agente`: loop agéntico
-con la API de Claude sobre 11 herramientas incrementales validadas y
-clampeadas — panel de chat que aplica cada respuesta como UN paso de undo y
+**modos de mezcla** (multiply, screen, overlay… — viajan desde Figma, se pintan con globalCompositeOperation, editables en inspector y agente; LINEAR_BURN/DODGE se aproximan con aviso), **calidad de preview** (½ / 1× / Máx al estilo Half/Quarter de AE — menos píxeles de render mientras armás; el export SIEMPRE sale a resolución completa), **gestión de tipografías** (detección real de familias faltantes por medición — `document.fonts.check` miente —, panel que se abre solo tras un import con fuentes ajenas, carga desde Google Fonts con fallo detectable o subiendo el archivo .otf/.ttf/.woff2; sin sustitución silenciosa), **texto multilínea con revelado enmascarado** (`\n` real con interlineado
+propio, división por caracteres/palabras/**líneas**, presets
+`revelar`/`ocultar`: cada unidad sube dentro de su renglón recortada a su
+caja de reposo — el clásico reveal de SplitText con máscara, sin crear
+máscaras a mano; el recorte se apaga en reposo para no cortar descendentes),
+**capas de trazo con trim estilo AE** (vectores de Figma con stroke y sin
+fill llegan como path animable; presets `trazar`/`retraer`/`borrar` y
+propiedades `trazoInicio`/`trazoFin` 0–1 keyframeables — implementado con
+`setLineDash`/`lineDashOffset` sobre el largo real medido al importar, y un
+trazo sin medir degrada a entero), **cámara de composición** (keyframes de
+centro x/y y zoom aplicados como transformación de mundo antes de las capas
+— el export la hereda gratis — y un **modo grabación**: botón de cámara →
+reproducís y encuadrás a mano con pan/zoom del lienzo; al terminar,
+`suavizarGrabacion` convierte la toma cruda en pocos keyframes editables:
+media móvil de 350 ms contra el temblor + reducción RDP por canal, extremos
+crudos para que el encuadre inicial y final queden exactos), **el agente
+director de motion** (ruta `/api/motion/agente`: loop agéntico
+con la API de Claude sobre 13 herramientas incrementales validadas y
+clampeadas — incluye `definir_camara`/`quitar_camara` y los trims — panel
+de chat que aplica cada respuesta como UN paso de undo y
 muestra las ops), y **export a MP4 frame-exacto** (WebCodecs + `mp4-muxer`, decisión aprobada por Fran
 2026-08-26): la misma `pintar()` del preview frame a frame, H.264 con
 fallback a VP9-en-MP4 (Chromium sin codecs propietarios), **supersampling
@@ -49,9 +66,14 @@ opacos), back-pressure del encoder y progreso en vivo.
   integre, las 11 herramientas y el system prompt migran a tools del
   asistente real (§10.5) y este panel puede quedar o irse — las firmas ya
   son las que Diosa espera (ops puras sobre la composición).
-- **Texto multilínea**: una capa de texto sigue siendo una línea (P1). Las
-  fuentes YA se cargan (Google Fonts o archivo); las licencias de las
+- **Fuentes**: YA se cargan (Google Fonts o archivo); las licencias de las
   subidas las declara el usuario y la persistencia va al catálogo (P2).
+- **La cámara es 2D** (paneo + zoom): sin rotación ni parallax 2.5D por
+  capa (P2 del backlog). El modo grabación captura lo que hagas con el
+  viewport; el zoom grabado es relativo al ancho de la composición.
+- **Vectores de Figma con fill** siguen rasterizando: sólo stroke-sin-fill
+  se vuelve trazo animable (es el caso «línea decorativa»; un shape relleno
+  animado con trim no tiene equivalente fiel en canvas barato).
 - **Audio**: no hay pista de audio en esta versión.
 - **Selección múltiple en el lienzo** (shift-click, marquee, Alt-duplica):
   la selección y el drag simples ya están; lo múltiple es P1.
@@ -121,16 +143,19 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **83
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **102
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
-  `tests/motion/fixtures/composicion-ejemplo.json`.
+  `tests/motion/fixtures/composicion-ejemplo.json`; los de
+  trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`.
 - **Sabotajes vistos en rojo** (§2.5): (1) `interpolar` ignorando el easing
   del tramo → falló exactamente «el easing del tramo lo declara el keyframe
   de SALIDA»; (2) gate del motion blur apagado en `evaluar-puro` → falló
   exactamente «el motion blur sintetizado es >0 durante el movimiento…» (que
   además lleva su control positivo); (3) regla de un-solo-ganador del
   snapping invertida → falló exactamente «UN solo ganador por eje — gana la
-  distancia mínima». (4) clamp del agente sin efecto → fallaron los tests de clampeo. Restaurados, 83/83 verdes.
+  distancia mínima». (4) clamp del agente sin efecto → fallaron los tests de clampeo. (5) ventana del recorte del revelado siempre activa →
+  fallaron exactamente los tres tests de la ventana (reposo sin recorte,
+  salida recortando, clip en pintar). Restaurados, 102/102 verdes.
 
 ## Qué necesita cablearse de su lado
 

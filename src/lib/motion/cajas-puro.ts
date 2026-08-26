@@ -21,13 +21,17 @@ const ASCENDENTE = 0.8; // fracción del tamaño por encima del baseline (aprox 
 const DESCENDENTE = 0.25;
 
 export function cajaLocalDeCapa(capa: Capa, medir: MedirTexto): CajaLocal {
-  if (capa.tipo === "forma" || capa.tipo === "media") {
+  if (capa.tipo !== "texto") {
     return { x: -capa.ancho / 2, y: -capa.alto / 2, w: capa.ancho, h: capa.alto };
   }
   const { familia, tamano, peso } = capa.fuente;
-  const anchoTexto = medir(capa.texto, `${peso} ${tamano}px ${familia}`);
-  const h = tamano * (ASCENDENTE + DESCENDENTE);
-  const y = -tamano * ASCENDENTE;
+  const interlineado = capa.fuente.interlineado ?? tamano * 1.15;
+  const lineas = capa.texto.split("\n");
+  const anchoTexto = Math.max(...lineas.map((l) => medir(l, `${peso} ${tamano}px ${familia}`)));
+  // El bloque multilínea queda centrado en el ancla (misma cuenta que pintar):
+  // la baseline de la línea i cae en (i − (n−1)/2) · interlineado.
+  const h = (lineas.length - 1) * interlineado + tamano * (ASCENDENTE + DESCENDENTE);
+  const y = -((lineas.length - 1) / 2) * interlineado - tamano * ASCENDENTE;
   if (capa.alineacion === "izquierda") return { x: 0, y, w: anchoTexto, h };
   if (capa.alineacion === "derecha") return { x: -anchoTexto, y, w: anchoTexto, h };
   return { x: -anchoTexto / 2, y, w: anchoTexto, h };

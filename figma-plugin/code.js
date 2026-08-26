@@ -118,6 +118,11 @@ async function nodoAIR(nodo, marco, salida) {
     var espaciado = nodo.letterSpacing.unit === "PERCENT"
       ? (nodo.fontSize * nodo.letterSpacing.value) / 100
       : nodo.letterSpacing.value;
+    var interlineado;
+    if (nodo.lineHeight !== figma.mixed && nodo.lineHeight) {
+      if (nodo.lineHeight.unit === "PIXELS") interlineado = Math.round(nodo.lineHeight.value * 100) / 100;
+      else if (nodo.lineHeight.unit === "PERCENT") interlineado = Math.round(nodo.fontSize * nodo.lineHeight.value) / 100;
+    }
     salida.push({
       tipo: "texto",
       nombre: nodo.name,
@@ -131,11 +136,48 @@ async function nodoAIR(nodo, marco, salida) {
         peso: nodo.fontWeight,
         tamano: nodo.fontSize,
         interletrado: Math.abs(espaciado) > 0.01 ? Math.round(espaciado * 100) / 100 : undefined,
+        interlineado: interlineado,
         alineacion: alineacionDe(nodo),
         color: colorDePintura(pintura),
       },
     });
     return;
+  }
+
+  // Vectores y líneas con stroke sólido y SIN fill → capa de trazo animable
+  // con trim (el caso «líneas decorativas» de las referencias). Todo lo demás
+  // vectorial sigue cayendo al rasterizado de siempre.
+  if ((nodo.type === "VECTOR" || nodo.type === "LINE") && !rotado && !tieneEfectos(nodo)) {
+    var sinFill = nodo.fills !== figma.mixed && (!nodo.fills || !nodo.fills.some(function (f) { return f.visible !== false; }));
+    var borde = nodo.strokes !== figma.mixed && Array.isArray(nodo.strokes)
+      ? nodo.strokes.filter(function (s) { return s.visible !== false; })
+      : [];
+    var pathVector = null;
+    if (nodo.type === "LINE") {
+      // LineNode no expone vectorPaths: es un segmento horizontal de su ancho
+      pathVector = "M 0 0 L " + Math.round(nodo.width * 100) / 100 + " 0";
+    } else if (nodo.vectorPaths && nodo.vectorPaths.length > 0) {
+      pathVector = nodo.vectorPaths.map(function (p) { return p.data; }).join(" ");
+    }
+    if (sinFill && borde.length === 1 && borde[0].type === "SOLID" && typeof nodo.strokeWeight === "number" && pathVector) {
+      var ct = caja(nodo, marco);
+      var mezclaTrazo = mezclaDe(nodo);
+      salida.push({
+        tipo: "trazo",
+        nombre: nodo.name,
+        x: ct.x, y: ct.y, ancho: ct.ancho, alto: ct.alto,
+        opacidad: nodo.opacity < 1 ? nodo.opacity : undefined,
+        mezcla: mezclaTrazo.mezcla,
+        aviso: mezclaTrazo.aviso || undefined,
+        trazo: {
+          path: pathVector,
+          color: colorDePintura(borde[0]),
+          grosor: Math.round(nodo.strokeWeight * 100) / 100,
+          remate: nodo.strokeCap === "ROUND" ? "redondo" : "recto",
+        },
+      });
+      return;
+    }
   }
 
   if ((nodo.type === "RECTANGLE" || nodo.type === "ELLIPSE") && !rotado && !tieneEfectos(nodo)) {

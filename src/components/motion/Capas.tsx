@@ -18,6 +18,7 @@ const ETIQUETA_TIPO: Record<string, string> = {
   texto: "T",
   forma: "▢",
   media: "▣",
+  trazo: "〜",
 };
 
 export function Capas({

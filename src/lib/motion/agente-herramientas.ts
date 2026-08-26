@@ -12,7 +12,7 @@
    vuelven en el resultado — verificación semántica barata.
 ----------------------------------------------------------------------------- */
 
-import { MEZCLAS, type Capa, type CapaForma, type CapaTexto, type Composicion, type Keyframe, type MezclaCapa, type NombreEasing, type NombrePropiedad, type OrdenEscalonado, type Segmento } from "@/lib/motion/modelo";
+import { MEZCLAS, type Camara, type Capa, type CapaForma, type CapaTexto, type CapaTrazo, type Composicion, type Keyframe, type MezclaCapa, type NombreEasing, type NombrePropiedad, type OrdenEscalonado, type Segmento } from "@/lib/motion/modelo";
 import { agregarCapa, editarCapa, quitarCapa, describir } from "@/lib/motion/herramientas-puro";
 import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
 import { nombresPresets, PRESETS } from "@/lib/motion/presets-puro";
@@ -159,7 +159,7 @@ export function ejecutarHerramienta(
         const extra = cambios as Partial<CapaTexto>;
         if (typeof input.texto === "string") extra.texto = input.texto;
         if (typeof input.color === "string") extra.color = input.color;
-        if (input.division === "ninguna" || input.division === "caracteres" || input.division === "palabras") extra.division = input.division;
+        if (input.division === "ninguna" || input.division === "caracteres" || input.division === "palabras" || input.division === "lineas") extra.division = input.division;
         if (input.tamano !== undefined || input.peso !== undefined) {
           extra.fuente = {
             ...capa.fuente,
@@ -169,6 +169,12 @@ export function ejecutarHerramienta(
         }
       } else if (capa.tipo === "forma" && typeof input.color === "string") {
         (cambios as Partial<CapaForma>).color = input.color;
+      } else if (capa.tipo === "trazo") {
+        const extra = cambios as Partial<CapaTrazo>;
+        if (typeof input.color === "string") extra.color = input.color;
+        if (input.grosor !== undefined) extra.grosor = clamp(numero(input.grosor, capa.grosor), 0.5, 200);
+        if (input.trazoInicio !== undefined) extra.trazoInicio = clamp(numero(input.trazoInicio, 0), 0, 1);
+        if (input.trazoFin !== undefined) extra.trazoFin = clamp(numero(input.trazoFin, 1), 0, 1);
       }
       if (Object.keys(cambios).length === 0) return fallo(comp, "no vino ningún cambio aplicable");
       const res = editarCapa(comp, capa.id, cambios, marca);
@@ -200,8 +206,12 @@ export function ejecutarHerramienta(
       const capa = capaDe(input.capaId);
       if (!capa) return fallo(comp, `no hay ninguna capa «${String(input.capaId)}»`);
       const propiedad = String(input.propiedad) as NombrePropiedad;
-      if (!["x", "y", "escala", "rotacion", "opacidad", "desenfoque"].includes(propiedad)) {
-        return fallo(comp, `propiedad «${propiedad}» no animable; usá x, y, escala, rotacion, opacidad o desenfoque`);
+      if (!["x", "y", "escala", "rotacion", "opacidad", "desenfoque", "trazoInicio", "trazoFin"].includes(propiedad)) {
+        return fallo(comp, `propiedad «${propiedad}» no animable; usá x, y, escala, rotacion, opacidad, desenfoque, trazoInicio o trazoFin`);
+      }
+      const esTrim = propiedad === "trazoInicio" || propiedad === "trazoFin";
+      if (esTrim && capa.tipo !== "trazo") {
+        return fallo(comp, `«${capa.nombre}» es ${capa.tipo}: trazoInicio/trazoFin sólo existen en capas de trazo`);
       }
       if (!Array.isArray(input.keyframes) || input.keyframes.length === 0) {
         return fallo(comp, "keyframes tiene que ser una lista no vacía de {t, v, easing?, hold?}");
@@ -209,7 +219,7 @@ export function ejecutarHerramienta(
       const keyframes: Keyframe[] = ordenarKeyframes(
         (input.keyframes as Record<string, unknown>[]).map((k) => ({
           t: clamp(numero(k.t, 0), 0, comp.duracion),
-          v: numero(k.v, 0),
+          v: esTrim ? clamp(numero(k.v, 0), 0, 1) : numero(k.v, 0),
           easing: easingValido(k.easing),
           hold: k.hold === true || undefined,
         })),
@@ -224,6 +234,41 @@ export function ejecutarHerramienta(
       const res = quitarCapa(comp, capa.id, marca);
       return res.ok ? exito(res.valor, `capa «${capa.nombre}» quitada`) : fallo(comp, res.error);
     }
+
+    case "definir_camara": {
+      const pistas: Camara["pistas"] = {};
+      const canales = [
+        { canal: "x" as const, min: -comp.ancho, max: comp.ancho * 2 },
+        { canal: "y" as const, min: -comp.alto, max: comp.alto * 2 },
+        { canal: "zoom" as const, min: 0.1, max: 10 },
+      ];
+      for (const { canal, min, max } of canales) {
+        const cruda = input[canal];
+        if (cruda === undefined) continue;
+        if (!Array.isArray(cruda) || cruda.length === 0) {
+          return fallo(comp, `${canal} tiene que ser una lista no vacía de {t, v, easing?}`);
+        }
+        pistas[canal] = ordenarKeyframes(
+          (cruda as Record<string, unknown>[]).map((k) => ({
+            t: clamp(numero(k.t, 0), 0, comp.duracion),
+            v: clamp(numero(k.v, canal === "zoom" ? 1 : 0), min, max),
+            easing: easingValido(k.easing),
+          })),
+        );
+      }
+      if (!pistas.x && !pistas.y && !pistas.zoom) {
+        return fallo(comp, "definí al menos un canal de cámara: x, y o zoom");
+      }
+      const resumen = `cámara: ${(["x", "y", "zoom"] as const)
+        .filter((c) => pistas[c])
+        .map((c) => `${c} ${pistas[c]!.length} kf`)
+        .join(", ")}`;
+      return exito({ ...comp, camara: { pistas } }, resumen);
+    }
+
+    case "quitar_camara":
+      if (!comp.camara) return fallo(comp, "la composición no tiene cámara");
+      return exito({ ...comp, camara: undefined }, "cámara quitada — plano fijo");
 
     case "reordenar_capas": {
       if (!Array.isArray(input.orden)) return fallo(comp, "orden tiene que ser la lista completa de ids, de fondo a frente");
@@ -289,7 +334,7 @@ export const DEFINICIONES_HERRAMIENTAS = [
         peso: { type: "number", description: "100-900" },
         color: { type: "string" },
         familia: { type: "string" },
-        division: { type: "string", enum: ["ninguna", "caracteres", "palabras"] },
+        division: { type: "string", enum: ["ninguna", "caracteres", "palabras", "lineas"] },
         alineacion: { type: "string", enum: ["izquierda", "centro", "derecha"] },
       },
       additionalProperties: false,
@@ -318,7 +363,7 @@ export const DEFINICIONES_HERRAMIENTAS = [
   },
   {
     name: "editar_capa",
-    description: "Edita propiedades base de una capa existente: posición, escala (1 = 100%), rotación, opacidad (0-1), motionBlur (0-2), mezcla (normal, multiply, screen, overlay…), nombre; en texto también texto, color, tamano, peso, division.",
+    description: "Edita propiedades base de una capa existente: posición, escala (1 = 100%), rotación, opacidad (0-1), motionBlur (0-2), mezcla (normal, multiply, screen, overlay…), nombre; en texto también texto (\\n = salto de línea), color, tamano, peso, division; en trazos color, grosor y el trim base trazoInicio/trazoFin (0-1).",
     input_schema: {
       type: "object",
       properties: {
@@ -335,7 +380,10 @@ export const DEFINICIONES_HERRAMIENTAS = [
         color: { type: "string" },
         tamano: { type: "number" },
         peso: { type: "number" },
-        division: { type: "string", enum: ["ninguna", "caracteres", "palabras"] },
+        division: { type: "string", enum: ["ninguna", "caracteres", "palabras", "lineas"] },
+        grosor: { type: "number", description: "grosor del trazo en px (capas de trazo)" },
+        trazoInicio: { type: "number", description: "trim base 0-1 (capas de trazo)" },
+        trazoFin: { type: "number", description: "trim base 0-1 (capas de trazo)" },
       },
       additionalProperties: false,
       required: ["capaId"],
@@ -368,7 +416,7 @@ export const DEFINICIONES_HERRAMIENTAS = [
       type: "object",
       properties: {
         capaId: { type: "string" },
-        propiedad: { type: "string", enum: ["x", "y", "escala", "rotacion", "opacidad", "desenfoque"] },
+        propiedad: { type: "string", enum: ["x", "y", "escala", "rotacion", "opacidad", "desenfoque", "trazoInicio", "trazoFin"] },
         keyframes: {
           type: "array",
           items: {
@@ -397,6 +445,25 @@ export const DEFINICIONES_HERRAMIENTAS = [
       additionalProperties: false,
       required: ["capaId"],
     },
+  },
+  {
+    name: "definir_camara",
+    description: "Define la cámara de la composición (reemplaza la anterior): keyframes de x/y (centro del encuadre, px del lienzo) y zoom (1 = el frame entero, 2 = acercado al doble). Para paneos y zooms cinematográficos sobre toda la escena; el easing va en el keyframe de salida del tramo.",
+    input_schema: {
+      type: "object",
+      properties: {
+        x: { type: "array", items: { type: "object", properties: { t: { type: "number" }, v: { type: "number" }, easing: { type: "string" } }, additionalProperties: false, required: ["t", "v"] } },
+        y: { type: "array", items: { type: "object", properties: { t: { type: "number" }, v: { type: "number" }, easing: { type: "string" } }, additionalProperties: false, required: ["t", "v"] } },
+        zoom: { type: "array", items: { type: "object", properties: { t: { type: "number" }, v: { type: "number" }, easing: { type: "string" } }, additionalProperties: false, required: ["t", "v"] } },
+      },
+      additionalProperties: false,
+      required: [],
+    },
+  },
+  {
+    name: "quitar_camara",
+    description: "Quita el movimiento de cámara: la composición vuelve a plano fijo.",
+    input_schema: { type: "object", properties: {}, additionalProperties: false, required: [] },
   },
   {
     name: "reordenar_capas",

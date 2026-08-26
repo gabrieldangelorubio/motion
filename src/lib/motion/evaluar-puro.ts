@@ -27,6 +27,11 @@ export type EstadoUnidad = {
   /** desenfoque direccional sintetizado, px por eje */
   blurX: number;
   blurY: number;
+  /** la unidad se pinta recortada a su caja de reposo (revelado con máscara) */
+  recorte: boolean;
+  /** trim del trazo resuelto 0–1 (sólo significa algo en capas tipo trazo) */
+  trazoInicio: number;
+  trazoFin: number;
 };
 
 export type EstadoCapa = {
@@ -46,15 +51,24 @@ export type EstadoComposicion = {
   alto: number;
   fondo: string;
   capas: EstadoCapa[];
+  /** cámara resuelta; identidad = centro del lienzo con zoom 1 */
+  camara: { x: number; y: number; zoom: number };
 };
 
-/** Cantidad de unidades animables de una capa (caracteres o palabras del texto). */
+/** Cantidad de unidades animables de una capa (caracteres, palabras o líneas del texto). */
 export function cantidadUnidades(capa: Capa): number {
   if (capa.tipo !== "texto" || capa.division === "ninguna") return 1;
+  if (capa.division === "lineas") return capa.texto.split("\n").length || 1;
   if (capa.division === "palabras") {
     return capa.texto.split(/\s+/).filter(Boolean).length || 1;
   }
   return [...capa.texto.replace(/\s/g, "")].length || 1;
+}
+
+/** Alto de una unidad de la capa, la escala de los presets `relativo` (revelar/ocultar). */
+export function altoUnidad(capa: Capa): number {
+  if (capa.tipo === "texto") return capa.fuente.interlineado ?? capa.fuente.tamano * 1.15;
+  return capa.alto;
 }
 
 function offsetDe(pista: PistaRelativa[keyof PistaRelativa], p: number): number {
@@ -74,20 +88,35 @@ function aplicarSegmento(
   unidad: EstadoUnidad,
   seg: Segmento,
   compilado: PresetCompilado,
+  clase: "entrada" | "salida",
   t: number,
   delay: number,
   motionBlur: number,
+  alto: number,
 ): void {
   const inicio = seg.en + delay;
   const bruto = (t - inicio) / seg.duracion;
   const fn = easing(seg.easing);
   const p = fn(Math.min(1, Math.max(0, bruto)));
 
+  // En presets `relativo` los dy son múltiplos del alto de la unidad, no px:
+  // así «revelar» funciona igual en un título de 200px que en un caption de 18px.
+  const escalaDy = compilado.relativo ? alto : 1;
   unidad.dx += offsetDe(compilado.pista.dx, p);
-  unidad.dy += offsetDe(compilado.pista.dy, p);
+  unidad.dy += offsetDe(compilado.pista.dy, p) * escalaDy;
   unidad.dEscala += offsetDe(compilado.pista.dEscala, p);
   unidad.opacidad += offsetDe(compilado.pista.dOpacidad, p);
   unidad.desenfoque += offsetDe(compilado.pista.desenfoque, p);
+  unidad.trazoInicio += offsetDe(compilado.pista.dTrazoInicio, p);
+  unidad.trazoFin += offsetDe(compilado.pista.dTrazoFin, p);
+
+  // El recorte de máscara sólo está activo mientras hace falta esconder algo:
+  // una entrada deja de recortar cuando terminó (t ≥ fin → la unidad está en
+  // reposo), una salida recorta desde que arranca en adelante. Fuera de esas
+  // ventanas los ascendentes/descendentes se pintan sin cortar.
+  if (compilado.recorte) {
+    if (clase === "entrada" ? t < inicio + seg.duracion : t >= inicio) unidad.recorte = true;
+  }
 
   // Motion blur sintetizado: |velocidad del easing| × distancia recorrida en
   // un intervalo de obturación de 60 fps, a la mitad (la std de un gaussiano
@@ -118,35 +147,57 @@ function estadoDeCapa(capa: Capa, t: number): EstadoCapa {
   };
 
   const n = cantidadUnidades(capa);
-  const segmentos: { seg: Segmento; compilado: PresetCompilado; delays: number[] }[] = [];
-  for (const seg of [capa.entrada, capa.salida]) {
+  const alto = altoUnidad(capa);
+  const clases: ("entrada" | "salida")[] = ["entrada", "salida"];
+  const segmentos: { seg: Segmento; compilado: PresetCompilado; clase: "entrada" | "salida"; delays: number[] }[] = [];
+  for (const clase of clases) {
+    const seg = capa[clase];
     if (!seg) continue;
     segmentos.push({
       seg,
       compilado: compilarSegmento(seg),
+      clase,
       delays: delaysEscalonado(n, seg.escalonado ?? 0, seg.ordenEscalonado ?? "inicio"),
     });
   }
+
+  const esTrazo = capa.tipo === "trazo";
+  const trazoInicioBase = pistas.trazoInicio
+    ? interpolar(pistas.trazoInicio, t)
+    : esTrazo ? (capa.trazoInicio ?? 0) : 0;
+  const trazoFinBase = pistas.trazoFin
+    ? interpolar(pistas.trazoFin, t)
+    : esTrazo ? (capa.trazoFin ?? 1) : 1;
 
   const desenfoqueBase = pistas.desenfoque ? interpolar(pistas.desenfoque, t) : 0;
   for (let i = 0; i < n; i++) {
     const unidad: EstadoUnidad = {
       dx: 0, dy: 0, dEscala: 0, opacidad: 1, desenfoque: desenfoqueBase, blurX: 0, blurY: 0,
+      recorte: false, trazoInicio: trazoInicioBase, trazoFin: trazoFinBase,
     };
-    for (const { seg, compilado, delays } of segmentos) {
-      aplicarSegmento(unidad, seg, compilado, t, delays[i], capa.motionBlur ?? 0);
+    for (const { seg, compilado, clase, delays } of segmentos) {
+      aplicarSegmento(unidad, seg, compilado, clase, t, delays[i], capa.motionBlur ?? 0, alto);
     }
     unidad.opacidad = Math.min(1, Math.max(0, unidad.opacidad));
+    unidad.trazoInicio = Math.min(1, Math.max(0, unidad.trazoInicio));
+    unidad.trazoFin = Math.min(1, Math.max(0, unidad.trazoFin));
     base.unidades.push(unidad);
   }
   return base;
 }
 
 export function estadoEn(comp: Composicion, t: number): EstadoComposicion {
+  const cam = comp.camara?.pistas;
   return {
     ancho: comp.ancho,
     alto: comp.alto,
     fondo: comp.fondo,
     capas: comp.capas.filter((c) => !c.oculta).map((c) => estadoDeCapa(c, t)),
+    camara: {
+      x: cam?.x?.length ? interpolar(cam.x, t) : comp.ancho / 2,
+      y: cam?.y?.length ? interpolar(cam.y, t) : comp.alto / 2,
+      // zoom nunca ≤ 0: un keyframe roto degrada a casi-plano, no a un frame invertido
+      zoom: Math.max(0.05, cam?.zoom?.length ? interpolar(cam.zoom, t) : 1),
+    },
   };
 }

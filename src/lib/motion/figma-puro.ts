@@ -16,7 +16,7 @@
 import { MEZCLAS, type Capa, type Composicion, type MezclaCapa } from "@/lib/motion/modelo";
 
 export type NodoFigma = {
-  tipo: "texto" | "rect" | "elipse" | "imagen";
+  tipo: "texto" | "rect" | "elipse" | "imagen" | "trazo";
   nombre: string;
   /** top-left en px del frame */
   x: number;
@@ -33,11 +33,15 @@ export type NodoFigma = {
     peso: number;
     tamano: number;
     interletrado?: number;
+    /** lineHeight en px si Figma lo tenía en px; ausente = tamano × 1.15 */
+    interlineado?: number;
     alineacion: "izquierda" | "centro" | "derecha";
     color: string;
   };
   forma?: { color: string; radio?: number };
   imagen?: { dataUri: string };
+  /** vector con stroke y sin fill: candidato a animarse con trim (trazar/retraer) */
+  trazo?: { path: string; color: string; grosor: number; remate?: "redondo" | "recto" };
   aviso?: string;
 };
 
@@ -96,6 +100,11 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
         t.alineacion === "izquierda" ? nodo.x :
         t.alineacion === "derecha" ? nodo.x + nodo.ancho :
         nodo.x + nodo.ancho / 2;
+      // El motor centra el bloque multilínea en el ancla: la baseline de la
+      // primera línea queda aprox a 0.8 del tamaño desde el tope de la caja,
+      // así que el ancla baja media altura de bloque extra por línea adicional.
+      const lineas = t.contenido.split("\n").length;
+      const interlineado = t.interlineado ?? t.tamano * 1.15;
       capas.push({
         ...base,
         tipo: "texto",
@@ -105,13 +114,32 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
           tamano: t.tamano,
           peso: t.peso,
           interletrado: t.interletrado,
+          interlineado: t.interlineado,
         },
         color: t.color,
         division: "ninguna",
         alineacion: t.alineacion,
         x,
-        // el baseline queda aprox a 0.8 del tamaño desde el tope de la caja
-        y: nodo.y + t.tamano * 0.8,
+        y: nodo.y + t.tamano * 0.8 + ((lineas - 1) / 2) * interlineado,
+      });
+      return;
+    }
+
+    if (nodo.tipo === "trazo" && nodo.trazo) {
+      capas.push({
+        ...base,
+        tipo: "trazo",
+        path: nodo.trazo.path,
+        ancho: nodo.ancho,
+        alto: nodo.alto,
+        color: nodo.trazo.color,
+        grosor: nodo.trazo.grosor,
+        remate: nodo.trazo.remate,
+        // el largo real lo mide el editor al importar (necesita el DOM de SVG);
+        // 0 = «sin medir»: pintar degrada a trazo completo, nunca rompe
+        largo: 0,
+        x: nodo.x + nodo.ancho / 2,
+        y: nodo.y + nodo.alto / 2,
       });
       return;
     }
