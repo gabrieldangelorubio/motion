@@ -22,10 +22,12 @@ import {
   editarCapa,
   fijarValorCamara,
   moverCapas,
+  moverCapasJuntoA,
   moverKeyframe,
   moverPoseCamara,
   ponerKeyframe,
   poseCamaraEn,
+  quitarCapa,
   quitarKeyframe,
   quitarPoseCamara,
 } from "@/lib/motion/herramientas-puro";
@@ -288,6 +290,42 @@ export function Editor({
       setSeleccionId(null);
     }
   }, [registrar]);
+
+  // borrar una capa desde el panel (o con Supr): la placa borra su pantalla
+  const borrarCapa = useCallback((capaId: string) => {
+    const capa = compRef.current.capas.find((c) => c.id === capaId);
+    if (!capa) return;
+    if (capa.grupo === capa.id) {
+      borrarPantalla(capa.grupo);
+      return;
+    }
+    registrar();
+    const res = quitarCapa(compRef.current, capaId);
+    if (res.ok) {
+      setComposicion(res.valor);
+      if (seleccionRef.current === capaId) setSeleccionId(null);
+    }
+  }, [registrar, borrarPantalla]);
+
+  // reorden del z-order desde el panel de capas, en vivo durante el drag
+  const reordenarCapaEnVivo = useCallback((capaId: string, referenciaId: string, despues: boolean) => {
+    const res = moverCapasJuntoA(compRef.current, [capaId], referenciaId, despues);
+    if (res.ok && res.valor.capas.some((c, i) => c !== compRef.current.capas[i])) {
+      setComposicion(res.valor);
+    }
+  }, []);
+
+  const reordenarPantallaEnVivo = useCallback((grupo: string, grupoDestino: string, despues: boolean) => {
+    const comp = compRef.current;
+    const ids = comp.capas.filter((c) => c.grupo === grupo).map((c) => c.id);
+    const destino = comp.capas.filter((c) => c.grupo === grupoDestino);
+    if (!ids.length || !destino.length) return;
+    const referencia = despues ? destino[destino.length - 1].id : destino[0].id;
+    const res = moverCapasJuntoA(comp, ids, referencia, despues);
+    if (res.ok && res.valor.capas.some((c, i) => c !== comp.capas[i])) {
+      setComposicion(res.valor);
+    }
+  }, []);
 
   const alternarGrabacion = useCallback(() => {
     if (grabandoRef.current) {
@@ -718,6 +756,9 @@ export function Editor({
       } else if ((e.key === "Delete" || e.key === "Backspace") && seleccionKfRef.current) {
         e.preventDefault();
         borrarKfSeleccionado();
+      } else if ((e.key === "Delete" || e.key === "Backspace") && seleccionRef.current && seleccionRef.current !== CAMARA_ID) {
+        e.preventDefault();
+        borrarCapa(seleccionRef.current);
       } else if (!meta && (e.key === "x" || e.key === "z") && (seleccionRef.current === CAMARA_ID || vistaRef.current === "camara")) {
         // herramientas del modo cámara estilo AE: X posición, Z zoom
         setHerramientaCamara(e.key === "z" ? "zoom" : "posicion");
@@ -735,7 +776,7 @@ export function Editor({
     };
     window.addEventListener("keydown", alTeclear);
     return () => window.removeEventListener("keydown", alTeclear);
-  }, [deshacer, rehacer, saltarFrame, copiarKfSeleccionado, pegarKf, borrarKfSeleccionado]);
+  }, [deshacer, rehacer, saltarFrame, copiarKfSeleccionado, pegarKf, borrarKfSeleccionado, borrarCapa]);
 
   // Selección con las consecuencias juntas: al cambiar de capa, un keyframe
   // elegido de OTRA capa se suelta (borrar/copiar operan sobre lo que se ve
@@ -760,6 +801,10 @@ export function Editor({
           seleccionId={seleccionId}
           onSeleccionar={seleccionar}
           onAlternarVisibilidad={alternarVisibilidad}
+          onCheckpoint={registrar}
+          onReordenarCapa={reordenarCapaEnVivo}
+          onReordenarPantalla={reordenarPantallaEnVivo}
+          onBorrarCapa={borrarCapa}
         />
       </div>
       <div className="flex min-h-0 flex-col">

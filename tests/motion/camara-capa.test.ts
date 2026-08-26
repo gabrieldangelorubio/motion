@@ -6,6 +6,7 @@ import {
   borrarGrupo,
   fijarValorCamara,
   moverCapas,
+  moverCapasJuntoA,
   moverKeyframeCamara,
   moverPoseCamara,
   ponerKeyframe,
@@ -243,6 +244,29 @@ test("las poses de cámara: leer, borrar y retimear los canales de un instante c
     assert.equal(borrada.valor.camara?.pistas.x?.length, 1, "la pose de 3000 sigue");
   }
   assert.ok(!quitarPoseCamara(comp, 777).ok, "instante sin pose = error legible");
+});
+
+test("moverCapasJuntoA reordena el z-order: una capa o una pantalla ENTERA, antes o después de la referencia", () => {
+  const capa = (id: string, grupo?: string): Composicion["capas"][number] => ({
+    id, nombre: id, tipo: "forma", forma: "rectangulo",
+    ancho: 10, alto: 10, color: "#fff", x: 0, y: 0, grupo,
+  });
+  const comp: Composicion = {
+    ...base(),
+    capas: [capa("a"), capa("p1", "p1"), capa("p1-hijo", "p1"), capa("b")],
+  };
+  // una capa suelta al final
+  const alFinal = moverCapasJuntoA(comp, ["a"], "b", true);
+  assert.ok(alFinal.ok);
+  if (alFinal.ok) assert.deepEqual(alFinal.valor.capas.map((c) => c.id), ["p1", "p1-hijo", "b", "a"]);
+  // la pantalla entera (bloque) delante de «a», conservando su orden interno
+  const bloque = moverCapasJuntoA(comp, ["p1", "p1-hijo"], "a", false);
+  assert.ok(bloque.ok);
+  if (bloque.ok) assert.deepEqual(bloque.valor.capas.map((c) => c.id), ["p1", "p1-hijo", "a", "b"]);
+  // defensas
+  assert.ok(!moverCapasJuntoA(comp, ["a"], "a", true).ok, "la referencia no puede estar en el bloque");
+  assert.ok(!moverCapasJuntoA(comp, ["zzz"], "a", true).ok, "bloque vacío");
+  assert.ok(!moverCapasJuntoA(comp, ["a"], "zzz", true).ok, "referencia inexistente");
 });
 
 /* ——— El agente y la cámara con base ——— */

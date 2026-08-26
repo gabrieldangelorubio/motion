@@ -131,6 +131,31 @@ export function quitarKeyframe(
   return editarCapa(comp, capaId, { pistas });
 }
 
+/**
+ * Reordena en el z-order: mueve un bloque de capas (una sola, o una pantalla
+ * entera) para quedar pegado a la referencia, antes o después. El orden
+ * interno del bloque se conserva.
+ */
+export function moverCapasJuntoA(
+  comp: Composicion,
+  ids: string[],
+  referenciaId: string,
+  despues: boolean,
+): Resultado<Composicion> {
+  const set = new Set(ids);
+  if (set.has(referenciaId)) return { ok: false, error: "La referencia no puede ser parte del bloque" };
+  const bloque = comp.capas.filter((c) => set.has(c.id));
+  if (bloque.length === 0) return { ok: false, error: "El bloque no tiene ninguna capa existente" };
+  const resto = comp.capas.filter((c) => !set.has(c.id));
+  const i = resto.findIndex((c) => c.id === referenciaId);
+  if (i < 0) return { ok: false, error: `No hay ninguna capa «${referenciaId}»` };
+  const indice = despues ? i + 1 : i;
+  return {
+    ok: true,
+    valor: { ...comp, capas: [...resto.slice(0, indice), ...bloque, ...resto.slice(indice)] },
+  };
+}
+
 /** Posiciones ABSOLUTAS para varias capas de una: la base del drag de una
     pantalla entera (el caller calcula origen + delta; acá no hay acumulación
     de error por deltas relativos). */

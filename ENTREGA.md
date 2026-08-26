@@ -20,7 +20,11 @@ drag de capas EN el lienzo** (hit-test con rotación y escala, umbral 4px,
 Shift = eje dominante, ⌘ = sin snapping, capas bloqueadas seleccionables
 pero no movibles) con **snapping azul** (algoritmo canónico de 3 imanes por
 eje, un ganador por eje, el frame como imán, guías a 1px constante), panel
-de capas, undo por snapshots, autosave con CAS, **import de una pantalla de
+de capas **agrupado por pantalla** (cabecera colapsable por frame de Figma
+con contador, como en Figma; reorden del z-order arrastrando filas — capa
+dentro de su pantalla, pantallas enteras entre sí, sueltas entre sueltas —
+en vivo con un checkpoint por gesto; borrar por fila o con Supr, la placa
+borra su pantalla completa), undo por snapshots, autosave con CAS, **import de una pantalla de
 Figma** (plugin propio en `figma-plugin/` → JSON por copy/paste →
 normalizador puro con degradación por-nodo y avisos visibles; texto real,
 formas nativas, lo demás rasterizado a data-uri que el editor resuelve; el
