@@ -121,7 +121,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **60
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **83
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`.
 - **Sabotajes vistos en rojo** (§2.5): (1) `interpolar` ignorando el easing
@@ -130,7 +130,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   exactamente «el motion blur sintetizado es >0 durante el movimiento…» (que
   además lleva su control positivo); (3) regla de un-solo-ganador del
   snapping invertida → falló exactamente «UN solo ganador por eje — gana la
-  distancia mínima». Restaurados, 60/60 verdes.
+  distancia mínima». (4) clamp del agente sin efecto → fallaron los tests de clampeo. Restaurados, 83/83 verdes.
 
 ## Qué necesita cablearse de su lado
 
