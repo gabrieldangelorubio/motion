@@ -89,6 +89,9 @@ export function Editor({
   const [altoTimeline, setAltoTimeline] = useState(340);
   const [importarAbierto, setImportarAbierto] = useState(false);
   const [fuentesAbierto, setFuentesAbierto] = useState(false);
+  // el chat del agente vive FIJO en la columna izquierda (2/3 de abajo);
+  // abierto reemplaza al panel de efectos, cerrado vuelve capas ½ / efectos ½
+  const [agenteAbierto, setAgenteAbierto] = useState(false);
   // vista del lienzo: "mundo" = el canvas con el encuadre dibujado;
   // "camara" = lo que ve la cámara (arrastrar ENCUADRA, con auto-key);
   // "ambas" = el mundo con el outline moviéndose + PiP de la cámara.
@@ -908,7 +911,7 @@ export function Editor({
   return (
     <div className="grid h-dvh grid-cols-[240px_1fr_300px] overflow-hidden">
       <div className="flex min-h-0 flex-col">
-        <div className="h-1/2 min-h-0">
+        <div className={[agenteAbierto ? "h-1/3" : "h-1/2", "min-h-0"].join(" ")}>
           <Capas
             composicion={composicion}
             seleccionId={seleccionId}
@@ -922,9 +925,21 @@ export function Editor({
             onBorrarCapa={borrarCapa}
           />
         </div>
-        <div className="h-1/2 min-h-0 border-r border-(--glass-border)">
+        <div className={agenteAbierto ? "hidden" : "h-1/2 min-h-0 border-r border-(--glass-border)"}>
           <PanelBiblioteca onAplicar={aplicarEfecto} />
         </div>
+        {conAgente && (
+          <div className={agenteAbierto ? "h-2/3 min-h-0 border-r border-(--glass-border)" : "hidden"}>
+            <PanelAgente
+              obtenerSnapshot={() => serializar(compRef.current)}
+              composicionId={composicionId}
+              onAplicar={(snapshot) => {
+                registrar();
+                setComposicion(deserializar(snapshot));
+              }}
+            />
+          </div>
+        )}
       </div>
       <div className="flex min-h-0 flex-col">
         <div className="relative min-h-0 flex-1">
@@ -1065,14 +1080,18 @@ export function Editor({
             composicion={composicion}
           />
           {conAgente && (
-            <PanelAgente
-              obtenerSnapshot={() => serializar(compRef.current)}
-              composicionId={composicionId}
-              onAplicar={(snapshot) => {
-                registrar();
-                setComposicion(deserializar(snapshot));
-              }}
-            />
+            <div className="absolute bottom-3 left-3 z-20">
+              <ConPista pista={t("Dirigir con el agente — el chat se abre en la columna izquierda")}>
+                <BotonIcono
+                  tam={36}
+                  etiqueta={t("Dirigir con el agente")}
+                  activo={agenteAbierto}
+                  onClick={() => setAgenteAbierto((a) => !a)}
+                >
+                  <Icono nombre="ia" width={17} height={17} />
+                </BotonIcono>
+              </ConPista>
+            </div>
           )}
           {avisoGuardado && (
             <div

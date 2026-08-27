@@ -164,6 +164,48 @@ function tramosDe(nodo, base) {
   return tramos.length ? tramos : null;
 }
 
+// Los cortes de línea REALES del wrap de la caja: la API no los expone como
+// texto, pero getRangeBounds (Figma 2023+) da la caja de cada carácter —
+// cuando el tope vertical salta, ahí arranca otra línea. Devuelve el
+// contenido con los \n insertados (reemplazan los espacios del corte, así
+// los índices de caracteres NO BLANCOS de los tramos no se corren), o null
+// si la API no está o algo falla — y el editor cae a la estimación de
+// siempre. Con cortes reales el editor no re-envuelve nada: fidelidad 1:1.
+function contenidoConCortes(nodo) {
+  if (typeof nodo.getRangeBounds !== "function") return null;
+  var chars = nodo.characters;
+  var salida = "";
+  var topeLinea = null;
+  var trasCorte = false; // los blancos pegados a un corte de wrap se descartan
+  try {
+    for (var i = 0; i < chars.length; i++) {
+      var ch = chars[i];
+      if (ch === "\n") {
+        salida += ch;
+        topeLinea = null;
+        trasCorte = false;
+        continue;
+      }
+      var b = nodo.getRangeBounds(i, i + 1);
+      if (b && b.height > 0) {
+        if (topeLinea === null) topeLinea = b.y;
+        else if (b.y - topeLinea > b.height * 0.5) {
+          salida = salida.replace(/[ \t]+$/, "");
+          salida += "\n";
+          topeLinea = b.y;
+          trasCorte = true;
+        }
+      }
+      if (trasCorte && (ch === " " || ch === "\t")) continue;
+      trasCorte = false;
+      salida += ch;
+    }
+  } catch (e) {
+    return null;
+  }
+  return salida.indexOf("\n") >= 0 ? salida : null;
+}
+
 async function nodoAIR(nodo, marco, salida) {
   if (!nodo.visible) return;
   var rotado = "rotation" in nodo && Math.abs(nodo.rotation) > 0.01;
@@ -213,7 +255,10 @@ async function nodoAIR(nodo, marco, salida) {
     // textCase es un ESTILO en Figma: los caracteres quedan como se tipearon
     // y el render los transforma. Acá se aplica al contenido, que es lo que
     // el motor pinta tal cual.
-    var contenido = nodo.characters;
+    // primero los cortes de línea REALES (getRangeBounds); si no hay API,
+    // queda la estimación por geometría de siempre
+    var cortesReales = contenidoConCortes(nodo);
+    var contenido = cortesReales || nodo.characters;
     var avisoCaso = null;
     var caso = nodo.textCase === figma.mixed ? "MIXED" : (nodo.textCase || "ORIGINAL");
     if (caso === "UPPER") contenido = contenido.toUpperCase();
@@ -232,13 +277,20 @@ async function nodoAIR(nodo, marco, salida) {
     // líneas renderizadas por geometría y el editor re-envuelve al importar
     // (acá no hay medición de texto; allá sí).
     var lh = interlineado || tamano * 1.15;
-    var lineasEstimadas = Math.max(1, Math.round(nodo.height / lh));
+    var lineasEstimadas = cortesReales
+      ? contenido.split("\n").length
+      : Math.max(1, Math.round(nodo.height / lh));
 
     // lineHeight AUTO usa las métricas de la fuente, no un número: cuando la
     // caja abraza el contenido, alto ÷ líneas ES ese interlineado real — y de
     // él depende el anclaje vertical (Figma centra los glifos en la línea).
+    // Con cortes reales el conteo es exacto, así que la misma fórmula vale
+    // también para cajas fijas que la tinta llena casi por completo.
     var abrazaContenido = nodo.textAutoResize === "HEIGHT" || nodo.textAutoResize === "WIDTH_AND_HEIGHT";
-    if (interlineado === undefined && abrazaContenido && nodo.height > 0) {
+    var rbTexto = nodo.absoluteRenderBounds;
+    var tintaLlena = cortesReales && lineasEstimadas > 1 && rbTexto && nodo.height > 0 &&
+      rbTexto.height / nodo.height > 0.8;
+    if (interlineado === undefined && nodo.height > 0 && (abrazaContenido || tintaLlena)) {
       interlineado = Math.round((nodo.height / lineasEstimadas) * 100) / 100;
     }
 
