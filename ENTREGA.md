@@ -147,9 +147,17 @@ registro de escenas ahora guarda la duración de cada una para ubicar los
 cortes sin cargarlas; y el EXPORT MP4 lleva la voz en off ADENTRO: el
 tramo global que corresponde al video exportado (rango de la activa o las
 escenas concatenadas) se muxea como pista AAC —Opus si el browser no trae
-encoder AAC; sin AudioEncoder el MP4 sale mudo, nunca roto—; PENDIENTE de
-esta línea: transcripción con timestamps para linkear oraciones con
-animaciones — decidido Whisper local),
+encoder AAC; sin AudioEncoder el MP4 sale mudo, nunca roto—; y la línea de VOZ quedó
+andando con WHISPER LOCAL (transformers.js: el modelo corre en el
+browser, nada de la voz sale de la máquina; la primera vez baja ~70MB y
+queda cacheado): «Transcribir» en la franja de audio pasa la locución a
+ORACIONES CON TIMESTAMPS que se guardan junto al archivo y se pintan
+sobre la forma de onda —cada oración escrita sobre su tramo: se LEE qué
+se dice en cada pedazo al cortar escenas—, y el chat de diosa tiene MIC:
+apretás ⏺, hablás el pedido, Whisper lo pasa a texto en el input y lo
+revisás antes de enviar; sin red o sin modelo, aviso legible y todo lo
+demás sigue — la demo publicada lleva un stub (su CSP no deja bajar el
+modelo)),
 **media a mano: subir y reemplazar** (botón de subir imagen en la
 toolbar: la foto cae como capa nueva centrada donde mira la cámara, a lo
 sumo al 70% del frame y nunca agrandada; y en el inspector de una capa
@@ -336,7 +344,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **169
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **173
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -357,7 +365,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   precomp de camara». (8) límite de escenaEnPunto invertido (<=) → falló
   exactamente «el límite exacto pertenece a la escena SIGUIENTE». (9) xor
   final del crc32 corrido en un bit → falló exactamente «crc32 da el valor
-  canónico de referencia». Restaurados, 169/169 verdes.
+  canónico de referencia». (10) fin nulo de oracionesDeTrozos dejando 0 en
+  vez del fin del audio → falló exactamente «fin nulo hereda el fin del
+  audio». Restaurados, 173/173 verdes.
 
 ## Qué necesita cablearse de su lado
 

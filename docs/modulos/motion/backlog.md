@@ -68,10 +68,12 @@
 - **Tanda 2:** HECHA (2026-08-27) — el MP4 lleva la pista (AAC, fallback
   Opus, mudo si no hay AudioEncoder); de paso: secuencia PNG con alfa en
   ZIP propio, y subir/reemplazar imágenes con ajuste real.
-- **Tanda 3 (en curso):** TRANSCRIPCIÓN con Whisper LOCAL en el browser
-  (decidido por Gabriel): oraciones con timestamps sobre la franja, y de
-  paso VOZ AL CHAT de diosa (apretar el mic, hablar el pedido, STT al
-  input). Sugerir cortes de escena en las pausas viene después.
+- **Tanda 3:** HECHA (2026-08-27) — Whisper LOCAL (transformers.js,
+  whisper-base cacheado por el browser): «Transcribir» en la franja deja
+  las oraciones con timestamps pintadas sobre la onda y guardadas con el
+  audio; mic en el chat de diosa (hablar el pedido → texto al input).
+  Falta: sugerir cortes de escena en las pausas de la locución, y linkear
+  oración ↔ capa animada (auto-timing).
 - **Video de referencia (nuevo, decidido):** los videos que entren al
   lienzo son SOLO referencia de fondo — no salen en el export (que va por
   PNG alfa o por el .jsx de AE); implementar capa video con flag

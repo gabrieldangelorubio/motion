@@ -31,6 +31,8 @@ export function AudioDeProyecto({
   onSaltar,
   onCortar,
   onQuitar,
+  onTranscribir,
+  transcribiendo = null,
 }: {
   audio: AudioDecodificado;
   cortes: CorteEscena[];
@@ -41,6 +43,10 @@ export function AudioDeProyecto({
   /** la escena `id` pasa a durar `duracionMs` (soltar el corte) */
   onCortar: (id: string, duracionMs: number) => void;
   onQuitar: () => void;
+  /** corre Whisper local sobre el audio del proyecto */
+  onTranscribir?: () => void;
+  /** estado del STT en curso (null = quieto) */
+  transcribiendo?: string | null;
 }) {
   const lienzoRef = useRef<HTMLCanvasElement>(null);
   const marcoRef = useRef<HTMLDivElement>(null);
@@ -116,6 +122,29 @@ export function AudioDeProyecto({
       ctx.fillText(corte.nombre, x + 4, 10);
     }
     ctx.globalAlpha = 1;
+
+    // la transcripción: cada oración escrita SOBRE su tramo del audio (donde
+    // cae en el tiempo), recortada a su ancho — la locución se LEE en la onda
+    const oraciones = audio.transcripcion?.oraciones ?? [];
+    if (oraciones.length > 0) {
+      ctx.font = "8px ui-sans-serif, system-ui, sans-serif";
+      for (const oracion of oraciones) {
+        const x0 = (oracion.desdeMs / total) * ancho;
+        const x1 = (oracion.hastaMs / total) * ancho;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x0, ALTO - 12, Math.max(8, x1 - x0) - 2, 12);
+        ctx.clip();
+        ctx.globalAlpha = 0.85;
+        ctx.fillStyle = tinta;
+        ctx.fillText(oracion.texto, x0 + 2, ALTO - 3);
+        ctx.restore();
+        // tick del arranque de la oración
+        ctx.globalAlpha = 0.4;
+        ctx.fillRect(x0, ALTO - 12, 1, 12);
+        ctx.globalAlpha = 1;
+      }
+    }
 
     // playhead global
     const xPlay = (Math.min(globalPlayhead, total) / total) * ancho;
@@ -206,6 +235,17 @@ export function AudioDeProyecto({
         <span className="max-w-40 truncate text-[10px] text-foreground/60" title={audio.nombre}>
           ♪ {audio.nombre}
         </span>
+        {onTranscribir && !audio.transcripcion && (
+          <button
+            type="button"
+            onClick={onTranscribir}
+            disabled={transcribiendo !== null}
+            title={t("Whisper local: las oraciones con sus tiempos quedan sobre la onda — nada sale de tu máquina")}
+            className="flex h-5 items-center rounded-control px-1.5 text-[10px] text-acento hover:bg-acento/10 disabled:opacity-60"
+          >
+            {transcribiendo ?? t("Transcribir")}
+          </button>
+        )}
         <button
           type="button"
           onClick={onQuitar}

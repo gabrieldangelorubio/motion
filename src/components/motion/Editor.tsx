@@ -60,6 +60,7 @@ import { AudioDeProyecto } from "@/components/motion/AudioDeProyecto";
 import {
   cargarAudioGuardado,
   decodificarAudio,
+  guardarTranscripcion,
   olvidarAudio,
   recordarAudio,
   type AudioDecodificado,
@@ -530,6 +531,34 @@ export function Editor({
       if (previo) URL.revokeObjectURL(previo.url);
       return null;
     });
+  }, [composicionId]);
+
+  // ——— Transcripción del audio del proyecto: Whisper LOCAL (nada sale de
+  // la máquina). Las oraciones con timestamps quedan guardadas junto al
+  // audio y pintadas sobre la forma de onda.
+  const [transcribiendo, setTranscribiendo] = useState<string | null>(null);
+  const transcribirAudio = useCallback(async () => {
+    setTranscribiendo(t("Preparando…"));
+    try {
+      const registro = await cargarAudioGuardado(composicionId);
+      if (!registro) return;
+      const ctxAudio = new AudioContext();
+      const buffer = await ctxAudio.decodeAudioData(registro.datos.slice(0));
+      void ctxAudio.close().catch(() => undefined);
+      const { transcribir } = await import("@/lib/motion/stt");
+      setTranscribiendo(t("Transcribiendo…"));
+      const transcripcion = await transcribir(
+        Array.from({ length: buffer.numberOfChannels }, (_, i) => buffer.getChannelData(i)),
+        buffer.sampleRate,
+        (f) => setTranscribiendo(t("Bajando el modelo… {p}%", { p: Math.round(f * 100) })),
+      );
+      await guardarTranscripcion(composicionId, transcripcion);
+      setAudio((previo) => (previo ? { ...previo, transcripcion } : previo));
+    } catch (e) {
+      setAvisoGuardado(e instanceof Error ? e.message : t("No se pudo transcribir el audio"));
+    } finally {
+      setTranscribiendo(null);
+    }
   }, [composicionId]);
 
   // El PCM para el export: se decodifica del registro EN el momento (la UI
@@ -1542,6 +1571,8 @@ export function Editor({
             onSaltar={(globalMs) => void saltarGlobal(globalMs)}
             onCortar={(id, ms) => void cortarEscena(id, ms)}
             onQuitar={quitarAudio}
+            onTranscribir={() => void transcribirAudio()}
+            transcribiendo={transcribiendo}
           />
         )}
         <LineaDeTiempo

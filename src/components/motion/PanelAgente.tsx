@@ -39,6 +39,53 @@ export function PanelAgente({
   const [error, setError] = useState<string | null>(null);
   const listaRef = useRef<HTMLDivElement>(null);
 
+  // ——— Voz al chat: apretás el mic, hablás el pedido, Whisper LOCAL lo
+  // pasa a texto y queda en el input (lo revisás antes de enviar) ———
+  const grabadorRef = useRef<MediaRecorder | null>(null);
+  const [grabando, setGrabando] = useState(false);
+  const [oyendo, setOyendo] = useState<string | null>(null);
+  const alternarMic = async () => {
+    if (grabadorRef.current) {
+      grabadorRef.current.stop(); // el onstop hace el resto
+      return;
+    }
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const grabador = new MediaRecorder(stream);
+      const trozos: BlobPart[] = [];
+      grabador.ondataavailable = (e) => trozos.push(e.data);
+      grabador.onstop = async () => {
+        stream.getTracks().forEach((pista) => pista.stop());
+        grabadorRef.current = null;
+        setGrabando(false);
+        setOyendo(t("Transcribiendo…"));
+        try {
+          const datos = await new Blob(trozos).arrayBuffer();
+          const ctxAudio = new AudioContext();
+          const buffer = await ctxAudio.decodeAudioData(datos);
+          void ctxAudio.close().catch(() => undefined);
+          const { transcribir } = await import("@/lib/motion/stt");
+          const res = await transcribir(
+            Array.from({ length: buffer.numberOfChannels }, (_, i) => buffer.getChannelData(i)),
+            buffer.sampleRate,
+            (f) => setOyendo(t("Bajando el modelo de voz… {p}%", { p: Math.round(f * 100) })),
+          );
+          if (res.texto) setTexto((previo) => (previo ? previo + " " : "") + res.texto);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : t("No se pudo transcribir la voz"));
+        } finally {
+          setOyendo(null);
+        }
+      };
+      grabador.start();
+      grabadorRef.current = grabador;
+      setGrabando(true);
+    } catch {
+      setError(t("No hay micrófono disponible (o el permiso está bloqueado)"));
+    }
+  };
+
   const enviar = async () => {
     const pedido = texto.trim();
     if (!pedido || pensando) return;
@@ -111,10 +158,26 @@ export function PanelAgente({
           rows={2}
           className="min-h-9 flex-1 resize-none rounded-control bg-transparent px-2 py-1.5 text-base text-foreground shadow-hueco outline-none"
         />
+        <BotonIcono
+          tam={36}
+          etiqueta={grabando ? t("Terminar de hablar") : t("Hablar el pedido")}
+          activo={grabando}
+          onClick={() => void alternarMic()}
+          deshabilitado={oyendo !== null}
+        >
+          <span aria-hidden className={grabando ? "text-[14px] leading-none text-peligro" : "text-[14px] leading-none"}>
+            {grabando ? "■" : "⏺"}
+          </span>
+        </BotonIcono>
         <BotonIcono tam={36} etiqueta={t("Enviar")} onClick={() => void enviar()} deshabilitado={pensando || !texto.trim()}>
           <Icono nombre="enviar" width={16} height={16} />
         </BotonIcono>
       </div>
+      {oyendo && (
+        <div role="status" className="border-t border-(--glass-border) px-3 py-1 font-mono text-[11px] text-muted">
+          {oyendo}
+        </div>
+      )}
     </div>
   );
 }

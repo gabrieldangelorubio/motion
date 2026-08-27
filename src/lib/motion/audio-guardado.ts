@@ -9,6 +9,7 @@
 ----------------------------------------------------------------------------- */
 
 import { picosDe } from "@/lib/motion/audio-puro";
+import type { Transcripcion } from "@/lib/motion/stt-puro";
 
 export type AudioGuardado = {
   /** clave: el proyecto (composicionId base) tiene UN audio */
@@ -16,6 +17,8 @@ export type AudioGuardado = {
   nombre: string;
   tipo: string;
   datos: ArrayBuffer;
+  /** transcripción Whisper ya hecha (viaja con el archivo) */
+  transcripcion?: Transcripcion;
 };
 
 export type AudioDecodificado = {
@@ -25,6 +28,7 @@ export type AudioDecodificado = {
   picos: number[];
   /** para el <audio> del preview */
   url: string;
+  transcripcion?: Transcripcion;
 };
 
 const BASE = "motion-audio";
@@ -80,6 +84,13 @@ export async function cargarAudioGuardado(proyecto: string): Promise<AudioGuarda
   return registro;
 }
 
+/** Le suma (o pisa) la transcripción al audio ya guardado del proyecto. */
+export async function guardarTranscripcion(proyecto: string, transcripcion: Transcripcion): Promise<void> {
+  const registro = await cargarAudioGuardado(proyecto);
+  if (!registro) return;
+  await recordarAudio({ ...registro, transcripcion });
+}
+
 export async function olvidarAudio(proyecto: string): Promise<void> {
   const db = await abrir();
   if (!db) return;
@@ -119,6 +130,7 @@ export async function decodificarAudio(registro: AudioGuardado): Promise<AudioDe
       duracionMs: Math.round(buffer.duration * 1000),
       picos: picosDe(buffer.getChannelData(0), BALDES),
       url,
+      transcripcion: registro.transcripcion,
     };
   } catch {
     return null;
