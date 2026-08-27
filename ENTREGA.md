@@ -104,7 +104,12 @@ mantenés Z y mover el mouse en vertical la hace entrar (arriba) y salir
 (abajo); soltás la tecla y el gesto termina, y TODO movimiento deja
 keyframe en el playhead — te movés por la timeline, sostenés, y la
 animación queda sola (arrastrar el encuadre sin tecla sigue moviendo la
-posición); el ZOOM de cámara interpola en espacio LOG (el zoom es
+posición); las POSES viajan sincronizadas — cuando x/y/zoom comparten los
+límites del tramo (una pose de la timeline), los tres canales corren con
+UN progreso y UN easing compartidos (el primero definido entre x → y →
+zoom): sin esto cada canal desacelera a su ritmo y la cámara llega en dos
+tiempos, el paneo frena primero y el zoom sigue solo; canales con tiempos
+propios siguen sueltos —; el ZOOM de cámara interpola en espacio LOG (el zoom es
 multiplicativo: mezclado lineal, un zoom-out se siente acelerando al final
 y la llegada queda trabada, peleada con el ease del paneo — en log la
 velocidad perceptual es pareja y paneo + zoom cierran juntos; los

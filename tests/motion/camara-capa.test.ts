@@ -349,3 +349,52 @@ test("el zoom de cámara interpola en espacio LOG: velocidad perceptual pareja, 
   quieta = { ...quieta, camara: { pistas: { zoom: [{ t: 0, v: 2, hold: true }, { t: 1000, v: 1 }] } } };
   assert.equal(camaraEn(quieta, 500).zoom, 2);
 });
+
+test("pose-sync: los canales de una pose viajan con UN progreso y UN easing compartidos", async () => {
+  const { crearComposicion } = await import("@/lib/motion/herramientas-puro");
+  const { camaraEn } = await import("@/lib/motion/evaluar-puro");
+  const base = crearComposicion({ nombre: "pose" });
+  // pose cerrada @1000 → pose abierta @2000; el easing viene SOLO en x
+  // (como lo suele escribir el agente): sin pose-sync, y/zoom irían con el
+  // default y la cámara llegaría en dos tiempos
+  const comp = {
+    ...base,
+    camara: {
+      pistas: {
+        x: [{ t: 1000, v: 0, easing: "lineal" as const }, { t: 2000, v: 1000 }],
+        y: [{ t: 1000, v: 0 }, { t: 2000, v: 500 }],
+        zoom: [{ t: 1000, v: 2 }, { t: 2000, v: 1 }],
+      },
+    },
+  };
+  // a mitad del tramo, TODOS los canales están al 50% del progreso lineal de x
+  const media = camaraEn(comp, 1500);
+  assert.ok(Math.abs(media.x - 500) < 0.001, `x al 50% (${media.x})`);
+  assert.ok(Math.abs(media.y - 250) < 0.001, `y sigue el MISMO progreso que x (${media.y})`);
+  assert.ok(Math.abs(media.zoom - Math.sqrt(2)) < 0.001, `zoom al 50% en log, sincronizado (${media.zoom})`);
+  // extremos exactos
+  assert.deepEqual(camaraEn(comp, 1000), { x: 0, y: 0, zoom: 2 });
+  assert.deepEqual(camaraEn(comp, 2000), { x: 1000, y: 500, zoom: 1 });
+  // hold en la pose congela los tres canales juntos
+  const conHold = {
+    ...comp,
+    camara: { pistas: { ...comp.camara.pistas, x: [{ t: 1000, v: 0, hold: true }, { t: 2000, v: 1000 }] } },
+  };
+  const quieta = camaraEn(conHold, 1500);
+  assert.equal(quieta.x, 0);
+  assert.equal(quieta.y, 0);
+  assert.equal(quieta.zoom, 2);
+  // canales con tiempos PROPIOS siguen sueltos (no es una pose)
+  const sueltos = {
+    ...base,
+    camara: {
+      pistas: {
+        x: [{ t: 0, v: 0, easing: "lineal" as const }, { t: 2000, v: 1000 }],
+        zoom: [{ t: 500, v: 2, easing: "lineal" as const }, { t: 1500, v: 1 }],
+      },
+    },
+  };
+  const s1 = camaraEn(sueltos, 1000);
+  assert.ok(Math.abs(s1.x - 500) < 0.001, "x va por su propio tramo");
+  assert.ok(Math.abs(s1.zoom - Math.sqrt(2)) < 0.001, "zoom va por el suyo");
+});

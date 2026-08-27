@@ -209,17 +209,71 @@ function interpolarZoomLog(pista: Keyframe[], t: number): number {
   return Math.exp(interpolar(enLog, t));
 }
 
-/** Encuadre resuelto SIN temblor: keyframes/base con defaults sanos. Es lo
-    que leen los gestos y el inspector — editar sobre el valor con temblor
-    hornearía el jitter adentro de los keyframes. */
+/** El segmento [a,b] de una pista que contiene a t (null fuera de rango). */
+function segmentoEn(pista: Keyframe[], t: number): { a: Keyframe; b: Keyframe } | null {
+  if (pista.length < 2 || t <= pista[0].t || t >= pista[pista.length - 1].t) return null;
+  let i = 0;
+  while (i < pista.length - 1 && pista[i + 1].t <= t) i++;
+  return { a: pista[i], b: pista[i + 1] };
+}
+
+/**
+ * Encuadre resuelto SIN temblor: keyframes/base con defaults sanos. Es lo
+ * que leen los gestos y el inspector — editar sobre el valor con temblor
+ * hornearía el jitter adentro de los keyframes.
+ *
+ * POSE-SYNC: la UI trata los keyframes de x/y/zoom que caen en el mismo
+ * instante como UNA pose (un rombo) — el motor lo honra: cuando los canales
+ * comparten los límites del tramo, los tres viajan con UN progreso y UN
+ * easing compartidos (el primero definido entre x → y → zoom). Sin esto,
+ * cada canal desacelera a su ritmo y la cámara llega en dos tiempos: el
+ * paneo frena primero y el zoom sigue solo — la llegada «trabada». Canales
+ * con tiempos propios siguen interpolando por su cuenta, como siempre.
+ */
 export function camaraEn(comp: Composicion, t: number): { x: number; y: number; zoom: number } {
   const cam = comp.camara?.pistas;
   const base = comp.camara?.base;
-  return {
+  const suelto = () => ({
     x: cam?.x?.length ? interpolar(cam.x, t) : (base?.x ?? comp.ancho / 2),
     y: cam?.y?.length ? interpolar(cam.y, t) : (base?.y ?? comp.alto / 2),
     // zoom nunca ≤ 0: un keyframe roto degrada a casi-plano, no a un frame invertido
     zoom: Math.max(0.05, cam?.zoom?.length ? interpolarZoomLog(cam.zoom, t) : (base?.zoom ?? 1)),
+  });
+
+  const segX = cam?.x?.length ? segmentoEn(cam.x, t) : null;
+  const segY = cam?.y?.length ? segmentoEn(cam.y, t) : null;
+  const segZ = cam?.zoom?.length ? segmentoEn(cam.zoom, t) : null;
+  const conSegmento = [segX, segY, segZ].filter((s): s is NonNullable<typeof s> => s !== null);
+  if (conSegmento.length < 2) return suelto();
+  const ref = conSegmento[0];
+  const esPose = conSegmento.every((s) => s.a.t === ref.a.t && s.b.t === ref.b.t);
+  if (!esPose) return suelto();
+
+  // un canal sin tramo acá (t fuera de su rango, o sin keyframes) resuelve
+  // como siempre: clampeado a sus keyframes, o a la base
+  const resto = (pista: Keyframe[] | undefined, deBase: number, log = false) =>
+    pista?.length ? (log ? interpolarZoomLog(pista, t) : interpolar(pista, t)) : deBase;
+
+  if (conSegmento.some((s) => s.a.hold)) {
+    return {
+      x: segX ? segX.a.v : resto(cam?.x, base?.x ?? comp.ancho / 2),
+      y: segY ? segY.a.v : resto(cam?.y, base?.y ?? comp.alto / 2),
+      zoom: Math.max(0.05, segZ ? segZ.a.v : resto(cam?.zoom, base?.zoom ?? 1, true)),
+    };
+  }
+
+  const nombre = segX?.a.easing ?? segY?.a.easing ?? segZ?.a.easing;
+  const p = easing(nombre)((t - ref.a.t) / (ref.b.t - ref.a.t));
+  const lerp = (s: { a: Keyframe; b: Keyframe }) => s.a.v + (s.b.v - s.a.v) * p;
+  const lerpLog = (s: { a: Keyframe; b: Keyframe }) => {
+    const la = Math.log(Math.max(0.05, s.a.v));
+    const lb = Math.log(Math.max(0.05, s.b.v));
+    return Math.exp(la + (lb - la) * p);
+  };
+  return {
+    x: segX ? lerp(segX) : resto(cam?.x, base?.x ?? comp.ancho / 2),
+    y: segY ? lerp(segY) : resto(cam?.y, base?.y ?? comp.alto / 2),
+    zoom: Math.max(0.05, segZ ? lerpLog(segZ) : resto(cam?.zoom, base?.zoom ?? 1, true)),
   };
 }
 
