@@ -103,7 +103,19 @@ al borrar la activa se salta a la anterior sin guardar lo que se va—; cada esc
 propio id con el mismo protocolo CAS y el registro del proyecto vive en
 localStorage hasta el catálogo de diosa; el agente dirige la escena
 activa), **duración editable** (campo Dur con scrub en el transport:
-cuánto dura TODO lo que se renderiza de la escena, 0.5–120s), **recuadro de grupo con TIME-STRETCH**
+cuánto dura TODO lo que se renderiza de la escena, 0.5–120s), **SUBGRUPOS de Figma** (un grupo del
+diseño — el logo con cada letra en su vector — llega AGRUPADO: el plugin
+marca cada nodo con su contenedor más externo debajo del frame, el
+normalizador lo hace único por pantalla, y en el TIMELINE el subgrupo es
+UNA fila plegable — plegada por defecto, con chevron, nombre y contador;
+su barra punteada muestra el rango de animación del grupo y arrastrarla
+mueve el bloque entero; expandís cuando querés animar letra por letra;
+las capas siguen SUELTAS en el modelo: todo lo demás —lienzo, inspector,
+agente— las ve igual; y al exportar a AE cada subgrupo sale como
+PRECOMP: una comp propia con sus capas adentro y una sola capa en la
+escena, en su lugar del z-order — el timeline de AE queda tan limpio
+como el nuestro; OJO: pide re-copiar el plugin actualizado en Figma),
+**recuadro de grupo con TIME-STRETCH**
 (con varias capas seleccionadas, un recuadro abraza todos sus spans en el
 timeline: el cuerpo mueve la animación en bloque, y las manijas de los
 bordes ESTIRAN — agarrás el borde derecho y toda la coreografía del grupo
@@ -374,7 +386,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **184
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **186
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -403,8 +415,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   time-stretch grupal → falló exactamente «escala inicios, duraciones,
   keyframes y escalonado». (13) OTTO detectado como ttf en
   extensionDeFuente → falló exacto; (14) tracking sin redondear → falló
-  exactamente «el tracking de AE sale ENTERO». Restaurados, 184/184
-  verdes.
+  exactamente «el tracking de AE sale ENTERO». (15) filasDeCapas ignorando subgrupo →
+  fallaron exactamente los dos tests de plegado y precomp. Restaurados,
+  186/186 verdes.
 
 ## Qué necesita cablearse de su lado
 

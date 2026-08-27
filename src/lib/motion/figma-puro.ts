@@ -51,6 +51,9 @@ export type NodoFigma = {
   imagen?: { dataUri: string };
   /** vector con stroke y sin fill: candidato a animarse con trim (trazar/retraer) */
   trazo?: { path: string; color: string; grosor: number; remate?: "redondo" | "recto" };
+  /** nombre del grupo de Figma que contenía este nodo (el más externo
+      debajo del frame): el editor lo pliega y AE lo precompone */
+  subgrupo?: string;
   aviso?: string;
 };
 
@@ -246,7 +249,16 @@ export function sumarAlLienzo(
   const capas = nueva.capas.map((c) => {
     const id = idLibre(c.id);
     renombres.set(c.id, id);
-    return { ...c, id, x: c.x + dx, y: c.y + dy, grupo: idPantalla };
+    return {
+      ...c,
+      id,
+      x: c.x + dx,
+      y: c.y + dy,
+      grupo: idPantalla,
+      // el subgrupo se hace único POR PANTALLA: dos imports con "Group 1"
+      // no se mezclan (el nombre visible queda en subgrupoNombre)
+      subgrupo: c.subgrupo ? `${idPantalla}:${c.subgrupo}` : undefined,
+    };
   });
 
   return {
@@ -286,6 +298,10 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
       opacidad: nodo.opacidad,
       mezcla,
       v: i,
+      // subgrupo de Figma (el logo con sus letras): viaja tal cual y
+      // sumarAlLienzo lo hace único por pantalla
+      subgrupo: nodo.subgrupo,
+      subgrupoNombre: nodo.subgrupo,
     };
 
     if (nodo.tipo === "texto" && nodo.texto) {

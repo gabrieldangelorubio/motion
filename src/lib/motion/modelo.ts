@@ -105,6 +105,11 @@ export type CapaBase = {
       grupo liviano del lienzo multi-pantalla — arrastrar la placa mueve
       la pantalla entera, borrarla la borra completa */
   grupo?: string;
+  /** SUBGRUPO dentro de la pantalla (un grupo de Figma: el logo con cada
+      letra en su vector): las capas siguen sueltas para animar, pero el
+      timeline las pliega en UNA fila y el export a AE las precompone */
+  subgrupo?: string;
+  subgrupoNombre?: string;
 };
 
 /** Corrida de estilo dentro del texto de una capa (rich text de Figma: dos

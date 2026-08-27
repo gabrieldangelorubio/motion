@@ -226,6 +226,37 @@ export function desplazarTiempoCapas(comp: Composicion, ids: string[], dt: numbe
   return { ...comp, capas };
 }
 
+/** Una fila del timeline: capa suelta, o un SUBGRUPO plegado (las capas
+    consecutivas que comparten `subgrupo` — el logo con sus letras). */
+export type FilaCapas =
+  | { tipo: "capa"; capa: Capa }
+  | { tipo: "grupo"; id: string; nombre: string; capas: Capa[] };
+
+/** Agrupa las capas en filas: los subgrupos consecutivos colapsan en una.
+    La misma partición alimenta el timeline (fila plegable) y el export a
+    AE (precomp por subgrupo). */
+export function filasDeCapas(capas: Capa[]): FilaCapas[] {
+  const filas: FilaCapas[] = [];
+  for (const capa of capas) {
+    if (capa.subgrupo) {
+      const previa = filas[filas.length - 1];
+      if (previa?.tipo === "grupo" && previa.id === capa.subgrupo) {
+        previa.capas.push(capa);
+        continue;
+      }
+      filas.push({
+        tipo: "grupo",
+        id: capa.subgrupo,
+        nombre: capa.subgrupoNombre ?? capa.subgrupo,
+        capas: [capa],
+      });
+      continue;
+    }
+    filas.push({ tipo: "capa", capa });
+  }
+  return filas;
+}
+
 /**
  * Rango temporal [desde, hasta] de la animación de las capas dadas: los
  * spans de entrada/salida (en → en+duración, como se DIBUJAN en el

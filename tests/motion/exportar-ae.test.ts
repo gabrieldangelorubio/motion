@@ -15,7 +15,7 @@ import {
 import { duracionDesdeAudio } from "@/lib/motion/audio-puro";
 import { nombreDeArchivo } from "@/lib/motion/exportar";
 import { quitarEscena } from "@/lib/motion/escenas-puro";
-import { estirarTiempoCapas, rangoAnimacionCapas } from "@/lib/motion/herramientas-puro";
+import { estirarTiempoCapas, filasDeCapas, rangoAnimacionCapas } from "@/lib/motion/herramientas-puro";
 import type { CapaTexto, CapaTrazo, Composicion } from "@/lib/motion/modelo";
 
 const base = (extra: Partial<Composicion> = {}): Composicion => ({
@@ -355,6 +355,39 @@ test("fuentes que AE no encuentre: el script las junta y las canta al final", ()
   assert.match(jsx, /var __fuentesFaltantes = \[\];/);
   assert.match(jsx, /tipografia original: /);
   assert.match(jsx, /if \(__fuentesFaltantes\.length\) alert\(/);
+});
+
+test("filasDeCapas pliega los subgrupos consecutivos en UNA fila", () => {
+  const capas = [
+    titulo({ id: "solo1" }),
+    titulo({ id: "l1", subgrupo: "g:logo", subgrupoNombre: "Logo" }),
+    titulo({ id: "l2", subgrupo: "g:logo", subgrupoNombre: "Logo" }),
+    titulo({ id: "l3", subgrupo: "g:logo", subgrupoNombre: "Logo" }),
+    titulo({ id: "solo2" }),
+  ];
+  const filas = filasDeCapas(capas);
+  assert.equal(filas.length, 3);
+  assert.equal(filas[0].tipo, "capa");
+  assert.deepEqual(filas[1].tipo === "grupo" ? { nombre: filas[1].nombre, n: filas[1].capas.length } : null, { nombre: "Logo", n: 3 });
+  assert.equal(filas[2].tipo, "capa");
+});
+
+test("los subgrupos salen a AE como PRECOMPS: una comp propia y una capa en la escena", () => {
+  const comp = base({
+    nombre: "Home",
+    capas: [
+      titulo({ id: "fondo" }),
+      titulo({ id: "l1", subgrupo: "g:logo", subgrupoNombre: "Lagermeister" }),
+      titulo({ id: "l2", subgrupo: "g:logo", subgrupoNombre: "Lagermeister" }),
+    ],
+  });
+  const jsx = generarScriptAE([comp]);
+  assert.match(jsx, /addComp\("Home \. Lagermeister", 1920, 1080/);
+  assert.match(jsx, /var esc1g0 = comp;/);
+  assert.match(jsx, /capa = comp\.layers\.add\(esc1g0\);/);
+  assert.match(jsx, /capa\.name = "Lagermeister";/);
+  // el precomp entra centrado, identidad
+  assert.match(jsx, /add\(esc1g0\);\ncapa\.name = "Lagermeister";\n__t\(capa, "ADBE Position"\)\.setValue\(\[960, 540\]\);/);
 });
 
 test("extensionDeFuente reconoce el formato por número mágico", () => {

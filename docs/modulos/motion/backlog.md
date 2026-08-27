@@ -54,6 +54,12 @@
   aproximación bezier no alcanza; zoom log con keyframe intermedio.
 - **Dónde:** `lib/motion/exportar-ae-puro.ts`, `ExportarVideo.tsx`
 
+### [P2] Subgrupos: segundo nivel en el panel de Capas
+- **Estado:** abierto — el TIMELINE ya pliega los subgrupos de Figma (una
+  fila con chevron) y AE los precompone; falta que el panel de CAPAS los
+  muestre también como sub-nivel colapsable dentro de su pantalla.
+- **Dónde:** `Capas.tsx` (mismo `filasDeCapas` de herramientas-puro)
+
 ### [P3] Export Lottie (formato, no runtime)
 - **Estado:** abierto — ya NO es el camino a AE (eso es el .jsx de arriba):
   queda para interchange hacia runtime web/apps.

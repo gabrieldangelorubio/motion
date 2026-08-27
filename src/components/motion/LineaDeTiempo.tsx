@@ -13,8 +13,8 @@
 ----------------------------------------------------------------------------- */
 
 import { useEffect, useRef, useState } from "react";
-import type { CanalCamara, Composicion, NombrePropiedad, Segmento } from "@/lib/motion/modelo";
-import { CAMARA_ID, rangoAnimacionCapas } from "@/lib/motion/herramientas-puro";
+import type { CanalCamara, Capa, Composicion, NombrePropiedad, Segmento } from "@/lib/motion/modelo";
+import { CAMARA_ID, filasDeCapas, rangoAnimacionCapas } from "@/lib/motion/herramientas-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
@@ -289,6 +289,8 @@ export function LineaDeTiempo({
   // keyframes y poses frenan la propagación, así que acá llega sólo el
   // fondo. Un click seco selecciona la fila (shift acumula).
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  // subgrupos (grupos de Figma) plegados por defecto: una fila cada uno
+  const [gruposAbiertos, setGruposAbiertos] = useState<string[]>([]);
   const alBajarFilas = (e: React.PointerEvent) => {
     const cont = filasRef.current;
     if (!cont || e.button !== 0) return;
@@ -317,17 +319,135 @@ export function LineaDeTiempo({
       // ocupa todo el ancho, el eje X del marquee no discrimina capas)
       const y0 = Math.min(origen.y, ev.clientY);
       const y1 = Math.max(origen.y, ev.clientY);
-      const ids = [...cont.querySelectorAll<HTMLElement>("[data-fila-tl]")]
+      const ids = [...cont.querySelectorAll<HTMLElement>("[data-fila-tl], [data-fila-tl-grupo]")]
         .filter((el) => {
           const r = el.getBoundingClientRect();
           return r.top < y1 && r.bottom > y0;
         })
-        .map((el) => el.dataset.filaTl!);
+        .flatMap((el) => (el.dataset.filaTl ? [el.dataset.filaTl] : (el.dataset.filaTlGrupo?.split(",") ?? [])));
       if (ids.length && onSeleccionarVarias) onSeleccionarVarias(ids);
     };
     window.addEventListener("pointermove", alMover);
     window.addEventListener("pointerup", alSoltar);
   };
+
+  // Una fila de capa del timeline (suelta, o adentro de un subgrupo
+  // expandido — ahí con un tinte para leer la pertenencia).
+  const filaDeCapa = (capa: Capa, enGrupo: boolean) => {
+          const activa = seleccionId === capa.id || seleccionIds.includes(capa.id);
+          const spans: { clave: "entrada" | "salida"; seg: Segmento }[] = [];
+          if (capa.entrada) spans.push({ clave: "entrada", seg: capa.entrada });
+          if (capa.salida) spans.push({ clave: "salida", seg: capa.salida });
+          return (
+            <div
+              key={capa.id}
+              data-fila-tl={capa.id}
+              className={[
+                "relative mb-1 h-9 rounded-control",
+                enGrupo ? "bg-ink/[0.02]" : "",
+                activa ? "bg-ink/[0.06]" : "hover:bg-ink/[0.03]",
+              ].join(" ")}
+            >
+              {spans.map(({ clave, seg }) => (
+                <div
+                  key={clave}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={t("Mover {clave} de «{nombre}»", { clave: clave === "entrada" ? t("la entrada") : t("la salida"), nombre: capa.nombre })}
+                  onKeyDown={(e) => {
+                    const dir = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+                    if (!dir) return;
+                    e.preventDefault();
+                    onCheckpoint();
+                    onRetimarSegmento(capa.id, clave, alFrame(Math.min(composicion.duracion, Math.max(0, seg.en + dir * cuadro))));
+                  }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    // varias capas seleccionadas y esta es una de ellas: el
+                    // drag corre EN BLOQUE toda la animación de la selección
+                    if (seleccionIds.length > 1 && seleccionIds.includes(capa.id) && onDesplazarSeleccion) {
+                      iniciarGesto({ tipo: "spanMulti", x0: e.clientX, aplicado: 0, activo: false });
+                      return;
+                    }
+                    onSeleccionar(capa.id);
+                    iniciarGesto({ tipo: "span", capaId: capa.id, clave, modo: "mover", enOriginal: seg.en, duracionOriginal: seg.duracion, x0: e.clientX, activo: false });
+                  }}
+                  className={[
+                    "group/span absolute top-1.5 bottom-1.5 cursor-grab rounded-full active:cursor-grabbing",
+                    activa ? "bg-ink/[0.16] hover:bg-ink/[0.22]" : "bg-ink/[0.10] hover:bg-ink/[0.16]",
+                  ].join(" ")}
+                  style={{ left: pct(seg.en), width: pct(seg.duracion) }}
+                >
+                  {/* manijas de estirado: agarrás un borde y cambia la
+                      DURACIÓN (el otro extremo queda clavado) */}
+                  {(["izq", "der"] as const).map((modo) => (
+                    <div
+                      key={modo}
+                      aria-hidden
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        onSeleccionar(capa.id);
+                        iniciarGesto({ tipo: "span", capaId: capa.id, clave, modo, enOriginal: seg.en, duracionOriginal: seg.duracion, x0: e.clientX, activo: false });
+                      }}
+                      className={[
+                        "absolute inset-y-0 w-2.5 cursor-ew-resize",
+                        modo === "izq" ? "left-0 rounded-l-full" : "right-0 rounded-r-full",
+                      ].join(" ")}
+                    >
+                      <span
+                        className={[
+                          "absolute top-1/2 h-3 w-0.5 -translate-y-1/2 rounded-full bg-foreground/35 opacity-0 transition-opacity group-hover/span:opacity-100",
+                          modo === "izq" ? "left-1" : "right-1",
+                        ].join(" ")}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {(Object.entries(capa.pistas ?? {}) as [NombrePropiedad, { t: number }[] | undefined][]).flatMap(
+                ([propiedad, pista]) =>
+                  (pista ?? []).map((kf) => {
+                    const elegido =
+                      seleccionKf?.tipo === "capa" &&
+                      seleccionKf.capaId === capa.id &&
+                      seleccionKf.propiedad === propiedad &&
+                      seleccionKf.t === kf.t;
+                    return (
+                      <span
+                        key={`${propiedad}-${kf.t}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={t("Keyframe de {propiedad} de «{nombre}»", { propiedad, nombre: capa.nombre })}
+                        onKeyDown={(e) => {
+                          const dir = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
+                          if (!dir) return;
+                          e.preventDefault();
+                          onCheckpoint();
+                          onMoverKeyframe(capa.id, propiedad, kf.t, alFrame(Math.min(composicion.duracion, Math.max(0, kf.t + dir * cuadro))));
+                        }}
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          onSeleccionar(capa.id);
+                          onSeleccionarKf({ tipo: "capa", capaId: capa.id, propiedad, t: kf.t });
+                          iniciarGesto({ tipo: "keyframe", capaId: capa.id, propiedad, tOriginal: kf.t, tActual: kf.t, x0: e.clientX, activo: false });
+                        }}
+                        className={[
+                          "absolute top-1/2 z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-grab rounded-[2px] active:cursor-grabbing",
+                          elegido
+                            ? "scale-140 bg-acento shadow-[0_0_0_2px_var(--chrome-bg),0_0_0_3.5px_var(--acento)]"
+                            : activa
+                              ? "bg-acento"
+                              : "bg-foreground/50 hover:bg-foreground/80",
+                        ].join(" ")}
+                        style={{ left: pct(kf.t) }}
+                      />
+                    );
+                  }),
+              )}
+            </div>
+          );
+  };
+
 
   return (
     <div className="flex select-none flex-col border-t border-(--glass-border) bg-(--chrome-bg)" style={{ height: alto }}>
@@ -467,118 +587,63 @@ export function LineaDeTiempo({
             }}
           />
         )}
-        {composicion.capas.map((capa) => {
-          const activa = seleccionId === capa.id || seleccionIds.includes(capa.id);
-          const spans: { clave: "entrada" | "salida"; seg: Segmento }[] = [];
-          if (capa.entrada) spans.push({ clave: "entrada", seg: capa.entrada });
-          if (capa.salida) spans.push({ clave: "salida", seg: capa.salida });
-          return (
-            <div
-              key={capa.id}
-              data-fila-tl={capa.id}
-              className={[
-                "relative mb-1 h-9 rounded-control",
-                activa ? "bg-ink/[0.06]" : "hover:bg-ink/[0.03]",
-              ].join(" ")}
-            >
-              {spans.map(({ clave, seg }) => (
-                <div
-                  key={clave}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={t("Mover {clave} de «{nombre}»", { clave: clave === "entrada" ? t("la entrada") : t("la salida"), nombre: capa.nombre })}
-                  onKeyDown={(e) => {
-                    const dir = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
-                    if (!dir) return;
-                    e.preventDefault();
-                    onCheckpoint();
-                    onRetimarSegmento(capa.id, clave, alFrame(Math.min(composicion.duracion, Math.max(0, seg.en + dir * cuadro))));
-                  }}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    // varias capas seleccionadas y esta es una de ellas: el
-                    // drag corre EN BLOQUE toda la animación de la selección
-                    if (seleccionIds.length > 1 && seleccionIds.includes(capa.id) && onDesplazarSeleccion) {
-                      iniciarGesto({ tipo: "spanMulti", x0: e.clientX, aplicado: 0, activo: false });
-                      return;
-                    }
-                    onSeleccionar(capa.id);
-                    iniciarGesto({ tipo: "span", capaId: capa.id, clave, modo: "mover", enOriginal: seg.en, duracionOriginal: seg.duracion, x0: e.clientX, activo: false });
-                  }}
-                  className={[
-                    "group/span absolute top-1.5 bottom-1.5 cursor-grab rounded-full active:cursor-grabbing",
-                    activa ? "bg-ink/[0.16] hover:bg-ink/[0.22]" : "bg-ink/[0.10] hover:bg-ink/[0.16]",
-                  ].join(" ")}
-                  style={{ left: pct(seg.en), width: pct(seg.duracion) }}
+        {filasDeCapas(composicion.capas).flatMap((fila) => {
+          // ——— fila de SUBGRUPO (grupo de Figma): una sola fila plegable —
+          // el logo con 30 letras no come 30 filas; expandís cuando lo
+          // querés animar por partes. La barra mueve el bloque entero.
+          if (fila.tipo === "grupo") {
+            const ids = fila.capas.map((c) => c.id);
+            const abierto = gruposAbiertos.includes(fila.id);
+            const algunaActiva = ids.some((id) => id === seleccionId || seleccionIds.includes(id));
+            const rango = rangoAnimacionCapas(composicion, ids);
+            const filaGrupo = (
+              <div
+                key={fila.id}
+                data-fila-tl-grupo={ids.join(",")}
+                className={[
+                  "relative mb-1 h-9 rounded-control",
+                  algunaActiva ? "bg-ink/[0.06]" : "hover:bg-ink/[0.03]",
+                ].join(" ")}
+              >
+                <button
+                  type="button"
+                  aria-expanded={abierto}
+                  aria-label={t("Desplegar el grupo «{nombre}»", { nombre: fila.nombre })}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() =>
+                    setGruposAbiertos((previos) =>
+                      abierto ? previos.filter((g) => g !== fila.id) : [...previos, fila.id],
+                    )
+                  }
+                  className="absolute left-1 top-1/2 z-10 grid size-6 -translate-y-1/2 place-items-center rounded-control text-[11px] text-foreground/50 hover:bg-ink/[0.08] hover:text-foreground"
                 >
-                  {/* manijas de estirado: agarrás un borde y cambia la
-                      DURACIÓN (el otro extremo queda clavado) */}
-                  {(["izq", "der"] as const).map((modo) => (
-                    <div
-                      key={modo}
-                      aria-hidden
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        onSeleccionar(capa.id);
-                        iniciarGesto({ tipo: "span", capaId: capa.id, clave, modo, enOriginal: seg.en, duracionOriginal: seg.duracion, x0: e.clientX, activo: false });
-                      }}
-                      className={[
-                        "absolute inset-y-0 w-2.5 cursor-ew-resize",
-                        modo === "izq" ? "left-0 rounded-l-full" : "right-0 rounded-r-full",
-                      ].join(" ")}
-                    >
-                      <span
-                        className={[
-                          "absolute top-1/2 h-3 w-0.5 -translate-y-1/2 rounded-full bg-foreground/35 opacity-0 transition-opacity group-hover/span:opacity-100",
-                          modo === "izq" ? "left-1" : "right-1",
-                        ].join(" ")}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ))}
-              {(Object.entries(capa.pistas ?? {}) as [NombrePropiedad, { t: number }[] | undefined][]).flatMap(
-                ([propiedad, pista]) =>
-                  (pista ?? []).map((kf) => {
-                    const elegido =
-                      seleccionKf?.tipo === "capa" &&
-                      seleccionKf.capaId === capa.id &&
-                      seleccionKf.propiedad === propiedad &&
-                      seleccionKf.t === kf.t;
-                    return (
-                      <span
-                        key={`${propiedad}-${kf.t}`}
-                        role="button"
-                        tabIndex={0}
-                        aria-label={t("Keyframe de {propiedad} de «{nombre}»", { propiedad, nombre: capa.nombre })}
-                        onKeyDown={(e) => {
-                          const dir = e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0;
-                          if (!dir) return;
-                          e.preventDefault();
-                          onCheckpoint();
-                          onMoverKeyframe(capa.id, propiedad, kf.t, alFrame(Math.min(composicion.duracion, Math.max(0, kf.t + dir * cuadro))));
-                        }}
-                        onPointerDown={(e) => {
-                          e.stopPropagation();
-                          onSeleccionar(capa.id);
-                          onSeleccionarKf({ tipo: "capa", capaId: capa.id, propiedad, t: kf.t });
-                          iniciarGesto({ tipo: "keyframe", capaId: capa.id, propiedad, tOriginal: kf.t, tActual: kf.t, x0: e.clientX, activo: false });
-                        }}
-                        className={[
-                          "absolute top-1/2 z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-grab rounded-[2px] active:cursor-grabbing",
-                          elegido
-                            ? "scale-140 bg-acento shadow-[0_0_0_2px_var(--chrome-bg),0_0_0_3.5px_var(--acento)]"
-                            : activa
-                              ? "bg-acento"
-                              : "bg-foreground/50 hover:bg-foreground/80",
-                        ].join(" ")}
-                        style={{ left: pct(kf.t) }}
-                      />
-                    );
-                  }),
-              )}
-            </div>
-          );
+                  <span aria-hidden className={abierto ? "" : "-rotate-90"}>▾</span>
+                </button>
+                <span className="pointer-events-none absolute left-8 top-1/2 z-10 -translate-y-1/2 truncate text-[10px] text-foreground/45">
+                  {fila.nombre} · {fila.capas.length}
+                </span>
+                {rango && (
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label={t("Animación del grupo «{nombre}»", { nombre: fila.nombre })}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      onSeleccionarVarias?.(ids);
+                      iniciarGesto({ tipo: "spanMulti", x0: e.clientX, aplicado: 0, activo: false });
+                    }}
+                    className={[
+                      "absolute top-1.5 bottom-1.5 cursor-grab rounded-full border border-dashed border-foreground/25 active:cursor-grabbing",
+                      algunaActiva ? "bg-ink/[0.16] hover:bg-ink/[0.22]" : "bg-ink/[0.10] hover:bg-ink/[0.16]",
+                    ].join(" ")}
+                    style={{ left: pct(rango.desde), width: pct(rango.hasta - rango.desde) }}
+                  />
+                )}
+              </div>
+            );
+            return [filaGrupo, ...(abierto ? fila.capas.map((c) => filaDeCapa(c, true)) : [])];
+          }
+          return [filaDeCapa(fila.capa, false)];
         })}
         {/* ——— RECUADRO de la selección múltiple: abraza todos los spans de
             las capas elegidas. El cuerpo mueve EN BLOQUE (lo de siempre);
@@ -588,8 +653,17 @@ export function LineaDeTiempo({
           if (seleccionIds.length < 2 || !onEstirarSeleccion) return null;
           const rango = rangoAnimacionCapas(composicion, seleccionIds);
           if (!rango) return null;
-          const indices = composicion.capas
-            .map((c, i) => (seleccionIds.includes(c.id) ? i : -1))
+          // filas VISIBLES (los subgrupos plegados colapsan el conteo):
+          // cada entrada lista los ids que esa fila representa
+          const visibles: string[][] = filasDeCapas(composicion.capas).flatMap((fila) => {
+            if (fila.tipo === "capa") return [[fila.capa.id]];
+            const ids = fila.capas.map((c) => c.id);
+            return gruposAbiertos.includes(fila.id)
+              ? [ids, ...fila.capas.map((c) => [c.id])]
+              : [ids];
+          });
+          const indices = visibles
+            .map((ids, i) => (ids.some((id) => seleccionIds.includes(id)) ? i : -1))
             .filter((i) => i >= 0);
           if (!indices.length) return null;
           // filas: h-9 (36px) + mb-1 (4px) de paso

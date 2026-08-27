@@ -38,6 +38,7 @@ import type {
   Segmento,
 } from "@/lib/motion/modelo";
 import { camaraEn } from "@/lib/motion/evaluar-puro";
+import { filasDeCapas, type FilaCapas } from "@/lib/motion/herramientas-puro";
 
 /* ——— Números y strings deterministas ————————————————————————————— */
 
@@ -702,13 +703,38 @@ export function generarScriptAE(
 
     L.push(``);
     L.push(`// --- escena: ${ascii(escena.nombre)} ---`);
+
+    // ——— SUBGRUPOS (grupos de Figma: el logo con sus letras) → una PRECOMP
+    // cada uno, creada antes; en la comp de la escena entra como UNA capa
+    // en su lugar del z-order. Igual de editable, timeline de AE limpio.
+    const filas = filasDeCapas(escena.capas);
+    const grupos = filas.filter((f): f is Extract<FilaCapas, { tipo: "grupo" }> => f.tipo === "grupo");
+    grupos.forEach((g, k) => {
+      L.push(`comp = app.project.items.addComp(${cadena(`${escena.nombre} . ${g.nombre}`)}, ${dims});`);
+      L.push(`comp.parentFolder = __carpeta;`);
+      L.push(`var ${varEscena}g${k} = comp;`);
+      for (const capa of g.capas) emitirCapa(L, capa, sinAnimacion, rutasMedia);
+    });
+    const emitirContenido = () => {
+      for (const fila of filas) {
+        if (fila.tipo === "capa") {
+          emitirCapa(L, fila.capa, sinAnimacion, rutasMedia);
+          continue;
+        }
+        const k = grupos.indexOf(fila);
+        L.push(`capa = comp.layers.add(${varEscena}g${k});`);
+        L.push(`capa.name = ${cadena(fila.nombre)};`);
+        L.push(`__t(capa, "ADBE Position").setValue([${num(escena.ancho / 2)}, ${num(escena.alto / 2)}]);`);
+      }
+    };
+
     if (conCamara) {
       // el contenido vive en una precomp; la cámara es su transform
       L.push(`comp = app.project.items.addComp(${cadena(escena.nombre + " . contenido")}, ${dims});`);
       L.push(`comp.bgColor = ${colorLit(escena.fondo)};`);
       L.push(`comp.parentFolder = __carpeta;`);
       L.push(`var ${varEscena}c = comp;`);
-      for (const capa of escena.capas) emitirCapa(L, capa, sinAnimacion, rutasMedia);
+      emitirContenido();
       L.push(`comp = app.project.items.addComp(${cadena(escena.nombre)}, ${dims});`);
       L.push(`comp.bgColor = ${colorLit(escena.fondo)};`);
       L.push(`comp.parentFolder = __carpeta;`);
@@ -720,7 +746,7 @@ export function generarScriptAE(
       L.push(`comp.bgColor = ${colorLit(escena.fondo)};`);
       L.push(`comp.parentFolder = __carpeta;`);
       L.push(`var ${varEscena} = comp;`);
-      for (const capa of escena.capas) emitirCapa(L, capa, sinAnimacion, rutasMedia);
+      emitirContenido();
     }
   });
 

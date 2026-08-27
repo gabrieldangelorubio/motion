@@ -425,6 +425,7 @@ async function nodoAIR(nodo, marco, salida) {
       return;
     }
     // el fondo sólido del frame entra como rect propio, después sus hijos
+    var desdeSubgrupo = salida.length;
     if (nodo.type !== "GROUP") {
       var fondo = pinturaSolida(nodo.fills);
       if (fondo) {
@@ -442,6 +443,12 @@ async function nodoAIR(nodo, marco, salida) {
     }
     for (var i = 0; i < nodo.children.length; i++) {
       await nodoAIR(nodo.children[i], marco, salida);
+    }
+    // SUBGRUPO: todo lo que este contenedor aportó queda marcado con su
+    // nombre — el contenedor MÁS EXTERNO (debajo del frame) pisa a los de
+    // adentro, así el logo entero es UN grupo aunque tenga grupos anidados.
+    for (var s = desdeSubgrupo; s < salida.length; s++) {
+      salida[s].subgrupo = nodo.name;
     }
     return;
   }
