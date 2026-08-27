@@ -5,17 +5,23 @@
 
    Aparece al importar la música/voz (y desde «Recortar» en la franja): la
    forma de onda COMPLETA del archivo con dos manijas — arrastrás desde/hasta
-   y te quedás con el pedazo que va. Afuera del segmento la onda se atenúa.
-   «Usar todo» = sin recorte. El proyecto (timeline, export, transcripción)
-   ve únicamente el segmento elegido.
+   y te quedás con el pedazo que va. Tiene REPRODUCTOR: play/pausa y scrub
+   sobre la onda (click o arrastre fuera de las manijas mueve el cursor de
+   escucha) para encontrar el corte con la oreja, no a ojo. La reproducción
+   frena sola al llegar al fin del segmento. «Usar todo» = sin recorte;
+   la «×» sale sin tocar nada.
 ----------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AudioDecodificado } from "@/lib/motion/audio-guardado";
 import { limitarRecorte } from "@/lib/motion/audio-puro";
 import { t } from "@/lib/i18n/stub";
+import { Icono } from "@/components/icons";
+import { BotonIcono } from "@/components/ui/BotonIcono";
 
 const ALTO = 96;
+/** a menos de esto (px) de una manija, el drag agarra la manija; más lejos, es SCRUB */
+const UMBRAL_MANIJA_PX = 8;
 
 function Tiempo({ ms }: { ms: number }) {
   const s = ms / 1000;
@@ -26,18 +32,65 @@ export function RecorteAudio({
   audio,
   onConfirmar,
   onUsarTodo,
+  onCerrar,
 }: {
   audio: AudioDecodificado;
   /** el segmento elegido, en ms del ARCHIVO */
   onConfirmar: (desdeMs: number, hastaMs: number) => void;
   onUsarTodo: () => void;
+  /** salir sin cambiar nada */
+  onCerrar: () => void;
 }) {
   const total = Math.max(1, audio.duracionTotalMs);
   const [desde, setDesde] = useState(audio.recorte?.desdeMs ?? 0);
   const [hasta, setHasta] = useState(audio.recorte?.hastaMs ?? total);
+  const [cursor, setCursor] = useState(audio.recorte?.desdeMs ?? 0);
+  const [sonando, setSonando] = useState(false);
   const marcoRef = useRef<HTMLDivElement>(null);
   const lienzoRef = useRef<HTMLCanvasElement>(null);
-  const arrastreRef = useRef<"desde" | "hasta" | null>(null);
+  const arrastreRef = useRef<"desde" | "hasta" | "scrub" | null>(null);
+  const reproductorRef = useRef<HTMLAudioElement | null>(null);
+  const hastaRef = useRef(hasta);
+  useEffect(() => {
+    hastaRef.current = hasta;
+  }, [hasta]);
+
+  // el reproductor del panel: un <audio> propio, esclavo del cursor
+  useEffect(() => {
+    const el = new Audio(audio.url);
+    el.preload = "auto";
+    el.ontimeupdate = () => {
+      const ms = el.currentTime * 1000;
+      setCursor(ms);
+      // frena solo al llegar al fin del segmento elegido
+      if (ms >= hastaRef.current) {
+        el.pause();
+        setSonando(false);
+      }
+    };
+    el.onended = () => setSonando(false);
+    reproductorRef.current = el;
+    return () => {
+      el.pause();
+      reproductorRef.current = null;
+    };
+  }, [audio.url]);
+
+  const alternarPlay = useCallback(() => {
+    const el = reproductorRef.current;
+    if (!el) return;
+    if (!el.paused) {
+      el.pause();
+      setSonando(false);
+      return;
+    }
+    // arranca en el cursor; si quedó fuera del segmento, desde el principio
+    const inicio = cursor >= desde && cursor < hasta ? cursor : desde;
+    el.currentTime = inicio / 1000;
+    setCursor(inicio);
+    void el.play().catch(() => undefined);
+    setSonando(true);
+  }, [cursor, desde, hasta]);
 
   useEffect(() => {
     const lienzo = lienzoRef.current;
@@ -74,7 +127,17 @@ export function RecorteAudio({
       ctx.lineTo(x, ALTO);
       ctx.stroke();
     }
-  }, [audio, desde, hasta, total]);
+    // cursor de ESCUCHA (finito, blanco-tinta, encima de todo)
+    const xc = (Math.min(cursor, total) / total) * ancho;
+    ctx.strokeStyle = tinta;
+    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(xc, 0);
+    ctx.lineTo(xc, ALTO);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }, [audio, desde, hasta, cursor, total]);
 
   const msDeEvento = useCallback(
     (clientX: number) => {
@@ -85,10 +148,22 @@ export function RecorteAudio({
     [total],
   );
 
+  const escrub = useCallback((ms: number) => {
+    setCursor(ms);
+    const el = reproductorRef.current;
+    if (el) el.currentTime = ms / 1000;
+  }, []);
+
   const alBajar = (e: React.PointerEvent) => {
+    const caja = marcoRef.current?.getBoundingClientRect();
+    if (!caja) return;
     const ms = msDeEvento(e.clientX);
-    // agarra la manija más cercana al click
-    arrastreRef.current = Math.abs(ms - desde) <= Math.abs(ms - hasta) ? "desde" : "hasta";
+    const pxPorMs = caja.width / total;
+    const dDesde = Math.abs(ms - desde) * pxPorMs;
+    const dHasta = Math.abs(ms - hasta) * pxPorMs;
+    // cerca de una manija: la manija; lejos: SCRUB del cursor de escucha
+    arrastreRef.current =
+      Math.min(dDesde, dHasta) <= UMBRAL_MANIJA_PX ? (dDesde <= dHasta ? "desde" : "hasta") : "scrub";
     e.currentTarget.setPointerCapture(e.pointerId);
     alMover(e);
   };
@@ -97,18 +172,28 @@ export function RecorteAudio({
     if (!cual) return;
     const ms = msDeEvento(e.clientX);
     if (cual === "desde") setDesde(Math.min(ms, hasta - 500));
-    else setHasta(Math.max(ms, desde + 500));
+    else if (cual === "hasta") setHasta(Math.max(ms, desde + 500));
+    else escrub(ms);
   };
   const alSoltar = () => (arrastreRef.current = null);
 
   const limpio = limitarRecorte(desde, hasta, total);
+  const cerrar = () => {
+    reproductorRef.current?.pause();
+    onCerrar();
+  };
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-6">
-      <div className="w-full max-w-2xl rounded-card border border-(--menu-border) bg-(--menu-solido-bg) p-4 shadow-(--menu-shadow)">
+      <div className="relative w-full max-w-2xl rounded-card border border-(--menu-border) bg-(--menu-solido-bg) p-4 shadow-(--menu-shadow)">
+        <div className="absolute right-2 top-2">
+          <BotonIcono tam={28} etiqueta={t("Salir sin recortar")} onClick={cerrar}>
+            <Icono nombre="cerrar" width={13} height={13} />
+          </BotonIcono>
+        </div>
         <div className="text-[15px] font-semibold text-foreground">{t("Recortá la locución")}</div>
-        <p className="mt-1 text-[12px] leading-snug text-muted">
-          {t("Arrastrá las manijas y quedate con el pedazo que va al proyecto — «{nombre}» dura {s}s entero.", {
+        <p className="mt-1 pr-8 text-[12px] leading-snug text-muted">
+          {t("Manijas = el segmento que va. Click en la onda = escuchar desde ahí. «{nombre}» dura {s}s entero.", {
             nombre: audio.nombre,
             s: (total / 1000).toFixed(1),
           })}
@@ -130,23 +215,38 @@ export function RecorteAudio({
           <canvas ref={lienzoRef} className="absolute inset-0 h-full w-full" />
         </div>
         <div className="mt-2 flex items-center justify-between">
-          <span>
-            <Tiempo ms={limpio.desdeMs} /> <span className="text-[11px] text-muted">→</span> <Tiempo ms={limpio.hastaMs} />
-            <span className="ml-2 text-[11px] text-muted">
-              ({((limpio.hastaMs - limpio.desdeMs) / 1000).toFixed(2)}s)
+          <span className="flex items-center gap-2">
+            <BotonIcono
+              tam={30}
+              etiqueta={sonando ? t("Pausar la escucha") : t("Escuchar desde el cursor")}
+              onClick={alternarPlay}
+            >
+              <Icono nombre={sonando ? "pausa" : "play"} width={13} height={13} />
+            </BotonIcono>
+            <span>
+              <Tiempo ms={limpio.desdeMs} /> <span className="text-[11px] text-muted">→</span> <Tiempo ms={limpio.hastaMs} />
+              <span className="ml-2 text-[11px] text-muted">
+                ({((limpio.hastaMs - limpio.desdeMs) / 1000).toFixed(2)}s)
+              </span>
             </span>
           </span>
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={onUsarTodo}
+              onClick={() => {
+                reproductorRef.current?.pause();
+                onUsarTodo();
+              }}
               className="flex h-8 items-center rounded-control px-3 text-[12px] text-foreground/80 shadow-control hover:bg-ink/[0.06]"
             >
               {t("Usar todo")}
             </button>
             <button
               type="button"
-              onClick={() => onConfirmar(limpio.desdeMs, limpio.hastaMs)}
+              onClick={() => {
+                reproductorRef.current?.pause();
+                onConfirmar(limpio.desdeMs, limpio.hastaMs);
+              }}
               className="boton flex h-8 items-center rounded-control bg-acento px-3 text-[12px] font-semibold text-white hover:bg-acento/85"
             >
               {t("Usar este pedazo")}

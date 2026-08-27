@@ -1748,6 +1748,7 @@ export function Editor({
             audio={audio}
             onConfirmar={(desdeMs, hastaMs) => void aplicarRecorte({ desdeMs, hastaMs })}
             onUsarTodo={() => void aplicarRecorte(undefined)}
+            onCerrar={() => setRecortando(false)}
           />
         )}
         <LineaDeTiempo
