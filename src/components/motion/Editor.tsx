@@ -89,6 +89,9 @@ export function Editor({
   const [altoTimeline, setAltoTimeline] = useState(340);
   const [importarAbierto, setImportarAbierto] = useState(false);
   const [fuentesAbierto, setFuentesAbierto] = useState(false);
+  // alto del chat de diosa en la barra derecha (agarradera, como el timeline)
+  const [altoChat, setAltoChat] = useState(340);
+  const redimenChatRef = useRef<{ y0: number; alto0: number } | null>(null);
   // vista del lienzo: "mundo" = el canvas con el encuadre dibujado;
   // "camara" = lo que ve la cámara (arrastrar ENCUADRA, con auto-key);
   // "ambas" = el mundo con el outline moviéndose + PiP de la cámara.
@@ -1101,8 +1104,9 @@ export function Editor({
         />
       </div>
       <div className="flex min-h-0 flex-col">
-        {/* arriba la config de la capa; abajo, FIJO, el chat de diosa (2/3) */}
-        <div className={[conAgente ? "h-1/3" : "flex-1", "min-h-0 overflow-y-auto"].join(" ")}>
+        {/* arriba la config de la capa (todo el resto); abajo, FIJO, el chat
+            de diosa con su agarradera para cambiarle el alto */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {seleccionId === CAMARA_ID ? (
             <InspectorCamara
               composicion={composicion}
@@ -1131,16 +1135,35 @@ export function Editor({
           )}
         </div>
         {conAgente && (
-          <div className="h-2/3 min-h-0">
-            <PanelAgente
-              obtenerSnapshot={() => serializar(compRef.current)}
-              composicionId={composicionId}
-              onAplicar={(snapshot) => {
-                registrar();
-                setComposicion(deserializar(snapshot));
+          <>
+            <div
+              role="separator"
+              aria-label={t("Cambiar el alto del chat")}
+              aria-orientation="horizontal"
+              className="group relative h-1.5 shrink-0 cursor-ns-resize"
+              onPointerDown={(e) => {
+                redimenChatRef.current = { y0: e.clientY, alto0: altoChat };
+                e.currentTarget.setPointerCapture(e.pointerId);
               }}
-            />
-          </div>
+              onPointerMove={(e) => {
+                const r = redimenChatRef.current;
+                if (r) setAltoChat(Math.min(Math.round(window.innerHeight * 0.75), Math.max(160, r.alto0 - (e.clientY - r.y0))));
+              }}
+              onPointerUp={() => (redimenChatRef.current = null)}
+            >
+              <div className="absolute inset-x-0 top-0.5 mx-auto h-0.5 w-10 rounded-full bg-foreground/15 transition-colors duration-200 group-hover:bg-acento" />
+            </div>
+            <div className="min-h-0 shrink-0" style={{ height: altoChat }}>
+              <PanelAgente
+                obtenerSnapshot={() => serializar(compRef.current)}
+                composicionId={composicionId}
+                onAplicar={(snapshot) => {
+                  registrar();
+                  setComposicion(deserializar(snapshot));
+                }}
+              />
+            </div>
+          </>
         )}
       </div>
     </div>
