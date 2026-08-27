@@ -12,7 +12,10 @@
 
 import type { Composicion } from "@/lib/motion/modelo";
 
-export type EscenaInfo = { id: string; nombre: string };
+/** `duracion` (ms) viaja en el registro para poder ubicar los cortes de
+    escena sobre el audio del proyecto sin cargar cada escena; se completa
+    y actualiza al visitar/editar cada una. */
+export type EscenaInfo = { id: string; nombre: string; duracion?: number };
 
 /** Id determinista de la escena n del proyecto (la 1 es el id base). */
 export function idDeEscena(base: string, n: number): string {

@@ -6,7 +6,7 @@
 // host, cae a la descarga normal del browser.
 import { createRoot } from "react-dom/client";
 import { Editor } from "@/components/motion/Editor";
-import { COMPOSICION_DEMO } from "@/lib/motion/demo";
+import { crearComposicion } from "@/lib/motion/herramientas-puro";
 import { serializar } from "@/lib/motion/serializar-puro";
 import { descargarBlob } from "@/lib/motion/exportar";
 
@@ -33,7 +33,7 @@ const raiz = document.getElementById("raiz");
 if (raiz) {
   createRoot(raiz).render(
     <Editor
-      snapshotInicial={serializar(COMPOSICION_DEMO)}
+      snapshotInicial={serializar(crearComposicion({ nombre: "Proyecto" }))}
       composicionId="demo"
       entregarExport={entregarExport}
       conAgente={false} // la página publicada no tiene backend para el agente

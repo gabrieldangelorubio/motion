@@ -130,6 +130,25 @@ prueba de AE— y el generador es determinista y testeado byte a byte; el
 toggle «Solo el diseño, sin animación» exporta las capas en su estado
 BASE — sin keyframes, sin cámara, sin temblor, sin notas de presets —
 para armar la animación de cero en AE),
+**audio de proyecto** (la voz en off / música que
+estructura las escenas: UN audio por proyecto —botón ♪ en la barra de
+escenas, acepta audio y el sonido de un mp4/webm—, guardado ENTERO en el
+navegador (IndexedDB, como las fuentes: al reabrir vuelve solo) y
+decodificado a una franja de FORMA DE ONDA arriba del timeline — el
+ritmo y las pausas de la locución a la vista, con los CORTES de escena
+encima sobre el eje global del proyecto (las escenas concatenadas, el
+orden del export); click en la franja salta a ese punto —cambiando de
+escena si hace falta—, arrastrar un corte ajusta la duración de la
+escena que termina ahí (la activa con undo; una no activa se edita en su
+documento y el registro aprende la duración), y el preview reproduce el
+TRAMO que le toca a la escena activa, esclavo del reloj —play
+resincroniza, pausa frena, el loop de la escena vuelve a su inicio—; el
+registro de escenas ahora guarda la duración de cada una para ubicar los
+cortes sin cargarlas; PENDIENTE de esta línea: transcripción con
+timestamps para linkear oraciones con animaciones (decisión de motor) y
+muxear el audio en el MP4 del export), **el proyecto arranca VACÍO**
+(lienzo limpio con el formato de la casa — la composición demo quedó en
+`lib/motion/demo.ts` para tests y harness),
 **el paradigma canvas + cámara** (el lienzo es
 infinito: cada import de Figma se SUMA a la derecha de lo existente con su
 fondo como placa — ids únicos, anclas remapeadas — y el plugin exporta
@@ -301,7 +320,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **158
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **164
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -319,7 +338,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   salida recortando, clip en pintar). (6) conversión de opacidad del script
   de AE sin el ×100 → falló exactamente «opacidad va 0-1 → 0-100».
   (7) gate de «solo diseño» de la cámara apagado → falló exactamente «sin
-  precomp de camara». Restaurados, 158/158 verdes.
+  precomp de camara». (8) límite de escenaEnPunto invertido (<=) → falló
+  exactamente «el límite exacto pertenece a la escena SIGUIENTE».
+  Restaurados, 164/164 verdes.
 
 ## Qué necesita cablearse de su lado
 

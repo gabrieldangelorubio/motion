@@ -12,7 +12,7 @@
    Con la pestaña oculta, el reloj pausa (§10.3).
 ----------------------------------------------------------------------------- */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CanalCamara, Capa, CapaTexto, Composicion, Keyframe, NombrePropiedad, Segmento, TemblorCamara } from "@/lib/motion/modelo";
 import { PRESETS, escalonadoSano } from "@/lib/motion/presets-puro";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
@@ -55,6 +55,15 @@ import { PanelFuentes } from "@/components/motion/PanelFuentes";
 import { Segmentado } from "@/components/ui/Segmentado";
 import { familiasDeComposicion, familiaDisponible } from "@/lib/motion/fuentes-puro";
 import { cargarFuentesRecordadas } from "@/lib/motion/fuentes-guardadas";
+import { AudioDeProyecto } from "@/components/motion/AudioDeProyecto";
+import {
+  cargarAudioGuardado,
+  decodificarAudio,
+  olvidarAudio,
+  recordarAudio,
+  type AudioDecodificado,
+} from "@/lib/motion/audio-guardado";
+import { cortesDeEscenas, escenaEnPunto } from "@/lib/motion/audio-puro";
 import { suavizarGrabacion, type MuestraCamara } from "@/lib/motion/suavizar-puro";
 import { baselineAproximada, envolverEnLineas, sumarAlLienzo, type ResultadoImport } from "@/lib/motion/figma-puro";
 import type { FuentesDeMedia } from "@/lib/motion/pintar";
@@ -134,6 +143,48 @@ export function Editor({
       /* sin storage el registro vive esta sesión */
     }
   }, [composicionId]);
+  // ——— Audio del proyecto: la voz en off / música que estructura las escenas.
+  // UN audio por proyecto (IndexedDB, como las fuentes); el tiempo GLOBAL es
+  // la concatenación de escenas y el preview reproduce el tramo que le toca
+  // a la activa. La franja de forma de onda vive arriba del timeline.
+  const [audio, setAudio] = useState<AudioDecodificado | null>(null);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const entradaAudioRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void cargarAudioGuardado(composicionId).then(async (registro) => {
+      if (!registro || !vivo) return;
+      const dec = await decodificarAudio(registro);
+      if (dec && vivo) setAudio(dec);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [composicionId]);
+  useEffect(() => {
+    if (!audio) return;
+    const el = new Audio(audio.url);
+    el.preload = "auto";
+    audioElRef.current = el;
+    return () => {
+      el.pause();
+      audioElRef.current = null;
+    };
+  }, [audio]);
+  // cortes de escena en tiempo global: el registro trae las duraciones de
+  // las no visitadas; la ACTIVA usa siempre la duración viva
+  const cortes = useMemo(
+    () =>
+      cortesDeEscenas(
+        escenas.map((e) => (e.id === escenaActiva ? { ...e, duracion: composicion.duracion } : e)),
+      ),
+    [escenas, escenaActiva, composicion.duracion],
+  );
+  const cortesRef = useRef(cortes);
+  useEffect(() => {
+    cortesRef.current = cortes;
+  }, [cortes]);
+
   // vista del lienzo: "mundo" = el canvas con el encuadre dibujado;
   // "camara" = lo que ve la cámara (arrastrar ENCUADRA, con auto-key);
   // "ambas" = el mundo con el outline moviéndose + PiP de la cámara.
@@ -166,6 +217,13 @@ export function Editor({
   }, [seleccionIds]);
   const tiempoRef = useRef(0);
   const lienzoRef = useRef<ControlLienzo>(null);
+  /** Apunta el <audio> al punto global del playhead de la escena activa. */
+  const sincronizarAudio = useCallback(() => {
+    const el = audioElRef.current;
+    if (!el) return;
+    const corte = cortesRef.current.find((c) => c.id === escenaActivaRef.current);
+    el.currentTime = ((corte?.desdeMs ?? 0) + tiempoRef.current) / 1000;
+  }, []);
   // ——— Modo cámara: grabar el gesto del viewport y suavizarlo a keyframes ———
   const [grabandoCamara, setGrabandoCamara] = useState(false);
   const grabandoRef = useRef(false);
@@ -222,6 +280,8 @@ export function Editor({
       if (reproduciendo && !document.hidden) {
         const previo = tiempoRef.current;
         tiempoRef.current = (tiempoRef.current + dt) % compRef.current.duracion;
+        // la escena dio la vuelta: el audio vuelve al inicio de su tramo
+        if (tiempoRef.current < previo) sincronizarAudio();
         if (grabandoRef.current) {
           if (tiempoRef.current < previo) {
             detenerGrabacion(); // la composición dio la vuelta: la toma terminó
@@ -243,7 +303,21 @@ export function Editor({
       vivo = false;
       cancelAnimationFrame(id);
     };
-  }, [reproduciendo, detenerGrabacion]);
+  }, [reproduciendo, detenerGrabacion, sincronizarAudio]);
+
+  // El <audio> es ESCLAVO del reloj del preview: play arranca su tramo en el
+  // punto global exacto, pausa lo frena. Con la escena activa cambiando, el
+  // próximo play resincroniza solo.
+  useEffect(() => {
+    const el = audioElRef.current;
+    if (!el) return;
+    if (reproduciendo) {
+      sincronizarAudio();
+      void el.play().catch(() => undefined);
+    } else {
+      el.pause();
+    }
+  }, [reproduciendo, audio, sincronizarAudio]);
 
   // ——— Undo por snapshots ———
   const registrar = useCallback(() => {
@@ -373,6 +447,88 @@ export function Editor({
     tiempoRef.current = Math.min(tiempoRef.current, duracion);
     setComposicion({ ...compRef.current, duracion });
   }, []);
+
+  // El registro de escenas aprende la duración de la activa (los cortes del
+  // audio la necesitan sin cargar cada escena). En microtask por el linter.
+  useEffect(() => {
+    let vivo = true;
+    queueMicrotask(() => {
+      if (!vivo) return;
+      const actual = escenasRef.current.find((e) => e.id === escenaActivaRef.current);
+      if (actual && actual.duracion !== composicion.duracion) {
+        persistirEscenas(
+          escenasRef.current.map((e) =>
+            e.id === escenaActivaRef.current ? { ...e, duracion: composicion.duracion } : e,
+          ),
+        );
+      }
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [composicion.duracion, persistirEscenas]);
+
+  // ——— Audio del proyecto: saltar por la onda, cortar escenas, subir/quitar ———
+  // Click en la franja: va a ese punto GLOBAL (cambia de escena si el punto
+  // cae en otra) y deja el playhead en el tiempo local correspondiente.
+  const saltarGlobal = useCallback(async (globalMs: number) => {
+    const destino = escenaEnPunto(cortesRef.current, globalMs);
+    if (!destino) return;
+    if (destino.id !== escenaActivaRef.current) await cambiarEscena(destino.id);
+    const ms = Math.min(destino.localMs, compRef.current.duracion);
+    tiempoRef.current = ms;
+    setTiempoUI(ms);
+    sincronizarAudio();
+    lienzoRef.current?.pintarAhora(ms);
+  }, [cambiarEscena, sincronizarAudio]);
+
+  // Soltar un corte sobre la onda: la escena que termina ahí pasa a durar
+  // eso — separás la locución en segmentos escena por escena. La activa va
+  // por el camino normal (undo incluido); una NO activa se edita en su
+  // documento y el registro aprende la duración nueva.
+  const cortarEscena = useCallback(async (id: string, ms: number) => {
+    const duracion = Math.min(120000, Math.max(500, Math.round(ms)));
+    if (id === escenaActivaRef.current) {
+      registrar();
+      cambiarDuracion(duracion);
+      return;
+    }
+    const cargada = await cargarComposicionAction(id);
+    if (!cargada) {
+      setAvisoGuardado(t("No se pudo cargar esa escena para ajustarla"));
+      return;
+    }
+    const comp = deserializar(cargada.snapshot);
+    const res = await guardarComposicionAction(id, serializar({ ...comp, duracion }), comp.rev ?? 0);
+    if (!res.ok) {
+      setAvisoGuardado(res.error);
+      return;
+    }
+    persistirEscenas(escenasRef.current.map((e) => (e.id === id ? { ...e, duracion } : e)));
+  }, [registrar, cambiarDuracion, persistirEscenas]);
+
+  const subirAudio = useCallback(async (archivo: File) => {
+    const datos = await archivo.arrayBuffer();
+    const registro = { proyecto: composicionId, nombre: archivo.name, tipo: archivo.type, datos };
+    const dec = await decodificarAudio(registro);
+    if (!dec) {
+      setAvisoGuardado(t("Ese archivo no se pudo decodificar como audio"));
+      return;
+    }
+    await recordarAudio(registro);
+    setAudio((previo) => {
+      if (previo) URL.revokeObjectURL(previo.url);
+      return dec;
+    });
+  }, [composicionId]);
+
+  const quitarAudio = useCallback(() => {
+    void olvidarAudio(composicionId);
+    setAudio((previo) => {
+      if (previo) URL.revokeObjectURL(previo.url);
+      return null;
+    });
+  }, [composicionId]);
 
   // ——— Mutaciones ———
   // El checkpoint lo pone el CALLER al arrancar el gesto (drag que cruza el
@@ -1118,6 +1274,27 @@ export function Editor({
                 <span aria-hidden className="text-[13px] leading-none">⧉</span>
               </BotonIcono>
             </ConPista>
+            <ConPista pista={t("Audio del proyecto — subí la voz en off o la música: su forma de onda estructura las escenas")}>
+              <BotonIcono
+                tam={28}
+                etiqueta={t("Audio del proyecto")}
+                activo={Boolean(audio)}
+                onClick={() => entradaAudioRef.current?.click()}
+              >
+                <span aria-hidden className="text-[13px] leading-none">♪</span>
+              </BotonIcono>
+            </ConPista>
+            <input
+              ref={entradaAudioRef}
+              type="file"
+              accept="audio/*,video/mp4,video/webm"
+              className="hidden"
+              onChange={(e) => {
+                const archivo = e.target.files?.[0];
+                if (archivo) void subirAudio(archivo);
+                e.target.value = "";
+              }}
+            />
           </div>
           <div className="absolute bottom-3 left-3 flex items-center gap-2">
             <ConPista pista={t("Calidad del preview — el export siempre sale a resolución completa")}>
@@ -1250,6 +1427,17 @@ export function Editor({
             </div>
           )}
         </div>
+        {audio && (
+          <AudioDeProyecto
+            audio={audio}
+            cortes={cortes}
+            escenaActiva={escenaActiva}
+            tiempoMs={tiempoUI}
+            onSaltar={(globalMs) => void saltarGlobal(globalMs)}
+            onCortar={(id, ms) => void cortarEscena(id, ms)}
+            onQuitar={quitarAudio}
+          />
+        )}
         <LineaDeTiempo
           composicion={composicion}
           tiempo={tiempoUI}

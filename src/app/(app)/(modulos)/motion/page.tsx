@@ -8,9 +8,11 @@
 ----------------------------------------------------------------------------- */
 
 import { Editor } from "@/components/motion/Editor";
-import { COMPOSICION_DEMO } from "@/lib/motion/demo";
+import { crearComposicion } from "@/lib/motion/herramientas-puro";
 import { serializar } from "@/lib/motion/serializar-puro";
 
 export default function PaginaMotion() {
-  return <Editor snapshotInicial={serializar(COMPOSICION_DEMO)} composicionId="demo" />;
+  // el proyecto arranca VACÍO: lienzo limpio con el formato de la casa
+  // (la composición demo queda en lib/motion/demo para tests y harness)
+  return <Editor snapshotInicial={serializar(crearComposicion({ nombre: "Proyecto" }))} composicionId="demo" />;
 }

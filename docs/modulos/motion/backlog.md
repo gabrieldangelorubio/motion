@@ -59,10 +59,23 @@
   cubic-bezier: match directo).
 - **Dónde:** `lib/motion/exportar-lottie.ts` (nuevo)
 
-### [P2] Pista de audio sincronizada
-- **Estado:** abierto
-- **Qué:** `<audio>` esclavo del reloj en preview, muxeo en el render.
-- **Dónde:** `modelo.ts` (aditivo), `Editor.tsx`
+### [P1] Audio de proyecto — tandas 2 y 3
+- **Estado:** tanda 1 HECHA (2026-08-27) — audio ÚNICO por proyecto (voz en
+  off / música), IndexedDB, franja de forma de onda arriba del timeline con
+  cortes de escena arrastrables sobre el eje global, click-para-saltar entre
+  escenas, `<audio>` esclavo del reloj del preview (tramo de la escena
+  activa), registro de escenas con duración.
+- **Tanda 2 (falta):** MUXEAR el audio en el MP4 del export (AudioEncoder
+  AAC + pista de audio de mp4-muxer; el export multi-escena lleva el audio
+  global, el de rango lleva su tramo).
+- **Tanda 3 (falta):** TRANSCRIPCIÓN con timestamps por palabra/oración para
+  linkear la locución con las animaciones («en qué parte del audio caen las
+  oraciones»). Decisión de motor pendiente: whisper WASM local en el browser
+  (sin servicio, pesado) vs. servicio externo (la API de Anthropic no
+  transcribe audio). Con la transcripción: marcar oraciones sobre la franja
+  y sugerir cortes de escena en las pausas.
+- **Dónde:** `audio-puro.ts`, `audio-guardado.ts`, `AudioDeProyecto.tsx`,
+  `exportar.ts`
 
 ### [P2] Capas de textura y cámara 2.5D del blueprint
 - **Estado:** parcial (2026-08-27) — nuevo: TEMBLOR procedural de cámara
