@@ -12,6 +12,7 @@ import {
   leemeDeFuentes,
   candidatosDeFuente,
   escaleraDePesos,
+  rangoRealDeTramo,
 } from "@/lib/motion/exportar-ae-puro";
 import { duracionDesdeAudio } from "@/lib/motion/audio-puro";
 import { nombreDeArchivo } from "@/lib/motion/exportar";
@@ -482,6 +483,88 @@ test("los avisos técnicos no concatenan el Error nativo (eso ABORTA ExtendScrip
   assert.match(jsx, /__avisar\("bezier", e\)/);
   assert.match(jsx, /__avisar\("hold", e\)/);
   assert.ok(!jsx.includes('+ e);'), "ningún catch concatena el Error a pelo");
+});
+
+test("rangoRealDeTramo: los índices no-blancos del tramo se vuelven índices reales del string", () => {
+  // "FROZEN RIVALS": RIVALS son los no-blancos 6..12, pero arranca en el char 7
+  assert.deepEqual(rangoRealDeTramo("FROZEN RIVALS", 6, 12), [7, 13]);
+  assert.deepEqual(rangoRealDeTramo("FROZEN RIVALS", 0, 6), [0, 6]);
+  // multilínea: el salto también cuenta como blanco
+  assert.deepEqual(rangoRealDeTramo("AB\nCD", 2, 4), [3, 5]);
+  // fuera del texto o vacío → rango nulo
+  assert.deepEqual(rangoRealDeTramo("ABC", 5, 8), [0, 0]);
+  assert.deepEqual(rangoRealDeTramo("ABC", 2, 2), [0, 0]);
+});
+
+test("los TRAMOS de rich text viajan como estilos por rango (characterRange), después de la fuente base", () => {
+  const comp = base({
+    capas: [
+      titulo({
+        texto: "FROZEN RIVALS",
+        fuente: { familia: "Yamantaka", tamano: 120, peso: 400 },
+        tramos: [
+          { desde: 0, hasta: 6, familia: "Texturina", peso: 700, color: "#ff0000" },
+          { desde: 6, hasta: 12, tamano: 90 },
+          { desde: 6, hasta: 12 }, // sin cambios: no emite nada
+        ],
+      }),
+    ],
+  });
+  const jsx = generarScriptAE([comp]);
+  // el helper existe y las llamadas van con índices REALES y candidatos del tramo
+  assert.match(jsx, /function __tramo\(capaTexto, ini, fin, candidatos, base, original, tamano, color\)/);
+  assert.match(jsx, /__tramo\(capa, 0, 6, \["Texturina-Bold", "TexturinaBold", .*\], "Texturina", "Texturina \(peso 700, tramo 0-6 de Titulo\)", null, \[1, 0, 0\]\);/);
+  assert.match(jsx, /__tramo\(capa, 7, 13, null, null, "Yamantaka \(peso 400, tramo 6-12 de Titulo\)", 90, null\);/);
+  assert.equal((jsx.match(/__tramo\(capa, /g) ?? []).length, 2, "el tramo sin cambios no emite");
+  // el orden: la fuente BASE primero, los tramos encima (para que no los pise)
+  assert.ok(jsx.indexOf("__fijarFuente(capa, ") < jsx.indexOf("__tramo(capa, "), "fijarFuente antes que los tramos");
+  // degradación avisada en AE viejo
+  assert.match(jsx, /characterRange \(necesita 24\.3\+\)/);
+});
+
+test("media: el encaje es UNIFORME con máscara para «cubrir» (el clip del editor) y entero para «contener»", () => {
+  const uri = "data:image/png;base64,AAAA";
+  // cajas DISTINTAS: así el flag de cada ajuste se verifica de verdad
+  const media = (id: string, ajuste: "cubrir" | "contener", ancho: number, alto: number) => ({
+    id, nombre: id, tipo: "media" as const, x: 0, y: 0, mediaId: uri, ancho, alto, ajuste,
+  });
+  const { jsx } = generarProyectoAE([base({ capas: [media("tapa", "cubrir", 400, 300), media("entera", "contener", 500, 200)] })]);
+  // el helper escala uniforme y recorta con máscara centrada cuando sobra
+  assert.match(jsx, /function __encajar\(capa, w, h, extra, contener\)/);
+  assert.match(jsx, /ADBE Mask Atom/);
+  assert.match(jsx, /__encaje = __encajar\(capa, 400, 300, 1, false\);/); // cubrir
+  assert.match(jsx, /__encaje = __encajar\(capa, 500, 200, 1, true\);/); // contener
+  // ya no queda el estirado por eje de antes
+  assert.ok(!jsx.includes("/ Math.max(1, capa.source.width)"), "sin escala por eje");
+});
+
+test("la escala ANIMADA de una imagen importada se compone con el encaje (ya no se pierde avisada)", () => {
+  const uri = "data:image/png;base64,AAAA";
+  const comp = base({
+    capas: [{
+      id: "star", nombre: "Star 1", tipo: "media", x: 0, y: 0, mediaId: uri,
+      ancho: 100, alto: 100, ajuste: "cubrir",
+      entrada: { preset: "pop", en: 0, duracion: 400 },
+    }],
+  });
+  const { jsx } = generarProyectoAE([comp]);
+  assert.match(jsx, /__pista\(__t\(capa, "ADBE Scale"\), __reescalar\(\[\{t: 0/);
+  assert.ok(!jsx.includes("no se horneo (imagen importada)"), "el aviso viejo ya no existe");
+  // y con pistas crudas de escala pasa lo mismo
+  const cruda = base({
+    capas: [{
+      id: "m", nombre: "M", tipo: "media", x: 0, y: 0, mediaId: uri, ancho: 100, alto: 100, ajuste: "cubrir",
+      pistas: { escala: [{ t: 0, v: 1 }, { t: 500, v: 1.5 }] },
+    }],
+  });
+  assert.match(generarProyectoAE([cruda]).jsx, /__reescalar\(\[\{t: 0, v: \[100, 100\]/);
+});
+
+test("__avisar deduplica: ocho capas con el mismo problema son UN renglón del alert", () => {
+  const jsx = generarScriptAE([base({ capas: [titulo()] })]);
+  assert.match(jsx, /for \(var i = 0; i < __avisos\.length; i\+\+\) if \(__avisos\[i\] === linea\) return;/);
+  // y el diagnóstico de fuentes canta qué resolvió AE cuando nada pega
+  assert.match(jsx, /ningun candidato existe; AE resolvio /);
 });
 
 test("filasDeCapas pliega los subgrupos consecutivos en UNA fila", () => {

@@ -56,10 +56,19 @@
   presets simples van con un in y un out por segmento y el easing como
   temporal ease (editables); densos solo pop/rebotar/resortes o pistas
   crudas sumadas al preset.
+- **Ronda 4 del AE real (2026-08-27):** HECHA — (1) media con ENCAJE FIEL:
+  escala uniforme + máscara centrada para «cubrir» (antes estiraba por eje
+  sin recorte: los vectores de Figma se desarmaban en AE) y la escala
+  animada se compone sobre el encaje (`__reescalar`, chau aviso «no se
+  horneo»); (2) TRAMOS de rich text por characterRange (AE 24.3+): fuente/
+  tamaño/color por rango con candidatos propios, degradado avisado en AE
+  viejo; (3) avisos deduplicados + diagnóstico de fuentes (qué resolvió AE
+  cuando nada pega); (4) regla DURA de cámara en el prompt del agente
+  (descubrir la escena = bajar zoom de la cámara, nunca animar capas).
 - **Tanda 2 (reducida, falta):** división letra por letra → text animators con range
   selector + offset (división por caracteres/palabras/líneas y escalonado),
-  máscaras de revelado por línea, path SVG real del trazo, tramos rich text
-  como capas partidas. Hoy todo eso queda ANOTADO en el comentario de capa.
+  máscaras de revelado por línea, path SVG real del trazo. Hoy eso queda
+  ANOTADO en el comentario de capa.
 - **Tanda 3 (falta):** lo que muestre degradado la prueba en AE real de
   Gabriel (paso suyo: correr el .jsx, chequear editabilidad, renderizar y
   comparar frames contra nuestro MP4); resortes horneados por frame si la

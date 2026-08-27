@@ -313,6 +313,18 @@ export function candidatosDeFuente(familia: string, peso: number): string[] {
   return candidatos;
 }
 
+/** Índices REALES [ini, fin) en el string para un tramo de rich text: los
+    tramos cuentan caracteres NO BLANCOS (sobreviven al re-wrap), pero el
+    characterRange de AE cuenta todos. Un tramo fuera del texto da [0, 0). */
+export function rangoRealDeTramo(texto: string, desde: number, hasta: number): [number, number] {
+  const reales: number[] = [];
+  for (let i = 0; i < texto.length; i++) {
+    if (!/\s/.test(texto[i])) reales.push(i);
+  }
+  if (desde < 0 || desde >= reales.length || hasta <= desde) return [0, 0];
+  return [reales[desde], reales[Math.min(hasta, reales.length) - 1] + 1];
+}
+
 const MEZCLA_AE: Record<MezclaCapa, string> = {
   multiply: "MULTIPLY", screen: "SCREEN", overlay: "OVERLAY",
   darken: "DARKEN", lighten: "LIGHTEN",
@@ -634,9 +646,9 @@ function emitirTransform(
       L.push(`__t(capa, "ADBE Position").setValue([${num(capa.x)}, ${num(capa.y - desplazarY)}]);`);
     }
     if (horneadas.escala && escalaYaPuesta) {
-      // el footage importado ya lleva su escala de encaje: hornearle otra
-      // encima la pisaría — degradar avisado, no romper
-      L.push(`__avisar(${cadena(`la escala animada de «${capa.nombre}» no se horneo (imagen importada): ajustala en AE`)});`);
+      // el footage importado lleva su escala de ENCAJE como reposo: la
+      // animación (100 = reposo) se compone multiplicando sobre ella
+      L.push(`__pista(__t(capa, "ADBE Scale"), __reescalar(${clavesLit(horneadas.escala)}, __encaje), 2);`);
     } else if (horneadas.escala) {
       L.push(`__pista(__t(capa, "ADBE Scale"), ${clavesLit(horneadas.escala)}, 2);`);
     } else if ((capa.escala ?? 1) !== 1 && !escalaYaPuesta) {
@@ -680,9 +692,12 @@ function emitirTransform(
   }
 
   if (pistas.escala?.length) {
-    L.push(`__pista(__t(capa, "ADBE Scale"), ${clavesLit(
+    const clavesEscala = clavesLit(
       clavesDe(pistas.escala, (v) => [redondear(v * 100), redondear(v * 100)], (a, b) => (b - a) * 100),
-    )}, 2);`);
+    );
+    // sobre footage importado la pista se compone con el encaje (100 = reposo)
+    if (escalaYaPuesta) L.push(`__pista(__t(capa, "ADBE Scale"), __reescalar(${clavesEscala}, __encaje), 2);`);
+    else L.push(`__pista(__t(capa, "ADBE Scale"), ${clavesEscala}, 2);`);
   } else if ((capa.escala ?? 1) !== 1 && !escalaYaPuesta) {
     const s = num((capa.escala ?? 1) * 100);
     L.push(`__t(capa, "ADBE Scale").setValue([${s}, ${s}]);`);
@@ -766,6 +781,25 @@ function emitirCapa(
     const familiaReal = familiaPrincipal(capa.fuente.familia) ?? capa.fuente.familia;
     const baseFamilia = familiaReal.replace(/\s+/g, "");
     L.push(`__fijarFuente(capa, [${candidatosDeFuente(familiaReal, capa.fuente.peso).map(cadena).join(", ")}], ${cadena(baseFamilia)}, ${cadena(`${familiaReal} (peso ${capa.fuente.peso})`)});`);
+    // TRAMOS de rich text (dos tipografías en un título, un color por
+    // palabra): estilos por RANGO de caracteres, DESPUÉS de la fuente base
+    // para que no los pise. AE viejo (sin characterRange) degrada avisado.
+    for (const tramo of capa.tramos ?? []) {
+      const [ini, fin] = rangoRealDeTramo(capa.texto, tramo.desde, tramo.hasta);
+      if (fin <= ini) continue;
+      const familiaTramo = tramo.familia ? (familiaPrincipal(tramo.familia) ?? tramo.familia) : null;
+      const cambiaFuente = Boolean(familiaTramo && (familiaTramo !== familiaReal || (tramo.peso ?? capa.fuente.peso) !== capa.fuente.peso));
+      const pesoTramo = tramo.peso ?? capa.fuente.peso;
+      const etiqueta = `${familiaTramo ?? familiaReal} (peso ${pesoTramo}, tramo ${tramo.desde}-${tramo.hasta} de ${capa.nombre})`;
+      const candidatos = cambiaFuente && familiaTramo
+        ? `[${candidatosDeFuente(familiaTramo, pesoTramo).map(cadena).join(", ")}]`
+        : "null";
+      const baseTramo = cambiaFuente && familiaTramo ? cadena(familiaTramo.replace(/\s+/g, "")) : "null";
+      const tam = tramo.tamano !== undefined ? num(tramo.tamano) : "null";
+      const color = tramo.color ? colorLit(tramo.color) : "null";
+      if (candidatos === "null" && tam === "null" && color === "null") continue;
+      L.push(`__tramo(capa, ${ini}, ${fin}, ${candidatos}, ${baseTramo}, ${cadena(etiqueta)}, ${tam}, ${color});`);
+    }
     emitirTransform(L, capa, desplazarY, sinAnimacion, false, animTexto?.claves ?? null);
     return;
   }
@@ -836,14 +870,14 @@ function emitirCapa(
     L.push(`if (fuente) {`);
     L.push(`fuente.parentFolder = __carpeta;`);
     L.push(`capa = comp.layers.add(fuente);`);
-    // la caja de la capa manda: el footage se escala a ancho×alto (por eje,
-    // como pintaba el estirado clásico; los rasters de Figma ya vienen con
-    // el aspecto de su caja) × la escala propia de la capa
-    const escalaCapa = capa.escala ?? 1;
-    L.push(`try { __t(capa, "ADBE Scale").setValue([${num(capa.ancho * 100 * escalaCapa)} / Math.max(1, capa.source.width), ${num(capa.alto * 100 * escalaCapa)} / Math.max(1, capa.source.height)]); } catch (e) {}`);
+    // el encaje FIEL al editor: escala UNIFORME («cubrir» llena la caja y
+    // RECORTA con una máscara centrada — el clip que faltaba y desarmaba
+    // los vectores —, «contener» muestra entero) × la escala de la capa
+    L.push(`__encaje = __encajar(capa, ${num(capa.ancho)}, ${num(capa.alto)}, ${num(capa.escala ?? 1)}, ${capa.ajuste === "contener" ? "true" : "false"});`);
     L.push(`} else {`);
     L.push(`capa = comp.layers.addSolid([0.5, 0.5, 0.55], ${cadena(capa.nombre)}, ${num(capa.ancho)}, ${num(capa.alto)}, 1);`);
     L.push(`capa.comment = ${cadena(`falta ${ruta}: descomprimi el zip ENTERO y deja assets/ al lado del .jsx`)};`);
+    L.push(`__encaje = 100;`);
     L.push(`}`);
     const animMedia = hornearCon(0);
     emitirComunes(L, capa, sinAnimacion, true, animMedia);
@@ -973,12 +1007,14 @@ function __fijarFuente(capaTexto, candidatos, base, original) {
   var prop = capaTexto.property("ADBE Text Properties").property("ADBE Text Document");
   var baseMin = base.toLowerCase();
   var mejor = null;
+  var primero = null;
   for (var i = 0; i < candidatos.length; i++) {
     try {
       var v = prop.value;
       v.font = candidatos[i];
       prop.setValue(v);
       var puesto = String(prop.value.font);
+      if (primero === null) primero = puesto;
       if (puesto.toLowerCase() === candidatos[i].toLowerCase()) return;
       if (!mejor && puesto.toLowerCase().indexOf(baseMin) === 0) mejor = puesto;
     } catch (e) {}
@@ -986,10 +1022,12 @@ function __fijarFuente(capaTexto, candidatos, base, original) {
   if (mejor) {
     try { var v2 = prop.value; v2.font = mejor; prop.setValue(v2); } catch (e2) {}
     capaTexto.comment = (capaTexto.comment ? capaTexto.comment + " | " : "") + "tipografia aproximada: pedida " + original + ", AE puso " + mejor;
+    __avisar("fuente " + original + ": ningun nombre PS pego exacto, quedo " + mejor);
     return;
   }
   __fuentesFaltantes.push(original);
   capaTexto.comment = (capaTexto.comment ? capaTexto.comment + " | " : "") + "tipografia original: " + original;
+  __avisar("fuente " + original + ": ningun candidato existe; AE resolvio " + primero + " para " + candidatos[0]);
 }
 function __t(capa, nombre) { return capa.property("ADBE Transform Group").property(nombre); }
 function __eases(par, n) {
@@ -1009,7 +1047,82 @@ function __detalle(e) {
 function __avisar(texto, e) {
   var linea = String(texto);
   if (e !== undefined) linea += ": " + __detalle(e);
+  for (var i = 0; i < __avisos.length; i++) if (__avisos[i] === linea) return;
   if (__avisos.length < 12) __avisos.push(linea);
+}
+// Encaje FIEL al editor: escala UNIFORME (cubrir = llenar la caja recortando
+// con una MASCARA centrada, contener = entera con aire) x la escala propia.
+// Devuelve el porcentaje de escala puesto (el reposo del footage) para que
+// una escala ANIMADA se componga encima (__reescalar).
+var __encaje = 100;
+function __encajar(capa, w, h, extra, contener) {
+  try {
+    var sw = Math.max(1, capa.source.width);
+    var sh = Math.max(1, capa.source.height);
+    var f = contener ? Math.min(w / sw, h / sh) : Math.max(w / sw, h / sh);
+    var s = f * extra * 100;
+    __t(capa, "ADBE Scale").setValue([s, s]);
+    if (!contener && (sw * f > w + 0.5 || sh * f > h + 0.5)) {
+      var mw = w / f;
+      var mh = h / f;
+      var m = capa.property("ADBE Mask Parade").addProperty("ADBE Mask Atom");
+      var forma = new Shape();
+      forma.vertices = [
+        [(sw - mw) / 2, (sh - mh) / 2],
+        [(sw - mw) / 2, (sh + mh) / 2],
+        [(sw + mw) / 2, (sh + mh) / 2],
+        [(sw + mw) / 2, (sh - mh) / 2]
+      ];
+      forma.closed = true;
+      m.property("ADBE Mask Shape").setValue(forma);
+    }
+    return s;
+  } catch (e) { __avisar("encaje de " + capa.name, e); return 100; }
+}
+function __reescalar(claves, s) {
+  var lista = [];
+  for (var i = 0; i < claves.length; i++) {
+    var c = claves[i];
+    var o = { t: c.t, v: [c.v[0] * s / 100, c.v[1] * s / 100] };
+    if (c.ei) o.ei = [c.ei[0] * s / 100, c.ei[1]];
+    if (c.eo) o.eo = [c.eo[0] * s / 100, c.eo[1]];
+    if (c.hold) o.hold = true;
+    lista.push(o);
+  }
+  return lista;
+}
+// Estilos POR RANGO de caracteres (rich text de Figma: dos tipografias en un
+// titulo, un color por palabra). Necesita la API characterRange (AE 24.3+):
+// en un AE mas viejo degrada avisado y queda el estilo base de la capa.
+function __tramo(capaTexto, ini, fin, candidatos, base, original, tamano, color) {
+  var prop = capaTexto.property("ADBE Text Properties").property("ADBE Text Document");
+  try {
+    var td = prop.value;
+    if (!td.characterRange) {
+      __avisar("estilos por rango (" + original + "): tu AE no tiene characterRange (necesita 24.3+)");
+      return;
+    }
+    var r = td.characterRange(ini, fin);
+    if (tamano !== null) r.fontSize = tamano;
+    if (color !== null) { r.applyFill = true; r.fillColor = color; }
+    prop.setValue(td);
+    if (candidatos) {
+      var baseMin = base.toLowerCase();
+      var puesto = null;
+      for (var i = 0; i < candidatos.length; i++) {
+        try {
+          td = prop.value;
+          td.characterRange(ini, fin).font = candidatos[i];
+          prop.setValue(td);
+          puesto = String(prop.value.characterRange(ini, fin).font);
+          if (puesto.toLowerCase() === candidatos[i].toLowerCase()) return;
+          if (puesto.toLowerCase().indexOf(baseMin) === 0) return;
+        } catch (eC) {}
+      }
+      __fuentesFaltantes.push(original);
+      __avisar("tramo " + original + ": ningun candidato existe; AE resolvio " + puesto);
+    }
+  } catch (e) { __avisar("tramo " + original, e); }
 }
 function __pista(prop, claves, dims) {
   var i;

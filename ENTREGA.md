@@ -145,10 +145,20 @@ capas de texto reales (fuente por nombre PostScript adivinado de
 familia+peso, leading, tracking, justificación, ancla corregida a la
 baseline de la primera línea), formas/trazos como shape layers (el trazo
 con Trim Paths REAL; su path SVG por ahora es un rectángulo anotado),
-media como sólido placeholder para relinkear, keyframes de
+media importada con ENCAJE FIEL al editor — escala UNIFORME y, para
+«cubrir», una MÁSCARA rectangular centrada que recorta como el clip del
+canvas (antes se estiraba por eje y sin recorte: así se desarmaban los
+vectores de Figma en AE, ronda 4) — y la escala ANIMADA de una imagen se
+COMPONE multiplicando sobre ese encaje (`__reescalar`: ya no se pierde
+avisada), keyframes de
 x/y/escala/rotación/opacidad/desenfoque con el easing convertido a
 temporal ease de AE (velocidad+influencia desde nuestros cubic-bezier;
-resortes aproximados con overshoot), la cámara como precomp
+resortes aproximados con overshoot), los TRAMOS de rich text (dos
+tipografías en un título, un color por palabra) aplicados POR RANGO de
+caracteres con la API characterRange de AE 24.3+ — índices no-blancos
+del modelo convertidos a índices reales del string, la fuente base
+primero y los tramos encima, cada tramo con su propia escalera de
+candidatos; un AE más viejo degrada avisado —, la cámara como precomp
 —anchor point keyframeado desde `camaraEn` limpio, zoom = escala— y el
 TEMBLOR como expresión con la misma suma de senos del motor; los presets
 de entrada/salida y la división por unidades TODAVÍA no se traducen
@@ -182,7 +192,10 @@ errores técnicos del script se juntan en un alert final — que ya NO
 concatena el Error nativo con «+» (el operador de ExtendScript los
 rechaza con «Object of type Error found where a Number, Array, or
 Property is needed» y abortaba en la línea 54, cazado en la ronda 3): el
-detalle se lee por `.message` vía el helper `__detalle`, con red; y los
+detalle se lee por `.message` vía el helper `__detalle`, con red — y los
+avisos DEDUPLICAN (ocho capas con el mismo problema son un renglón) e
+incluyen el DIAGNÓSTICO de fuentes: cuando ningún candidato pega, el
+alert dice qué resolvió AE de verdad para poder afinar la escalera; y los
 PRESETS de entrada/salida viajan como KEYFRAMES: los simples (cada canal
 un tramo 0→1: subir, revelar, desvanecer, deslizar…) van RALOS — un
 keyframe de in y uno de out por segmento con el easing convertido a
@@ -426,7 +439,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **194
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **199
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -463,7 +476,12 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   falló exactamente «presets con overshoot en la pista (pop) y resortes
   van HORNEADOS densos». (19) el catch de ease volviendo a concatenar el
   Error nativo con «+» → falló exactamente «los avisos técnicos no
-  concatenan el Error nativo». Restaurados, 194/194 verdes.
+  concatenan el Error nativo». (20) rangoRealDeTramo contando también los
+  blancos → fallaron exactamente los dos tests de tramos. (21) flag
+  cubrir/contener invertido en la emisión del encaje → primero NO cayó
+  (el test usaba la misma caja para ambos ajustes y no distinguía cuál
+  era cuál: test débil); endurecido con cajas distintas, cayó exacto.
+  Restaurados, 199/199 verdes.
 
 ## Qué necesita cablearse de su lado
 
