@@ -14,7 +14,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { CanalCamara, Composicion, NombrePropiedad, Segmento } from "@/lib/motion/modelo";
-import { CAMARA_ID } from "@/lib/motion/herramientas-puro";
+import { CAMARA_ID, rangoAnimacionCapas } from "@/lib/motion/herramientas-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
@@ -47,6 +47,16 @@ type GestoSpanMulti = {
   tipo: "spanMulti";
   x0: number;
   aplicado: number;
+  activo: boolean;
+};
+/** estirado GRUPAL: el borde del recuadro de la selección escala toda la
+    coreografía de esas capas alrededor del borde opuesto (time-stretch) */
+type GestoEstirar = {
+  tipo: "estirar";
+  borde: "izq" | "der";
+  desde0: number;
+  hasta0: number;
+  x0: number;
   activo: boolean;
 };
 type GestoKeyframe = {
@@ -83,6 +93,8 @@ export function LineaDeTiempo({
   onSeleccionarVarias,
   onAlternarSeleccion,
   onDesplazarSeleccion,
+  onInicioEstirar,
+  onEstirarSeleccion,
   alto,
   onAlto,
   onScrub,
@@ -109,6 +121,11 @@ export function LineaDeTiempo({
   onAlternarSeleccion?: (id: string) => void;
   /** corre EN BLOQUE la animación de las capas seleccionadas (delta en ms) */
   onDesplazarSeleccion?: (dt: number) => void;
+  /** arranca un time-stretch grupal (el caller congela la base) */
+  onInicioEstirar?: () => void;
+  /** estira la animación de la selección alrededor de `pivote` por `factor`
+      — SIEMPRE contra la base congelada en onInicioEstirar */
+  onEstirarSeleccion?: (pivote: number, factor: number) => void;
   alto: number;
   onAlto: (px: number) => void;
   onScrub: (t: number) => void;
@@ -127,7 +144,7 @@ export function LineaDeTiempo({
   const pistaRef = useRef<HTMLDivElement>(null);
   const filasRef = useRef<HTMLDivElement>(null);
   const escrubeando = useRef(false);
-  const gestoRef = useRef<GestoSpan | GestoSpanMulti | GestoKeyframe | GestoPoseCamara | null>(null);
+  const gestoRef = useRef<GestoSpan | GestoSpanMulti | GestoEstirar | GestoKeyframe | GestoPoseCamara | null>(null);
   const redimenRef = useRef<{ y0: number; alto0: number } | null>(null);
 
   // El drag corre con listeners en window (pointerdown en el elemento,
@@ -194,8 +211,25 @@ export function LineaDeTiempo({
       if (Math.abs(dx) < UMBRAL_DRAG) return;
       gesto.activo = true;
       onCheckpoint(); // un gesto entero = UN paso de undo
+      // el estirado escala SIEMPRE contra la base del arranque del gesto
+      // (aplicar factores incrementales acumularía redondeos)
+      if (gesto.tipo === "estirar") onInicioEstirar?.();
     }
     const dt = dx * msPorPx();
+    if (gesto.tipo === "estirar") {
+      if (!onEstirarSeleccion) return;
+      const { desde0, hasta0 } = gesto;
+      if (gesto.borde === "der") {
+        // el borde derecho estira con el IZQUIERDO clavado
+        const nuevoHasta = alFrame(Math.min(comp.duracion, Math.max(desde0 + cuadro, hasta0 + dt)));
+        onEstirarSeleccion(desde0, (nuevoHasta - desde0) / (hasta0 - desde0));
+      } else {
+        // el borde izquierdo estira con el DERECHO clavado
+        const nuevoDesde = alFrame(Math.min(hasta0 - cuadro, Math.max(0, desde0 + dt)));
+        onEstirarSeleccion(hasta0, (hasta0 - nuevoDesde) / (hasta0 - desde0));
+      }
+      return;
+    }
     if (gesto.tipo === "spanMulti") {
       const nuevo = alFrame(dt);
       const delta = nuevo - gesto.aplicado;
@@ -238,7 +272,7 @@ export function LineaDeTiempo({
     }
   };
 
-  const iniciarGesto = (gesto: GestoSpan | GestoSpanMulti | GestoKeyframe | GestoPoseCamara) => {
+  const iniciarGesto = (gesto: GestoSpan | GestoSpanMulti | GestoEstirar | GestoKeyframe | GestoPoseCamara) => {
     gestoRef.current = gesto;
     const alMover = (e: PointerEvent) => moverGesto(e.clientX);
     const alSoltar = () => {
@@ -546,6 +580,56 @@ export function LineaDeTiempo({
             </div>
           );
         })}
+        {/* ——— RECUADRO de la selección múltiple: abraza todos los spans de
+            las capas elegidas. El cuerpo mueve EN BLOQUE (lo de siempre);
+            los bordes hacen TIME-STRETCH: estirás el recuadro y toda la
+            coreografía del grupo se extiende o comprime junta. */}
+        {(() => {
+          if (seleccionIds.length < 2 || !onEstirarSeleccion) return null;
+          const rango = rangoAnimacionCapas(composicion, seleccionIds);
+          if (!rango) return null;
+          const indices = composicion.capas
+            .map((c, i) => (seleccionIds.includes(c.id) ? i : -1))
+            .filter((i) => i >= 0);
+          if (!indices.length) return null;
+          // filas: h-9 (36px) + mb-1 (4px) de paso
+          const top = Math.min(...indices) * 40;
+          const altoCaja = (Math.max(...indices) - Math.min(...indices)) * 40 + 36;
+          return (
+            <div
+              role="group"
+              aria-label={t("Animación del grupo seleccionado")}
+              className="absolute z-20 cursor-grab rounded-[6px] border-[1.5px] border-acento/80 bg-acento/[0.04] active:cursor-grabbing"
+              style={{ left: pct(rango.desde), width: pct(rango.hasta - rango.desde), top, height: altoCaja }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                iniciarGesto({ tipo: "spanMulti", x0: e.clientX, aplicado: 0, activo: false });
+              }}
+            >
+              {(["izq", "der"] as const).map((borde) => (
+                <div
+                  key={borde}
+                  aria-hidden
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    iniciarGesto({ tipo: "estirar", borde, desde0: rango.desde, hasta0: rango.hasta, x0: e.clientX, activo: false });
+                  }}
+                  className={[
+                    "absolute inset-y-0 w-2.5 cursor-ew-resize",
+                    borde === "izq" ? "-left-1" : "-right-1",
+                  ].join(" ")}
+                >
+                  <span
+                    className={[
+                      "absolute top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-acento",
+                      borde === "izq" ? "left-0.5" : "right-0.5",
+                    ].join(" ")}
+                  />
+                </div>
+              ))}
+            </div>
+          );
+        })()}
         {(() => {
           const activa = seleccionId === CAMARA_ID;
           const pistasCam = composicion.camara?.pistas ?? {};

@@ -103,7 +103,15 @@ al borrar la activa se salta a la anterior sin guardar lo que se va—; cada esc
 propio id con el mismo protocolo CAS y el registro del proyecto vive en
 localStorage hasta el catálogo de diosa; el agente dirige la escena
 activa), **duración editable** (campo Dur con scrub en el transport:
-cuánto dura TODO lo que se renderiza de la escena, 0.5–120s), **mover la
+cuánto dura TODO lo que se renderiza de la escena, 0.5–120s), **recuadro de grupo con TIME-STRETCH**
+(con varias capas seleccionadas, un recuadro abraza todos sus spans en el
+timeline: el cuerpo mueve la animación en bloque, y las manijas de los
+bordes ESTIRAN — agarrás el borde derecho y toda la coreografía del grupo
+se extiende o comprime proporcionalmente alrededor del borde opuesto,
+inicios, duraciones, keyframes y también el escalonado, como el
+time-stretch de AE; snap al frame, un checkpoint por gesto, y el factor
+se aplica siempre contra la base congelada al arrancar — sin acumulación
+de redondeos), **mover la
 animación en bloque** (con varias capas seleccionadas, arrastrar un span
 corre TODA la animación de esas capas — entradas, salidas y keyframes —
 más adelante o más atrás, clampeado para que nada quede antes de 0), y
@@ -129,10 +137,14 @@ TEMBLOR como expresión con la misma suma de senos del motor; los presets
 de entrada/salida y la división por unidades TODAVÍA no se traducen
 (tanda 2: text animators) y quedan anotados en el comentario de cada capa
 para que nada se pierda en silencio; el .jsx sale ASCII puro —encoding a
-prueba de AE— y el generador es determinista y testeado byte a byte; el
-toggle «Solo el diseño, sin animación» exporta las capas en su estado
-BASE — sin keyframes, sin cámara, sin temblor, sin notas de presets —
-para armar la animación de cero en AE),
+prueba de AE— y el generador es determinista y testeado byte a byte; la
+opción «Solo el diseño, sin animación» (checkbox explícito) exporta las
+capas en su estado BASE — sin keyframes, sin cámara, sin temblor — para
+armar la animación de cero en AE; y los ASSETS VIAJAN: con capas media el
+botón baja un ZIP con el .jsx + assets/ ordenados (media-01.png…) — se
+descomprime, se corre el script y AE IMPORTA los archivos solo, cada uno
+en su capa con su caja y su escala; falta un archivo → sólido placeholder
+con la instrucción en el comentario, nunca un proyecto roto),
 **audio de proyecto** (la voz en off / música que
 estructura las escenas: UN audio por proyecto —botón ♪ en la barra de
 escenas, acepta audio y el sonido de un mp4/webm—, guardado ENTERO en el
@@ -351,7 +363,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **174
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **178
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -376,7 +388,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   vez del fin del audio → falló exactamente «fin nulo hereda el fin del
   audio». (11) destino de quitarEscena siempre la primera → primero NO cayó
   (los casos coincidían con la regla rota: se agregó el caso «borrar la
-  última») y con el caso nuevo falló exacto. Restaurados, 174/174 verdes.
+  última») y con el caso nuevo falló exacto. (12) escalonado sin escalar en el
+  time-stretch grupal → falló exactamente «escala inicios, duraciones,
+  keyframes y escalonado». Restaurados, 178/178 verdes.
 
 ## Qué necesita cablearse de su lado
 

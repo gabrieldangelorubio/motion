@@ -11,7 +11,7 @@
    es una secuencia de estas ops, nunca una regeneración total.
 ----------------------------------------------------------------------------- */
 
-import type { Camara, CanalCamara, Capa, Composicion, Keyframe, NombrePropiedad, TemblorCamara } from "@/lib/motion/modelo";
+import type { Camara, CanalCamara, Capa, Composicion, Keyframe, NombrePropiedad, Segmento, TemblorCamara } from "@/lib/motion/modelo";
 import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
 import { nombresPresets } from "@/lib/motion/presets-puro";
 
@@ -218,6 +218,74 @@ export function desplazarTiempoCapas(comp: Composicion, ids: string[], dt: numbe
       const pistas: NonNullable<Capa["pistas"]> = {};
       for (const [prop, pista] of Object.entries(c.pistas)) {
         (pistas as Record<string, Keyframe[]>)[prop] = (pista ?? []).map((kf) => ({ ...kf, t: kf.t + efectivo }));
+      }
+      nueva.pistas = pistas;
+    }
+    return nueva;
+  });
+  return { ...comp, capas };
+}
+
+/**
+ * Rango temporal [desde, hasta] de la animación de las capas dadas: los
+ * spans de entrada/salida (en → en+duración, como se DIBUJAN en el
+ * timeline) y los keyframes crudos. null si ninguna tiene animación.
+ */
+export function rangoAnimacionCapas(
+  comp: Composicion,
+  ids: string[],
+): { desde: number; hasta: number } | null {
+  let desde = Infinity;
+  let hasta = -Infinity;
+  for (const capa of comp.capas) {
+    if (!ids.includes(capa.id)) continue;
+    for (const seg of [capa.entrada, capa.salida]) {
+      if (!seg) continue;
+      desde = Math.min(desde, seg.en);
+      hasta = Math.max(hasta, seg.en + seg.duracion);
+    }
+    for (const pista of Object.values(capa.pistas ?? {})) {
+      for (const kf of pista ?? []) {
+        desde = Math.min(desde, kf.t);
+        hasta = Math.max(hasta, kf.t);
+      }
+    }
+  }
+  return Number.isFinite(desde) && hasta > desde ? { desde, hasta } : null;
+}
+
+/**
+ * TIME-STRETCH grupal: estira (o comprime) la animación de las capas
+ * elegidas alrededor de `pivote` por `factor` — agarrás el borde del
+ * recuadro de la selección y toda la coreografía se extiende junta.
+ * Escala CUÁNDO pasa todo: inicios, duraciones, keyframes y también el
+ * escalonado (estirada al doble, la cascada respira al doble — como el
+ * time-stretch de AE). El diseño no se toca. Capas fuera de `ids`,
+ * intactas; factor sin sentido (≤0) devuelve la comp tal cual.
+ */
+export function estirarTiempoCapas(
+  comp: Composicion,
+  ids: string[],
+  pivote: number,
+  factor: number,
+): Composicion {
+  if (!(factor > 0) || factor === 1) return comp;
+  const escalar = (t: number) => Math.max(0, Math.round(pivote + (t - pivote) * factor));
+  const escalarSegmento = (seg: Segmento): Segmento => ({
+    ...seg,
+    en: escalar(seg.en),
+    duracion: Math.max(1, Math.round(seg.duracion * factor)),
+    ...(seg.escalonado !== undefined ? { escalonado: Math.round(seg.escalonado * factor) } : {}),
+  });
+  const capas = comp.capas.map((c) => {
+    if (!ids.includes(c.id)) return c;
+    const nueva: Capa = { ...c };
+    if (c.entrada) nueva.entrada = escalarSegmento(c.entrada);
+    if (c.salida) nueva.salida = escalarSegmento(c.salida);
+    if (c.pistas) {
+      const pistas: NonNullable<Capa["pistas"]> = {};
+      for (const [prop, pista] of Object.entries(c.pistas)) {
+        (pistas as Record<string, Keyframe[]>)[prop] = (pista ?? []).map((kf) => ({ ...kf, t: escalar(kf.t) }));
       }
       nueva.pistas = pistas;
     }

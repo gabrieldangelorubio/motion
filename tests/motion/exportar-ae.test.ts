@@ -2,12 +2,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   generarScriptAE,
+  generarProyectoAE,
+  assetsDeEscenas,
   easeDeTramo,
   colorAE,
   fuentePostScript,
 } from "@/lib/motion/exportar-ae-puro";
 import { nombreDeArchivo } from "@/lib/motion/exportar";
 import { quitarEscena } from "@/lib/motion/escenas-puro";
+import { estirarTiempoCapas, rangoAnimacionCapas } from "@/lib/motion/herramientas-puro";
 import type { CapaTexto, CapaTrazo, Composicion } from "@/lib/motion/modelo";
 
 const base = (extra: Partial<Composicion> = {}): Composicion => ({
@@ -252,6 +255,75 @@ test("quitarEscena: al borrar salta a la ANTERIOR; la última del proyecto no se
   // la última escena no se borra; un id ajeno tampoco hace nada
   assert.equal(quitarEscena([{ id: "solo" }], "solo"), null);
   assert.equal(quitarEscena(escenas, "zzz"), null);
+});
+
+test("rangoAnimacionCapas abraza spans y keyframes de la selección; sin animación es null", () => {
+  const comp = base({
+    capas: [
+      titulo({ id: "a", entrada: { preset: "revelar", en: 200, duracion: 600 } }),
+      titulo({ id: "b", pistas: { x: [{ t: 100, v: 0 }, { t: 1500, v: 10 }] } }),
+      titulo({ id: "quieta" }),
+      titulo({ id: "afuera", entrada: { preset: "revelar", en: 5, duracion: 10 } }),
+    ],
+  });
+  assert.deepEqual(rangoAnimacionCapas(comp, ["a", "b"]), { desde: 100, hasta: 1500 });
+  assert.equal(rangoAnimacionCapas(comp, ["quieta"]), null);
+});
+
+test("estirarTiempoCapas: time-stretch grupal — escala inicios, duraciones, keyframes y escalonado", () => {
+  const comp = base({
+    capas: [
+      titulo({ id: "a", entrada: { preset: "revelar", en: 200, duracion: 600, escalonado: 40 } }),
+      titulo({ id: "b", pistas: { x: [{ t: 100, v: 0 }, { t: 900, v: 10 }] } }),
+      titulo({ id: "afuera", entrada: { preset: "pop", en: 300, duracion: 100 } }),
+    ],
+  });
+  const doble = estirarTiempoCapas(comp, ["a", "b"], 0, 2);
+  const a = doble.capas[0];
+  const b = doble.capas[1];
+  assert.equal(a.entrada?.en, 400);
+  assert.equal(a.entrada?.duracion, 1200);
+  assert.equal(a.entrada?.escalonado, 80);
+  assert.deepEqual(b.pistas?.x?.map((k) => k.t), [200, 1800]);
+  // la capa fuera de la selección no se toca
+  assert.equal(doble.capas[2].entrada?.en, 300);
+  // pivote en el FIN: comprimir a la mitad acerca todo hacia el fin
+  const mitad = estirarTiempoCapas(comp, ["b"], 900, 0.5);
+  assert.deepEqual(mitad.capas[1].pistas?.x?.map((k) => k.t), [500, 900]);
+  // factor sin sentido: la comp queda tal cual
+  assert.equal(estirarTiempoCapas(comp, ["a"], 0, 0), comp);
+});
+
+test("assetsDeEscenas: deduplica data-uris, nombra ordenado y salta ids de catálogo", () => {
+  const uri = "data:image/png;base64,AAAA";
+  const media = (id: string, mediaId: string) => ({
+    id, nombre: id, tipo: "media" as const, x: 0, y: 0, mediaId, ancho: 10, alto: 10, ajuste: "cubrir" as const,
+  });
+  const escenas = [
+    base({ capas: [media("a", uri), media("b", "data:image/jpeg;base64,BBBB")] }),
+    base({ nombre: "E2", capas: [media("c", uri), media("d", "catalogo-123")] }),
+  ];
+  const assets = assetsDeEscenas(escenas);
+  assert.deepEqual(assets.map((a) => a.ruta), ["assets/media-01.png", "assets/media-02.jpg"]);
+  assert.equal(assets[0].base64, "AAAA");
+});
+
+test("generarProyectoAE: el .jsx importa los assets por su ruta y cae a placeholder si faltan", () => {
+  const uri = "data:image/png;base64,AAAA";
+  const comp = base({
+    capas: [{ id: "m", nombre: "Fondo", tipo: "media", x: 960, y: 540, mediaId: uri, ancho: 400, alto: 300, ajuste: "cubrir" }],
+  });
+  const { jsx, assets } = generarProyectoAE([comp]);
+  assert.equal(assets.length, 1);
+  assert.match(jsx, /__importar\("assets\/media-01\.png"\)/);
+  assert.match(jsx, /if \(fuente\) \{/);
+  assert.match(jsx, /addSolid\(\[0\.5, 0\.5, 0\.55\], "Fondo"/); // el fallback sigue ahí
+  assert.ok(!jsx.includes("relinkear asset"), "con asset en el zip no hay nota de relinkear");
+  // sin media: el proyecto no trae assets y el jsx no importa nada
+  const seco = generarProyectoAE([base({ capas: [titulo()] })]);
+  assert.equal(seco.assets.length, 0);
+  // (la cabecera define el helper __importar siempre; sin assets no hay LLAMADAS)
+  assert.ok(!/^fuente = __importar\(/m.test(seco.jsx));
 });
 
 test("sin escenas es un error claro, no un script vacio", () => {

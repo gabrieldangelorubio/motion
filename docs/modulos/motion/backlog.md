@@ -42,6 +42,8 @@
   de AE (comp por escena + master, texto real con fuente/leading/tracking,
   shapes, trim paths, keyframes con temporal ease desde nuestros beziers,
   cámara como precomp, temblor como expresión); botón en el panel de export.
+- **Assets (2026-08-27):** HECHO — el export baja un ZIP con el .jsx +
+  assets/ y el script los importa solo (fallback a placeholder avisado).
 - **Tanda 2 (falta):** presets de entrada/salida → text animators con range
   selector + offset (división por caracteres/palabras/líneas y escalonado),
   máscaras de revelado por línea, path SVG real del trazo, tramos rich text

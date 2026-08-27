@@ -34,6 +34,7 @@ import {
   quitarPoseCamara,
   definirTemblorCamara,
   desplazarTiempoCapas,
+  estirarTiempoCapas,
 } from "@/lib/motion/herramientas-puro";
 import { camaraEn } from "@/lib/motion/evaluar-puro";
 import { cajaMundoDeCapa } from "@/lib/motion/cajas-puro";
@@ -466,6 +467,20 @@ export function Editor({
   // Corre EN BLOQUE la animación de las capas seleccionadas (drag del
   // timeline con selección múltiple): deltas incrementales, snapeados al
   // frame por el caller; el checkpoint lo puso el gesto al cruzar el umbral.
+  // Time-stretch grupal: el recuadro de la selección se estira desde un
+  // borde y TODA la coreografía escala junta. El factor se aplica SIEMPRE
+  // sobre la base congelada al arrancar el gesto (nada de acumulación).
+  const estirarBaseRef = useRef<Composicion | null>(null);
+  const iniciarEstirar = useCallback(() => {
+    estirarBaseRef.current = structuredClone(compRef.current);
+  }, []);
+  const estirarSeleccionEnVivo = useCallback((pivote: number, factor: number) => {
+    const base = estirarBaseRef.current;
+    const ids = seleccionIdsRef.current;
+    if (!base || ids.length < 2) return;
+    setComposicion(estirarTiempoCapas(base, ids, pivote, factor));
+  }, []);
+
   const desplazarSeleccionEnVivo = useCallback((dt: number) => {
     const ids = seleccionIdsRef.current.length
       ? seleccionIdsRef.current
@@ -1651,6 +1666,8 @@ export function Editor({
           onScrub={escrub}
           onDuracion={cambiarDuracion}
           onDesplazarSeleccion={desplazarSeleccionEnVivo}
+          onInicioEstirar={iniciarEstirar}
+          onEstirarSeleccion={estirarSeleccionEnVivo}
           onTogglePlay={() => setReproduciendo((r) => !r)}
           onSaltarFrame={saltarFrame}
           onSeleccionar={seleccionar}

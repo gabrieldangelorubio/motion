@@ -219,12 +219,47 @@ function describirSegmento(clase: string, seg: Segmento): string {
 
 /** Modo del export: `sinAnimacion` manda SOLO el diseño — cada capa en su
     estado BASE (el reposo al que los presets entran), sin keyframes, sin
-    cámara y sin temblor. Para armar la animación de cero en AE. */
-export type OpcionesAE = { sinAnimacion?: boolean };
+    cámara y sin temblor. Para armar la animación de cero en AE.
+    `rutasMedia` mapea mediaId → ruta relativa del asset (dentro del zip):
+    con eso el script IMPORTA los archivos reales en vez de placeholders. */
+export type OpcionesAE = { sinAnimacion?: boolean; rutasMedia?: Record<string, string> };
+
+/* ——— Assets: los data-uris de las capas media, como archivos del zip ——— */
+
+const EXT_DE_MIME: Record<string, string> = {
+  "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp",
+  "image/gif": "gif", "image/svg+xml": "svg",
+};
+
+export type AssetAE = { mediaId: string; ruta: string; mime: string; base64: string };
+
+/** Los assets únicos de las escenas, en orden de aparición, con nombre
+    ordenado (`assets/media-01.png`). Solo data-uris base64; un mediaId de
+    catálogo (sin bytes acá) queda afuera y su capa cae al placeholder. */
+export function assetsDeEscenas(escenas: Composicion[]): AssetAE[] {
+  const assets: AssetAE[] = [];
+  const vistos = new Set<string>();
+  for (const escena of escenas) {
+    for (const capa of escena.capas) {
+      if (capa.tipo !== "media" || vistos.has(capa.mediaId)) continue;
+      const m = /^data:([a-z0-9.+/-]+);base64,(.+)$/i.exec(capa.mediaId);
+      if (!m) continue;
+      vistos.add(capa.mediaId);
+      const ext = EXT_DE_MIME[m[1].toLowerCase()] ?? "png";
+      assets.push({
+        mediaId: capa.mediaId,
+        ruta: `assets/media-${String(assets.length + 1).padStart(2, "0")}.${ext}`,
+        mime: m[1].toLowerCase(),
+        base64: m[2],
+      });
+    }
+  }
+  return assets;
+}
 
 /** Comentario de capa con lo que TODAVÍA no se traduce, para que nada se
     pierda en silencio al abrir el proyecto en AE. */
-function comentarioPendientes(capa: Capa, sinAnimacion: boolean): string | null {
+function comentarioPendientes(capa: Capa, sinAnimacion: boolean, conAsset = false): string | null {
   const pendientes: string[] = [];
   if (!sinAnimacion) {
     if (capa.entrada) pendientes.push(describirSegmento("entrada", capa.entrada));
@@ -234,14 +269,16 @@ function comentarioPendientes(capa: Capa, sinAnimacion: boolean): string | null 
     }
   }
   if (capa.tipo === "trazo") pendientes.push("path SVG real (aca va un rectangulo)");
-  if (capa.tipo === "media") pendientes.push(`relinkear asset (${capa.mediaId.slice(0, 40)})`);
+  if (capa.tipo === "media" && !conAsset) pendientes.push(`relinkear asset (${capa.mediaId.slice(0, 40)})`);
   if (pendientes.length === 0) return null;
   return "motion, pendiente de traducir: " + pendientes.join(" | ");
 }
 
 /** Emite transformaciones (base + pistas) de una capa ya creada en `capa`.
-    Con `sinAnimacion` las pistas se ignoran: queda el estado base, quieto. */
-function emitirTransform(L: string[], capa: Capa, desplazarY = 0, sinAnimacion = false): void {
+    Con `sinAnimacion` las pistas se ignoran: queda el estado base, quieto.
+    `escalaYaPuesta`: el footage importado ya lleva su escala de encaje —
+    la base no se pisa (pistas de escala crudas igual mandan). */
+function emitirTransform(L: string[], capa: Capa, desplazarY = 0, sinAnimacion = false, escalaYaPuesta = false): void {
   const pistas: Pistas = sinAnimacion ? {} : (capa.pistas ?? {});
   const mapY = (v: number) => redondear(v - desplazarY);
 
@@ -265,7 +302,7 @@ function emitirTransform(L: string[], capa: Capa, desplazarY = 0, sinAnimacion =
     L.push(`__pista(__t(capa, "ADBE Scale"), ${clavesLit(
       clavesDe(pistas.escala, (v) => [redondear(v * 100), redondear(v * 100)], (a, b) => (b - a) * 100),
     )}, 2);`);
-  } else if ((capa.escala ?? 1) !== 1) {
+  } else if ((capa.escala ?? 1) !== 1 && !escalaYaPuesta) {
     const s = num((capa.escala ?? 1) * 100);
     L.push(`__t(capa, "ADBE Scale").setValue([${s}, ${s}]);`);
   }
@@ -290,17 +327,17 @@ function emitirTransform(L: string[], capa: Capa, desplazarY = 0, sinAnimacion =
   }
 }
 
-function emitirComunes(L: string[], capa: Capa, sinAnimacion: boolean): void {
+function emitirComunes(L: string[], capa: Capa, sinAnimacion: boolean, conAsset = false): void {
   L.push(`capa.name = ${cadena(capa.nombre)};`);
   if (capa.oculta) L.push("capa.enabled = false;");
   if (capa.mezcla && MEZCLA_AE[capa.mezcla]) {
     L.push(`try { capa.blendingMode = BlendingMode.${MEZCLA_AE[capa.mezcla]}; } catch (e) {}`);
   }
-  const comentario = comentarioPendientes(capa, sinAnimacion);
+  const comentario = comentarioPendientes(capa, sinAnimacion, conAsset);
   if (comentario) L.push(`capa.comment = ${cadena(comentario)};`);
 }
 
-function emitirCapa(L: string[], capa: Capa, sinAnimacion: boolean): void {
+function emitirCapa(L: string[], capa: Capa, sinAnimacion: boolean, rutasMedia: Record<string, string> = {}): void {
   if (capa.tipo === "texto") {
     const lineas = capa.texto.split("\n").length;
     const interlineado = capa.fuente.interlineado ?? capa.fuente.tamano * 1.15;
@@ -377,7 +414,28 @@ function emitirCapa(L: string[], capa: Capa, sinAnimacion: boolean): void {
     return;
   }
 
-  // media: sólido placeholder del tamaño exacto — el asset se relinkea en AE
+  // media: si el asset viaja en el zip, el script lo IMPORTA de verdad
+  // (assets/ junto al .jsx); sin archivo cae al sólido placeholder — el
+  // proyecto abre igual, degradado y avisado
+  const ruta = rutasMedia[capa.mediaId];
+  if (ruta) {
+    L.push(`fuente = __importar(${cadena(ruta)});`);
+    L.push(`if (fuente) {`);
+    L.push(`fuente.parentFolder = __carpeta;`);
+    L.push(`capa = comp.layers.add(fuente);`);
+    // la caja de la capa manda: el footage se escala a ancho×alto (por eje,
+    // como pintaba el estirado clásico; los rasters de Figma ya vienen con
+    // el aspecto de su caja) × la escala propia de la capa
+    const escalaCapa = capa.escala ?? 1;
+    L.push(`try { __t(capa, "ADBE Scale").setValue([${num(capa.ancho * 100 * escalaCapa)} / Math.max(1, capa.source.width), ${num(capa.alto * 100 * escalaCapa)} / Math.max(1, capa.source.height)]); } catch (e) {}`);
+    L.push(`} else {`);
+    L.push(`capa = comp.layers.addSolid([0.5, 0.5, 0.55], ${cadena(capa.nombre)}, ${num(capa.ancho)}, ${num(capa.alto)}, 1);`);
+    L.push(`capa.comment = ${cadena(`falta ${ruta}: descomprimi el zip ENTERO y deja assets/ al lado del .jsx`)};`);
+    L.push(`}`);
+    emitirComunes(L, capa, sinAnimacion, true);
+    emitirTransform(L, capa, 0, sinAnimacion, true);
+    return;
+  }
   L.push(`capa = comp.layers.addSolid([0.5, 0.5, 0.55], ${cadena(capa.nombre)}, ${num(capa.ancho)}, ${num(capa.alto)}, 1);`);
   emitirComunes(L, capa, sinAnimacion);
   emitirTransform(L, capa, 0, sinAnimacion);
@@ -480,6 +538,16 @@ function ascii(s: string): string {
 
 const CABECERA = `// --- helpers (ES3 de ExtendScript) ---
 function __clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+// los assets viven en assets/ AL LADO de este .jsx (descomprimir el zip entero)
+var __carpetaScript = (function () { try { return new File($.fileName).parent; } catch (e) { return null; } })();
+function __importar(rel) {
+  try {
+    if (!__carpetaScript) return null;
+    var f = new File(__carpetaScript.fsName + "/" + rel);
+    if (!f.exists) return null;
+    return app.project.importFile(new ImportOptions(f));
+  } catch (e) { return null; }
+}
 function __t(capa, nombre) { return capa.property("ADBE Transform Group").property(nombre); }
 function __eases(par, n) {
   var e = par ? new KeyframeEase(par[0], __clamp(par[1], 0.1, 100)) : new KeyframeEase(0, 33.3333);
@@ -511,6 +579,7 @@ export function generarScriptAE(
 ): string {
   if (escenas.length === 0) throw new Error("No hay escenas para exportar");
   const sinAnimacion = opciones.sinAnimacion ?? false;
+  const rutasMedia = opciones.rutasMedia ?? {};
   const proyecto = nombreProyecto ?? escenas[0].nombre;
   const L: string[] = [];
   L.push(`// Generado por motion (adios adios) -- correr en After Effects:`);
@@ -519,7 +588,7 @@ export function generarScriptAE(
   L.push(CABECERA);
   L.push(`app.beginUndoGroup(${cadena("motion: " + proyecto)});`);
   L.push(`var __carpeta = app.project.items.addFolder(${cadena(proyecto)});`);
-  L.push(`var comp, capa, doc, fx, gr, forma, tr;`);
+  L.push(`var comp, capa, doc, fx, gr, forma, tr, fuente;`);
 
   const varsEscena: string[] = [];
   let totalCapas = 0;
@@ -539,7 +608,7 @@ export function generarScriptAE(
       L.push(`comp.bgColor = ${colorLit(escena.fondo)};`);
       L.push(`comp.parentFolder = __carpeta;`);
       L.push(`var ${varEscena}c = comp;`);
-      for (const capa of escena.capas) emitirCapa(L, capa, sinAnimacion);
+      for (const capa of escena.capas) emitirCapa(L, capa, sinAnimacion, rutasMedia);
       L.push(`comp = app.project.items.addComp(${cadena(escena.nombre)}, ${dims});`);
       L.push(`comp.bgColor = ${colorLit(escena.fondo)};`);
       L.push(`comp.parentFolder = __carpeta;`);
@@ -551,7 +620,7 @@ export function generarScriptAE(
       L.push(`comp.bgColor = ${colorLit(escena.fondo)};`);
       L.push(`comp.parentFolder = __carpeta;`);
       L.push(`var ${varEscena} = comp;`);
-      for (const capa of escena.capas) emitirCapa(L, capa, sinAnimacion);
+      for (const capa of escena.capas) emitirCapa(L, capa, sinAnimacion, rutasMedia);
     }
   });
 
@@ -577,4 +646,23 @@ export function generarScriptAE(
   L.push(`alert(${cadena(`motion: «${proyecto}» importado — ${escenas.length} escena(s), ${totalCapas} capa(s). Las capas con animacion pendiente de traducir lo dicen en su comentario.`)});`);
   L.push(``);
   return L.join("\n");
+}
+
+/**
+ * El PROYECTO entero para AE: el script + los assets que tiene que importar
+ * (los data-uris de las capas media, como archivos ordenados en assets/).
+ * El caller lo empaqueta en un zip: descomprimís, corrés el .jsx y AE
+ * importa todo solo — comps, capas y archivos, en una carpeta.
+ */
+export function generarProyectoAE(
+  escenas: Composicion[],
+  nombreProyecto?: string,
+  opciones: OpcionesAE = {},
+): { jsx: string; assets: AssetAE[] } {
+  const assets = assetsDeEscenas(escenas);
+  const rutasMedia = Object.fromEntries(assets.map((a) => [a.mediaId, a.ruta]));
+  return {
+    jsx: generarScriptAE(escenas, nombreProyecto, { ...opciones, rutasMedia }),
+    assets,
+  };
 }

@@ -15,7 +15,15 @@ import { useEffect, useState } from "react";
 import type { Composicion } from "@/lib/motion/modelo";
 import type { FuentesDeMedia } from "@/lib/motion/pintar";
 import { exportarMp4, exportarPngSecuencia, descargarBlob, exportSoportado, type AudioExport } from "@/lib/motion/exportar";
-import { generarScriptAE } from "@/lib/motion/exportar-ae-puro";
+import { generarProyectoAE } from "@/lib/motion/exportar-ae-puro";
+import { crearZip, type EntradaZip } from "@/lib/motion/zip-puro";
+
+function bytesDeBase64(base64: string): Uint8Array {
+  const crudo = atob(base64);
+  const bytes = new Uint8Array(crudo.length);
+  for (let i = 0; i < crudo.length; i++) bytes[i] = crudo.charCodeAt(i);
+  return bytes;
+}
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
@@ -155,19 +163,25 @@ export function ExportarVideo({
     }
   };
 
-  // Export a After Effects: genera el script .jsx que reconstruye las escenas
-  // con capas nativas (correr en AE: Archivo → Scripts → Ejecutar archivo…).
-  // Respeta el toggle «todas»: apagado exporta la escena activa sola.
+  // Export a After Effects: script .jsx + los ASSETS que importa, en un
+  // solo zip (descomprimís y corrés el .jsx: AE trae todo solo). Sin capas
+  // media baja el .jsx pelado. Respeta el toggle «todas».
   const exportarAE = async () => {
     setError(null);
     try {
       const activa = obtenerComposicion();
       const escenas = todas && obtenerEscenas ? await obtenerEscenas() : [activa];
-      const script = generarScriptAE(escenas, activa.nombre, { sinAnimacion: soloDiseno });
-      await entregar(
-        new Blob([script], { type: "text/javascript" }),
-        `${activa.nombre.replace(/\s+/g, "-")}.jsx`,
-      );
+      const base = activa.nombre.replace(/\s+/g, "-");
+      const { jsx, assets } = generarProyectoAE(escenas, activa.nombre, { sinAnimacion: soloDiseno });
+      if (assets.length === 0) {
+        await entregar(new Blob([jsx], { type: "text/javascript" }), `${base}.jsx`);
+      } else {
+        const entradas: EntradaZip[] = [
+          { nombre: `${base}.jsx`, datos: new TextEncoder().encode(jsx) },
+          ...assets.map((a) => ({ nombre: a.ruta, datos: bytesDeBase64(a.base64) })),
+        ];
+        await entregar(new Blob([crearZip(entradas) as BlobPart], { type: "application/zip" }), `${base}-ae.zip`);
+      }
       setAbierto(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("El export a AE falló"));
@@ -241,6 +255,17 @@ export function ExportarVideo({
           >
             {t("Secuencia PNG (alfa)")}
           </button>
+          {/* opción del export a AE: checkbox EXPLÍCITO (no baja nada solo —
+              elige qué lleva el .jsx del botón de abajo) */}
+          <label className="mt-2 flex cursor-pointer items-center gap-2 px-1 text-[11px] text-foreground/70">
+            <input
+              type="checkbox"
+              checked={soloDiseno}
+              onChange={(e) => setSoloDiseno(e.target.checked)}
+              className="size-3.5 accent-(--acento)"
+            />
+            {t("Solo el diseño, sin animación (para animar de cero en AE)")}
+          </label>
           <button
             type="button"
             onClick={() => void exportarAE()}
@@ -248,18 +273,6 @@ export function ExportarVideo({
             className="mt-1 flex h-8 w-full items-center justify-center rounded-control px-2 text-[12px] text-foreground/80 shadow-control hover:bg-ink/[0.06]"
           >
             {t("After Effects (.jsx)")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setSoloDiseno((v) => !v)}
-            aria-pressed={soloDiseno}
-            title={t("El .jsx lleva las capas en su estado base, sin keyframes ni cámara: para animar de cero en AE")}
-            className={[
-              "mt-1 flex h-7 w-full items-center justify-center rounded-control px-2 text-[11px]",
-              soloDiseno ? "bg-acento/15 text-acento" : "text-foreground/60 hover:bg-ink/[0.06]",
-            ].join(" ")}
-          >
-            {t("Solo el diseño, sin animación")}
           </button>
         </div>
       )}
