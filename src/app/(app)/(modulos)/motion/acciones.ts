@@ -9,11 +9,21 @@
 ----------------------------------------------------------------------------- */
 
 import type { Actor } from "@/lib/motion/modelo";
-import { guardarComposicion } from "@/lib/motion/consultas";
+import { cargarComposicion, guardarComposicion } from "@/lib/motion/consultas";
 
 // ANDAMIAJE: en diosa, `actorDeSesion()` viene del sistema de auth.
 async function actorDeSesion(): Promise<Actor> {
   return { id: "dev-local", rol: "admin", email: "dev@local" };
+}
+
+export async function cargarComposicionAction(
+  composicionId: string,
+): Promise<{ snapshot: string } | null> {
+  const actor = await actorDeSesion();
+  const comp = await cargarComposicion(actor, composicionId);
+  if (!comp) return null;
+  const { serializar } = await import("@/lib/motion/serializar-puro");
+  return { snapshot: serializar(comp) };
 }
 
 export async function guardarComposicionAction(

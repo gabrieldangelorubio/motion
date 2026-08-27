@@ -19,6 +19,7 @@ import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
 import { ConPista } from "@/components/ui/ConPista";
+import { CampoNumero } from "@/components/ui/CampoNumero";
 
 const UMBRAL_DRAG = 3;
 
@@ -38,6 +39,14 @@ type GestoSpan = {
   enOriginal: number;
   duracionOriginal: number;
   x0: number;
+  activo: boolean;
+};
+/** arrastre con varias capas seleccionadas: corre EN BLOQUE toda la
+    animación de esas capas (spans + keyframes) — deltas incrementales */
+type GestoSpanMulti = {
+  tipo: "spanMulti";
+  x0: number;
+  aplicado: number;
   activo: boolean;
 };
 type GestoKeyframe = {
@@ -73,9 +82,11 @@ export function LineaDeTiempo({
   seleccionIds = [],
   onSeleccionarVarias,
   onAlternarSeleccion,
+  onDesplazarSeleccion,
   alto,
   onAlto,
   onScrub,
+  onDuracion,
   onTogglePlay,
   onSaltarFrame,
   onSeleccionar,
@@ -96,9 +107,13 @@ export function LineaDeTiempo({
   onSeleccionarVarias?: (ids: string[]) => void;
   /** shift+click en una fila: entra o sale de la selección múltiple */
   onAlternarSeleccion?: (id: string) => void;
+  /** corre EN BLOQUE la animación de las capas seleccionadas (delta en ms) */
+  onDesplazarSeleccion?: (dt: number) => void;
   alto: number;
   onAlto: (px: number) => void;
   onScrub: (t: number) => void;
+  /** cambia la duración TOTAL de la escena (ms) — el campo Dur con scrub */
+  onDuracion?: (ms: number) => void;
   onTogglePlay: () => void;
   onSaltarFrame: (dir: 1 | -1) => void;
   onSeleccionar: (id: string) => void;
@@ -112,7 +127,7 @@ export function LineaDeTiempo({
   const pistaRef = useRef<HTMLDivElement>(null);
   const filasRef = useRef<HTMLDivElement>(null);
   const escrubeando = useRef(false);
-  const gestoRef = useRef<GestoSpan | GestoKeyframe | GestoPoseCamara | null>(null);
+  const gestoRef = useRef<GestoSpan | GestoSpanMulti | GestoKeyframe | GestoPoseCamara | null>(null);
   const redimenRef = useRef<{ y0: number; alto0: number } | null>(null);
 
   // El drag corre con listeners en window (pointerdown en el elemento,
@@ -181,6 +196,15 @@ export function LineaDeTiempo({
       onCheckpoint(); // un gesto entero = UN paso de undo
     }
     const dt = dx * msPorPx();
+    if (gesto.tipo === "spanMulti") {
+      const nuevo = alFrame(dt);
+      const delta = nuevo - gesto.aplicado;
+      if (delta !== 0 && onDesplazarSeleccion) {
+        onDesplazarSeleccion(delta);
+        gesto.aplicado = nuevo;
+      }
+      return;
+    }
     if (gesto.tipo === "span") {
       const fin = gesto.enOriginal + gesto.duracionOriginal;
       if (gesto.modo === "izq") {
@@ -214,7 +238,7 @@ export function LineaDeTiempo({
     }
   };
 
-  const iniciarGesto = (gesto: GestoSpan | GestoKeyframe | GestoPoseCamara) => {
+  const iniciarGesto = (gesto: GestoSpan | GestoSpanMulti | GestoKeyframe | GestoPoseCamara) => {
     gestoRef.current = gesto;
     const alMover = (e: PointerEvent) => moverGesto(e.clientX);
     const alSoltar = () => {
@@ -312,6 +336,20 @@ export function LineaDeTiempo({
           <span className="font-mono text-xs tabular-nums text-foreground/30"> / </span>
           <Timecode ms={composicion.duracion} fps={composicion.fps} />
         </div>
+        {onDuracion && (
+          <div className="ml-2 w-28">
+            <CampoNumero
+              etiqueta={t("Dur")}
+              valor={Math.round((composicion.duracion / 1000) * 100) / 100}
+              min={0.5}
+              max={120}
+              paso={0.5}
+              sufijo="s"
+              onInicio={onCheckpoint}
+              onCambio={(s) => onDuracion(Math.round(s * 1000))}
+            />
+          </div>
+        )}
       </div>
 
       <div className="mx-3 mb-2 flex shrink-0 items-center">
@@ -424,6 +462,12 @@ export function LineaDeTiempo({
                   }}
                   onPointerDown={(e) => {
                     e.stopPropagation();
+                    // varias capas seleccionadas y esta es una de ellas: el
+                    // drag corre EN BLOQUE toda la animación de la selección
+                    if (seleccionIds.length > 1 && seleccionIds.includes(capa.id) && onDesplazarSeleccion) {
+                      iniciarGesto({ tipo: "spanMulti", x0: e.clientX, aplicado: 0, activo: false });
+                      return;
+                    }
                     onSeleccionar(capa.id);
                     iniciarGesto({ tipo: "span", capaId: capa.id, clave, modo: "mover", enOriginal: seg.en, duracionOriginal: seg.duracion, x0: e.clientX, activo: false });
                   }}

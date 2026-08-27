@@ -32,10 +32,12 @@ import {
   quitarKeyframe,
   quitarPoseCamara,
   definirTemblorCamara,
+  desplazarTiempoCapas,
 } from "@/lib/motion/herramientas-puro";
 import { camaraEn } from "@/lib/motion/evaluar-puro";
 import { cajaMundoDeCapa } from "@/lib/motion/cajas-puro";
-import { guardarComposicionAction } from "@/app/(app)/(modulos)/motion/acciones";
+import { cargarComposicionAction, guardarComposicionAction } from "@/app/(app)/(modulos)/motion/acciones";
+import { escenaDuplicada, escenaNueva, idDeEscena, type EscenaInfo } from "@/lib/motion/escenas-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
@@ -93,6 +95,45 @@ export function Editor({
   // alto del chat de diosa en la barra derecha (agarradera, como el timeline)
   const [altoChat, setAltoChat] = useState(340);
   const redimenChatRef = useRef<{ y0: number; alto0: number } | null>(null);
+  // ——— Escenas: proyecto → escenas → pantallas → capas. Cada escena es una
+  // composición COMPLETA guardada por su propio id (mismo CAS); el registro
+  // de cuáles componen el proyecto vive en localStorage hasta el catálogo.
+  const [escenas, setEscenas] = useState<EscenaInfo[]>([{ id: composicionId, nombre: "Escena 1" }]);
+  const [escenaActiva, setEscenaActiva] = useState(composicionId);
+  const escenasRef = useRef<EscenaInfo[]>([{ id: composicionId, nombre: "Escena 1" }]);
+  const escenaActivaRef = useRef(composicionId);
+  useEffect(() => {
+    escenasRef.current = escenas;
+  }, [escenas]);
+  useEffect(() => {
+    escenaActivaRef.current = escenaActiva;
+  }, [escenaActiva]);
+  useEffect(() => {
+    let vivo = true;
+    // en microtask: el registro es un sistema externo (localStorage) y el
+    // linter tiene razón en que el setState directo cascadea renders
+    queueMicrotask(() => {
+      if (!vivo) return;
+      try {
+        const crudas = localStorage.getItem(`motion-escenas:${composicionId}`);
+        const lista = crudas ? (JSON.parse(crudas) as EscenaInfo[]) : null;
+        if (lista?.length) setEscenas(lista);
+      } catch {
+        /* registro ilegible: arranca con la escena base */
+      }
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [composicionId]);
+  const persistirEscenas = useCallback((lista: EscenaInfo[]) => {
+    setEscenas(lista);
+    try {
+      localStorage.setItem(`motion-escenas:${composicionId}`, JSON.stringify(lista));
+    } catch {
+      /* sin storage el registro vive esta sesión */
+    }
+  }, [composicionId]);
   // vista del lienzo: "mundo" = el canvas con el encuadre dibujado;
   // "camara" = lo que ve la cámara (arrastrar ENCUADRA, con auto-key);
   // "ambas" = el mundo con el outline moviéndose + PiP de la cámara.
@@ -231,7 +272,7 @@ export function Editor({
     if (timerGuardadoRef.current) clearTimeout(timerGuardadoRef.current);
     if (fallosRef.current >= MAX_FALLOS) return;
     timerGuardadoRef.current = setTimeout(async () => {
-      const res = await guardarComposicionAction(composicionId, serializar(composicion), revRef.current);
+      const res = await guardarComposicionAction(escenaActivaRef.current, serializar(composicion), revRef.current);
       if (!res.ok) {
         fallosRef.current += 1;
         setAvisoGuardado(
@@ -253,7 +294,85 @@ export function Editor({
     return () => {
       if (timerGuardadoRef.current) clearTimeout(timerGuardadoRef.current);
     };
-  }, [composicion, composicionId, snapshotInicial]);
+  }, [composicion, escenaActiva, snapshotInicial]);
+
+  // ——— Escenas: guardar ya, montar, cambiar, crear ———
+  // Cambiar de escena FLUSHEA el autosave de la actual (nada se pierde),
+  // carga la otra y resetea lo transitorio: undo, selección, playhead.
+  const guardarEscenaAhora = useCallback(async () => {
+    if (timerGuardadoRef.current) {
+      clearTimeout(timerGuardadoRef.current);
+      timerGuardadoRef.current = null;
+    }
+    const res = await guardarComposicionAction(escenaActivaRef.current, serializar(compRef.current), revRef.current);
+    if (res.ok) revRef.current = res.rev;
+  }, []);
+
+  const montarEscena = useCallback((comp: Composicion, id: string) => {
+    setEscenaActiva(id);
+    escenaActivaRef.current = id;
+    revRef.current = comp.rev ?? 0;
+    pasadoRef.current = [];
+    futuroRef.current = [];
+    fallosRef.current = 0;
+    setComposicion(comp);
+    setSeleccionId(null);
+    setSeleccionIds([]);
+    setSeleccionKf(null);
+    setReproduciendo(false);
+    tiempoRef.current = 0;
+    setTiempoUI(0);
+    setAvisoGuardado(null);
+    requestAnimationFrame(() => lienzoRef.current?.encuadrar());
+  }, []);
+
+  const cambiarEscena = useCallback(async (id: string) => {
+    if (id === escenaActivaRef.current) return;
+    await guardarEscenaAhora();
+    const cargada = await cargarComposicionAction(id);
+    if (!cargada) {
+      setAvisoGuardado(t("No se pudo cargar esa escena"));
+      return;
+    }
+    montarEscena(deserializar(cargada.snapshot), id);
+  }, [guardarEscenaAhora, montarEscena]);
+
+  const crearEscena = useCallback(async (duplicar: boolean) => {
+    await guardarEscenaAhora();
+    // primer n libre: robusto aunque más adelante se borren escenas
+    let n = escenasRef.current.length + 1;
+    while (escenasRef.current.some((e) => e.id === idDeEscena(composicionId, n))) n++;
+    const id = idDeEscena(composicionId, n);
+    const nombre = `${t("Escena")} ${n}`;
+    const comp = duplicar ? escenaDuplicada(compRef.current, nombre) : escenaNueva(compRef.current, nombre);
+    const res = await guardarComposicionAction(id, serializar(comp), 0);
+    if (!res.ok) {
+      setAvisoGuardado(res.error);
+      return;
+    }
+    persistirEscenas([...escenasRef.current, { id, nombre }]);
+    montarEscena({ ...comp, rev: res.rev }, id);
+  }, [composicionId, guardarEscenaAhora, montarEscena, persistirEscenas]);
+
+  // Corre EN BLOQUE la animación de las capas seleccionadas (drag del
+  // timeline con selección múltiple): deltas incrementales, snapeados al
+  // frame por el caller; el checkpoint lo puso el gesto al cruzar el umbral.
+  const desplazarSeleccionEnVivo = useCallback((dt: number) => {
+    const ids = seleccionIdsRef.current.length
+      ? seleccionIdsRef.current
+      : seleccionRef.current && seleccionRef.current !== CAMARA_ID
+        ? [seleccionRef.current]
+        : [];
+    if (!ids.length) return;
+    setComposicion(desplazarTiempoCapas(compRef.current, ids, dt));
+  }, []);
+
+  // Duración de la escena: cuánto dura TODO lo que se renderiza de ella.
+  const cambiarDuracion = useCallback((ms: number) => {
+    const duracion = Math.min(120000, Math.max(500, Math.round(ms)));
+    tiempoRef.current = Math.min(tiempoRef.current, duracion);
+    setComposicion({ ...compRef.current, duracion });
+  }, []);
 
   // ——— Mutaciones ———
   // El checkpoint lo pone el CALLER al arrancar el gesto (drag que cruza el
@@ -969,6 +1088,37 @@ export function Editor({
                   : t("Cámara — mantené X y mové el mouse: posición · mantené Z y mové vertical: zoom · cada gesto deja keyframe en el playhead")}
             </div>
           )}
+          {/* barra de ESCENAS: el corte duro del proyecto — cada chip es una
+              composición completa; + crea (mismo formato, lienzo vacío) y ⧉
+              duplica la escena activa */}
+          <div className="absolute left-3 top-3 z-10 flex max-w-[60%] flex-wrap items-center gap-1">
+            {escenas.map((esc) => (
+              <button
+                key={esc.id}
+                type="button"
+                onClick={() => void cambiarEscena(esc.id)}
+                aria-pressed={esc.id === escenaActiva}
+                className={[
+                  "h-7 rounded-control px-2.5 text-[12px] shadow-control transition-colors",
+                  esc.id === escenaActiva
+                    ? "bg-ink/[0.12] font-medium text-foreground"
+                    : "text-foreground/60 hover:bg-ink/[0.06] hover:text-foreground/90",
+                ].join(" ")}
+              >
+                {esc.nombre}
+              </button>
+            ))}
+            <ConPista pista={t("Escena nueva — mismo formato, lienzo vacío")}>
+              <BotonIcono tam={28} etiqueta={t("Escena nueva")} onClick={() => void crearEscena(false)}>
+                <span aria-hidden className="text-[16px] leading-none">+</span>
+              </BotonIcono>
+            </ConPista>
+            <ConPista pista={t("Duplicar la escena activa")}>
+              <BotonIcono tam={28} etiqueta={t("Duplicar la escena")} onClick={() => void crearEscena(true)}>
+                <span aria-hidden className="text-[13px] leading-none">⧉</span>
+              </BotonIcono>
+            </ConPista>
+          </div>
           <div className="absolute bottom-3 left-3 flex items-center gap-2">
             <ConPista pista={t("Calidad del preview — el export siempre sale a resolución completa")}>
               <Segmentado
@@ -1062,6 +1212,20 @@ export function Editor({
               obtenerMedia={obtenerMedia}
               onPausar={() => setReproduciendo(false)}
               entregar={entregarExport}
+              contarEscenas={() => escenasRef.current.length}
+              obtenerEscenas={async () => {
+                await guardarEscenaAhora();
+                const lista: Composicion[] = [];
+                for (const esc of escenasRef.current) {
+                  if (esc.id === escenaActivaRef.current) {
+                    lista.push(compRef.current);
+                    continue;
+                  }
+                  const cargada = await cargarComposicionAction(esc.id);
+                  if (cargada) lista.push(deserializar(cargada.snapshot));
+                }
+                return lista;
+              }}
             />
           </div>
           <PanelImportar
@@ -1097,6 +1261,8 @@ export function Editor({
           alto={altoTimeline}
           onAlto={setAltoTimeline}
           onScrub={escrub}
+          onDuracion={cambiarDuracion}
+          onDesplazarSeleccion={desplazarSeleccionEnVivo}
           onTogglePlay={() => setReproduciendo((r) => !r)}
           onSaltarFrame={saltarFrame}
           onSeleccionar={seleccionar}
@@ -1162,7 +1328,7 @@ export function Editor({
             <div className="min-h-0 shrink-0" style={{ height: altoChat }}>
               <PanelAgente
                 obtenerSnapshot={() => serializar(compRef.current)}
-                composicionId={composicionId}
+                composicionId={escenaActiva}
                 onAplicar={(snapshot) => {
                   registrar();
                   setComposicion(deserializar(snapshot));

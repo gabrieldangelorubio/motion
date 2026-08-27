@@ -20,6 +20,7 @@ import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import type { Composicion } from "@/lib/motion/modelo";
 import { estadoEn } from "@/lib/motion/evaluar-puro";
 import { pintar, type Contexto2D, type FuentesDeMedia } from "@/lib/motion/pintar";
+import { problemaDeFormatos, rangoDeExport } from "@/lib/motion/escenas-puro";
 
 export type OpcionesExport = {
   /** sub-frames promediados por frame (1 = sin blur temporal) */
@@ -27,6 +28,9 @@ export type OpcionesExport = {
   /** supersampling ESPACIAL: pinta a N× y baja con smoothing de alta calidad
       — antialiasing real en los bordes del texto (default 2, 1 = apagado) */
   supermuestreo?: number;
+  /** rango a renderizar en ms (sólo con UNA composición); default: entera */
+  desdeMs?: number;
+  hastaMs?: number;
   bitrate?: number;
   onProgreso?: (frame: number, total: number) => void;
 };
@@ -47,17 +51,34 @@ export function exportSoportado(): boolean {
   return typeof VideoEncoder !== "undefined" && typeof OffscreenCanvas !== "undefined";
 }
 
+/**
+ * Exporta una composición — o VARIAS escenas concatenadas con corte duro —
+ * a un solo MP4. Las escenas tienen que compartir formato (el encoder es
+ * uno); con una sola composición, `desdeMs`/`hastaMs` renderizan un rango.
+ */
 export async function exportarMp4(
-  comp: Composicion,
+  entrada: Composicion | Composicion[],
   media: FuentesDeMedia = {},
   opciones: OpcionesExport = {},
 ): Promise<Blob> {
   if (!exportSoportado()) {
     throw new Error("Este navegador no soporta WebCodecs (probá Chrome o Edge)");
   }
+  const escenas = Array.isArray(entrada) ? entrada : [entrada];
+  const problema = problemaDeFormatos(escenas);
+  if (problema) throw new Error(problema);
+  const comp = escenas[0];
+
   const muestras = Math.max(1, Math.floor(opciones.muestrasBlur ?? 1));
   const bitrate = opciones.bitrate ?? 12_000_000;
-  const totalFrames = Math.max(1, Math.round((comp.duracion / 1000) * comp.fps));
+  // el rango sólo aplica a un export de UNA composición; las escenas
+  // concatenadas van enteras
+  const tramos = escenas.map((esc) =>
+    escenas.length === 1
+      ? { comp: esc, ...rangoDeExport(esc.duracion, esc.fps, opciones.desdeMs, opciones.hastaMs) }
+      : { comp: esc, ...rangoDeExport(esc.duracion, esc.fps) },
+  );
+  const totalFrames = tramos.reduce((n, tr) => n + tr.frames, 0);
   const duracionFrameMs = 1000 / comp.fps;
 
   // WebCodecs exige dimensiones pares para H.264.
@@ -112,49 +133,54 @@ export async function exportarMp4(
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
 
-  const pintarFrame = (t: number) => {
+  const pintarFrame = (escena: Composicion, t: number) => {
     if (ctxSuper && superLienzo) {
       ctxSuper.setTransform(S, 0, 0, S, 0, 0);
-      pintar(estadoEn(comp, t), ctxSuper as unknown as Contexto2D, media, S);
+      pintar(estadoEn(escena, t), ctxSuper as unknown as Contexto2D, media, S);
       ctx.drawImage(superLienzo, 0, 0, ancho, alto);
     } else {
-      pintar(estadoEn(comp, t), ctx as unknown as Contexto2D, media);
+      pintar(estadoEn(escena, t), ctx as unknown as Contexto2D, media);
     }
   };
 
-  for (let frame = 0; frame < totalFrames; frame++) {
-    if (errorEncoder) throw errorEncoder;
-    const t = frame * duracionFrameMs;
+  let frameGlobal = 0;
+  for (const tramo of tramos) {
+    for (let frame = 0; frame < tramo.frames; frame++) {
+      if (errorEncoder) throw errorEncoder;
+      const t = tramo.desde + frame * duracionFrameMs;
 
-    let origen: OffscreenCanvas = lienzo;
-    if (muestras > 1 && ctxAcum && acumulador) {
-      // obturación 180°: las muestras cubren la primera mitad del intervalo
-      for (let i = 0; i < muestras; i++) {
-        const tMuestra = Math.min(comp.duracion, t + (i / muestras) * (duracionFrameMs / 2));
-        pintarFrame(tMuestra);
-        ctxAcum.globalAlpha = 1 / (i + 1); // media móvil exacta sobre frames opacos
-        ctxAcum.drawImage(lienzo, 0, 0);
+      let origen: OffscreenCanvas = lienzo;
+      if (muestras > 1 && ctxAcum && acumulador) {
+        // obturación 180°: las muestras cubren la primera mitad del intervalo
+        for (let i = 0; i < muestras; i++) {
+          const tMuestra = Math.min(tramo.comp.duracion, t + (i / muestras) * (duracionFrameMs / 2));
+          pintarFrame(tramo.comp, tMuestra);
+          ctxAcum.globalAlpha = 1 / (i + 1); // media móvil exacta sobre frames opacos
+          ctxAcum.drawImage(lienzo, 0, 0);
+        }
+        ctxAcum.globalAlpha = 1;
+        origen = acumulador;
+      } else {
+        pintarFrame(tramo.comp, t);
       }
-      ctxAcum.globalAlpha = 1;
-      origen = acumulador;
-    } else {
-      pintarFrame(t);
-    }
 
-    const videoFrame = new VideoFrame(origen, {
-      timestamp: Math.round(frame * (1_000_000 / comp.fps)),
-      duration: Math.round(1_000_000 / comp.fps),
-    });
-    encoder.encode(videoFrame, { keyFrame: frame % (comp.fps * 2) === 0 });
-    videoFrame.close();
+      const videoFrame = new VideoFrame(origen, {
+        timestamp: Math.round(frameGlobal * (1_000_000 / comp.fps)),
+        duration: Math.round(1_000_000 / comp.fps),
+      });
+      // keyframe al inicio de cada escena (el corte duro) y cada 2 segundos
+      encoder.encode(videoFrame, { keyFrame: frame === 0 || frameGlobal % (comp.fps * 2) === 0 });
+      videoFrame.close();
 
-    // back-pressure: no dejar que la cola del encoder crezca sin límite
-    while (encoder.encodeQueueSize > 4) {
-      await new Promise((r) => setTimeout(r, 1));
+      // back-pressure: no dejar que la cola del encoder crezca sin límite
+      while (encoder.encodeQueueSize > 4) {
+        await new Promise((r) => setTimeout(r, 1));
+      }
+      frameGlobal++;
+      opciones.onProgreso?.(frameGlobal, totalFrames);
+      // un yield por frame para que la UI pinte el progreso
+      await new Promise((r) => requestAnimationFrame(r));
     }
-    opciones.onProgreso?.(frame + 1, totalFrames);
-    // un yield por frame para que la UI pinte el progreso
-    await new Promise((r) => requestAnimationFrame(r));
   }
 
   await encoder.flush();

@@ -90,7 +90,25 @@ entero; un escalonado puesto a mano, incluso 0 explícito, siempre manda),
 fill llegan como path animable; presets `trazar`/`retraer`/`borrar` y
 propiedades `trazoInicio`/`trazoFin` 0–1 keyframeables — implementado con
 `setLineDash`/`lineDashOffset` sobre el largo real medido al importar, y un
-trazo sin medir degrada a entero), **el paradigma canvas + cámara** (el lienzo es
+trazo sin medir degrada a entero), **ESCENAS** (la jerarquía de arriba: proyecto → escenas → pantallas →
+capas — cada escena es una composición COMPLETA con su lienzo, sus
+pantallas y su cámara, y el corte entre escenas es duro como en un edit;
+la barra de chips arriba del lienzo cambia de escena —flusheando el
+autosave, nada se pierde—, «+» crea una nueva heredando el FORMATO del
+proyecto (unificación de diseño: ancho/alto/fps/fondo, lienzo vacío) y
+«⧉» duplica la activa como documento nuevo; cada escena se guarda por su
+propio id con el mismo protocolo CAS y el registro del proyecto vive en
+localStorage hasta el catálogo de diosa; el agente dirige la escena
+activa), **duración editable** (campo Dur con scrub en el transport:
+cuánto dura TODO lo que se renderiza de la escena, 0.5–120s), **mover la
+animación en bloque** (con varias capas seleccionadas, arrastrar un span
+corre TODA la animación de esas capas — entradas, salidas y keyframes —
+más adelante o más atrás, clampeado para que nada quede antes de 0), y
+**export por rango o de escenas concatenadas** (el botón de export abre
+un panel: Desde/Hasta con scrub para renderizar un pedazo, o «todas las
+escenas» concatenadas con corte duro en UN MP4 — mismo encoder, keyframe
+de video al inicio de cada corte, con la media de las escenas frías
+precalentada antes de codificar), **el paradigma canvas + cámara** (el lienzo es
 infinito: cada import de Figma se SUMA a la derecha de lo existente con su
 fondo como placa — ids únicos, anclas remapeadas — y el plugin exporta
 VARIOS frames seleccionados en un solo JSON: entran todos al lienzo

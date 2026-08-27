@@ -187,6 +187,45 @@ export function borrarGrupo(comp: Composicion, grupo: string, ahora = Date.now()
   };
 }
 
+/**
+ * Corre EN BLOQUE la animación de varias capas en el tiempo: entradas,
+ * salidas y todos los keyframes de pistas se desplazan dt ms — para traer
+ * cosas más adelante o más atrás sin rearmar nada. El dt se clampea para
+ * que nada quede antes de 0 (pasarse del final no rompe: validar avisa y
+ * la duración de la escena se estira aparte). Capas fuera de `ids` quedan
+ * intactas; el diseño (x/y/valores) no se toca, sólo CUÁNDO pasa.
+ */
+export function desplazarTiempoCapas(comp: Composicion, ids: string[], dt: number): Composicion {
+  const elegidas = comp.capas.filter((c) => ids.includes(c.id));
+  if (!elegidas.length || dt === 0) return comp;
+  let minT = Infinity;
+  for (const capa of elegidas) {
+    if (capa.entrada) minT = Math.min(minT, capa.entrada.en);
+    if (capa.salida) minT = Math.min(minT, capa.salida.en);
+    for (const pista of Object.values(capa.pistas ?? {})) {
+      for (const kf of pista ?? []) minT = Math.min(minT, kf.t);
+    }
+  }
+  if (!Number.isFinite(minT)) return comp; // sin animación: nada que correr
+  const efectivo = Math.max(dt, -minT);
+  if (efectivo === 0) return comp;
+  const capas = comp.capas.map((c) => {
+    if (!ids.includes(c.id)) return c;
+    const nueva: Capa = { ...c };
+    if (c.entrada) nueva.entrada = { ...c.entrada, en: c.entrada.en + efectivo };
+    if (c.salida) nueva.salida = { ...c.salida, en: c.salida.en + efectivo };
+    if (c.pistas) {
+      const pistas: NonNullable<Capa["pistas"]> = {};
+      for (const [prop, pista] of Object.entries(c.pistas)) {
+        (pistas as Record<string, Keyframe[]>)[prop] = (pista ?? []).map((kf) => ({ ...kf, t: kf.t + efectivo }));
+      }
+      nueva.pistas = pistas;
+    }
+    return nueva;
+  });
+  return { ...comp, capas };
+}
+
 /* ——— Cámara: el render es lo que ella ve; estas ops la editan como a una capa ——— */
 
 /**

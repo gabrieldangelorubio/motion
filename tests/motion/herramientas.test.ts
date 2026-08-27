@@ -81,3 +81,62 @@ test("crearComposicion da defaults sanos y describir cuenta lo que hay", () => {
   assert.match(texto, /entrada subir @600ms/);
   assert.match(texto, /Presets de entrada:/);
 });
+
+test("desplazarTiempoCapas corre EN BLOQUE spans y keyframes de las capas elegidas", async () => {
+  const { crearComposicion, agregarCapa, desplazarTiempoCapas } = await import("@/lib/motion/herramientas-puro");
+  let comp = crearComposicion({ nombre: "bloque" });
+  const capa = (id: string) => ({
+    id, nombre: id, tipo: "forma" as const, forma: "rectangulo" as const,
+    ancho: 10, alto: 10, color: "#fff", x: 0, y: 0,
+    entrada: { preset: "aparecer", en: 200, duracion: 400 },
+    salida: { preset: "desvanecer", en: 3000, duracion: 400 },
+    pistas: { x: [{ t: 500, v: 0 }, { t: 1500, v: 100 }] },
+  });
+  comp = (agregarCapa(comp, capa("a")) as { ok: true; valor: typeof comp }).valor;
+  comp = (agregarCapa(comp, capa("b")) as { ok: true; valor: typeof comp }).valor;
+
+  const corrida = desplazarTiempoCapas(comp, ["a"], 300);
+  const a = corrida.capas.find((c) => c.id === "a")!;
+  const b = corrida.capas.find((c) => c.id === "b")!;
+  assert.equal(a.entrada!.en, 500);
+  assert.equal(a.salida!.en, 3300);
+  assert.deepEqual(a.pistas!.x!.map((k) => k.t), [800, 1800]);
+  assert.equal(b.entrada!.en, 200, "la capa NO elegida queda intacta");
+
+  // hacia atrás clampea: nada queda antes de 0 (el mínimo era 200)
+  const alTope = desplazarTiempoCapas(comp, ["a", "b"], -1000);
+  assert.equal(alTope.capas[0].entrada!.en, 0);
+  assert.equal(alTope.capas[1].entrada!.en, 0);
+  assert.deepEqual(alTope.capas[0].pistas!.x!.map((k) => k.t), [300, 1300]);
+
+  // dt 0 o sin animación: la misma composición
+  assert.equal(desplazarTiempoCapas(comp, ["a"], 0), comp);
+});
+
+test("escenas: la nueva hereda el formato, la duplicada es documento nuevo, y el rango de export clampea", async () => {
+  const { escenaNueva, escenaDuplicada, idDeEscena, problemaDeFormatos, rangoDeExport } = await import("@/lib/motion/escenas-puro");
+  const { crearComposicion } = await import("@/lib/motion/herramientas-puro");
+  const base = { ...crearComposicion({ nombre: "Escena 1" }), rev: 7 };
+
+  const nueva = escenaNueva(base, "Escena 2");
+  assert.equal(nueva.ancho, base.ancho);
+  assert.equal(nueva.fps, base.fps);
+  assert.equal(nueva.fondo, base.fondo);
+  assert.equal(nueva.capas.length, 0);
+  assert.equal(nueva.rev, undefined);
+
+  const dup = escenaDuplicada(base, "Escena 3");
+  assert.equal(dup.nombre, "Escena 3");
+  assert.equal(dup.rev, undefined, "documento nuevo: sin la rev de la original");
+
+  assert.equal(idDeEscena("demo", 1), "demo");
+  assert.equal(idDeEscena("demo", 3), "demo@e3");
+
+  assert.equal(problemaDeFormatos([base, nueva]), null);
+  assert.match(problemaDeFormatos([base, { ...nueva, ancho: 720 }]) ?? "", /otro formato/);
+
+  assert.deepEqual(rangoDeExport(5000, 30), { desde: 0, frames: 150 });
+  assert.deepEqual(rangoDeExport(5000, 30, 1000, 3000), { desde: 1000, frames: 60 });
+  assert.deepEqual(rangoDeExport(5000, 30, -50, 99999), { desde: 0, frames: 150 });
+  assert.equal(rangoDeExport(5000, 30, 4999, 4999).frames, 1, "nunca menos de un frame");
+});
