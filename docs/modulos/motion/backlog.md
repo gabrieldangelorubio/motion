@@ -44,7 +44,10 @@
   cámara como precomp, temblor como expresión); botón en el panel de export.
 - **Assets (2026-08-27):** HECHO — el export baja un ZIP con el .jsx +
   assets/ y el script los importa solo (fallback a placeholder avisado).
-- **Tanda 2 (falta):** presets de entrada/salida → text animators con range
+- **Horneado (2026-08-27):** HECHO — los presets viajan como keyframes
+  densos (estadoEn por frame); familia CSS limpia; tracking entero; eases
+  con BEZIER explícito y alert de avisos técnicos.
+- **Tanda 2 (reducida, falta):** división letra por letra → text animators con range
   selector + offset (división por caracteres/palabras/líneas y escalonado),
   máscaras de revelado por línea, path SVG real del trazo, tramos rich text
   como capas partidas. Hoy todo eso queda ANOTADO en el comentario de capa.

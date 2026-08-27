@@ -166,12 +166,26 @@ en AE la fuente se fija probando CANDIDATOS de nombre PostScript y
 RELEYENDO cuál agarró — AE sustituye en silencio —: si ninguno pega, la
 capa guarda «tipografia original: …» en su comentario y un alert final
 lista las faltantes; el tracking va ENTERO (un float aborta el script —
-cazado en el AE real de Gabriel)),
+cazado en el AE real de Gabriel; la familia CSS del import va LIMPIA a
+AE — antes viajaba el stack entero y AE no encontraba la fuente
+instalada—; los eases se aplican con interpolación BEZIER explícita y los
+errores técnicos del script se juntan en un alert final; y los PRESETS de
+entrada/salida se HORNEAN a keyframes: el mismo estadoEn del preview
+muestreado a un keyframe por frame en las ventanas animadas —posición/
+escala/rotación/opacidad/desenfoque/trim, solo los canales que se
+mueven—, así la coreografía LLEGA a AE exacta; un texto con división va
+como bloque (letra por letra = text animators, pendiente) y la máscara
+del revelado no viaja, avisada en el comentario),
 **audio de proyecto** (la voz en off / música que
 estructura las escenas: UN audio por proyecto —botón ♪ en la barra de
 escenas, acepta audio y el sonido de un mp4/webm—, guardado ENTERO en el
 navegador (IndexedDB, como las fuentes: al reabrir vuelve solo) y
-decodificado a una franja de FORMA DE ONDA arriba del timeline — el
+con panel de RECORTE al importar
+—la onda completa con dos manijas: te quedás con el segmento que va
+(mínimo 0.5s) o «Usar todo»; la escena vacía toma el largo DEL SEGMENTO
+(+10%); preview, export y transcripción usan solo ese pedazo, y cambiar
+el recorte descarta la transcripción vieja; «Recortar» en la franja lo
+reabre— y decodificado a una franja de FORMA DE ONDA arriba del timeline — el
 ritmo y las pausas de la locución a la vista, con los CORTES de escena
 encima sobre el eje global del proyecto (las escenas concatenadas, el
 orden del export); click en la franja salta a ese punto —cambiando de
@@ -388,7 +402,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **186
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **190
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -418,8 +432,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   keyframes y escalonado». (13) OTTO detectado como ttf en
   extensionDeFuente → falló exacto; (14) tracking sin redondear → falló
   exactamente «el tracking de AE sale ENTERO». (15) filasDeCapas ignorando subgrupo →
-  fallaron exactamente los dos tests de plegado y precomp. Restaurados,
-  186/186 verdes.
+  fallaron exactamente los dos tests de plegado y precomp. (16) canal de
+  posición ausente del horneado → falló exacto. (17) mínimo de medio
+  segundo del recorte quitado → falló exacto. Restaurados, 190/190 verdes.
 
 ## Qué necesita cablearse de su lado
 
