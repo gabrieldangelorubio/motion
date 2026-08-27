@@ -67,9 +67,19 @@ export function cantidadUnidades(capa: Capa): number {
   return [...capa.texto.replace(/\s/g, "")].length || 1;
 }
 
-/** Alto de una unidad de la capa, la escala de los presets `relativo` (revelar/ocultar). */
+/** Alto de una unidad de la capa, la escala de los presets `relativo`
+    (revelar/ocultar). Para texto, NUNCA menos que el glifo completo (1.2×
+    el cuerpo): con interlineado APRETADO (display al 80%) el viaje del
+    revelado y su máscara tienen que cubrir ascendentes y descendentes — si
+    no, la máscara corta el texto en su posición FINAL y la base de las
+    letras aparece de golpe cuando la ventana de recorte se apaga (con el
+    supersampling temporal, una banda semitransparente). El interlineado de
+    PINTADO no cambia: esto es sólo el viaje y la máscara. */
 export function altoUnidad(capa: Capa): number {
-  if (capa.tipo === "texto") return capa.fuente.interlineado ?? capa.fuente.tamano * 1.15;
+  if (capa.tipo === "texto") {
+    const tamano = capa.fuente.tamano;
+    return Math.max(capa.fuente.interlineado ?? tamano * 1.15, tamano * 1.2);
+  }
   return capa.alto;
 }
 

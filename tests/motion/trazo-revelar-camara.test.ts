@@ -75,8 +75,8 @@ test("revelar: durante la entrada la unidad baja en múltiplos del alto de líne
   const comp = { ...base(), capas: [textoRevelado()] };
   const inicio = estadoEn(comp, 0);
   const u = inicio.capas[0].unidades[0];
-  // dy = 1.1 × interlineado (100 × 1.15 = 115) = 126.5, con recorte activo
-  assert.ok(Math.abs(u.dy - 126.5) < 0.01, `dy relativo esperado 126.5, vino ${u.dy}`);
+  // dy = 1.1 × altoUnidad (max(100 × 1.15, 100 × 1.2) = 120) = 132, con recorte activo
+  assert.ok(Math.abs(u.dy - 132) < 0.01, `dy relativo esperado 132, vino ${u.dy}`);
   assert.equal(u.recorte, true);
 });
 
@@ -101,8 +101,11 @@ test("cantidadUnidades entiende multilínea: lineas cuenta renglones, palabras c
   const capa = textoRevelado();
   assert.equal(cantidadUnidades({ ...capa, texto: "una\ndos\ntres", division: "lineas" }), 3);
   assert.equal(cantidadUnidades({ ...capa, texto: "hola mundo\nfinal", division: "palabras" }), 3);
-  assert.ok(Math.abs(altoUnidad(capa) - 115) < 0.001, "interlineado default = tamaño × 1.15");
-  assert.equal(altoUnidad({ ...capa, fuente: { ...capa.fuente, interlineado: 90 } }), 90);
+  assert.ok(Math.abs(altoUnidad(capa) - 120) < 0.001, "sin interlineado: max(1.15, 1.2) × tamaño = 120");
+  // interlineado APRETADO: el viaje/máscara nunca baja del glifo completo
+  assert.equal(altoUnidad({ ...capa, fuente: { ...capa.fuente, interlineado: 90 } }), 120);
+  // interlineado holgado: manda el interlineado
+  assert.equal(altoUnidad({ ...capa, fuente: { ...capa.fuente, interlineado: 200 } }), 200);
 });
 
 test("pintar multilínea: división por líneas pinta un fillText por renglón, y el recorte clipea ANTES de mover", () => {
@@ -335,4 +338,29 @@ test("editar_capa acepta división por líneas y el trim base de un trazo", () =
   assert.ok(!trazo.esError);
   assert.equal((trazo.comp.capas[0] as CapaTrazo).trazoFin, 0.5);
   assert.equal((trazo.comp.capas[0] as CapaTrazo).grosor, 8);
+});
+
+test("interlineado apretado: la máscara del revelado cubre el glifo COMPLETO (no corta la base en reposo)", () => {
+  // el caso real: display de 147.95px con lineHeight 80% (118.36) — la
+  // máscara vieja medía un interlineado de alto y cortaba la base de las
+  // letras hasta que la ventana se apagaba (pop + banda semitransparente)
+  const capa: CapaTexto = {
+    ...textoRevelado(),
+    fuente: { familia: "x", tamano: 147.95, peso: 250, interlineado: 118.36 },
+    division: "lineas",
+    texto: "FOOTBALL",
+    entrada: { preset: "revelar", en: 0, duracion: 1000, easing: "lineal" },
+  };
+  const comp = { ...base(), capas: [capa] };
+  const { ctx, llamadas } = contextoFalso();
+  pintar(estadoEn(comp, 500), ctx);
+  const rect = llamadas.find((l) => l.startsWith("rect("));
+  assert.ok(rect, "hay máscara durante la entrada");
+  // rect(x, y, ancho, alto): el alto tiene que ser ≥ 1.2 × tamaño (177.54),
+  // no el interlineado (118.36) que cortaba las letras
+  const alto = parseFloat(rect!.split(",")[3]);
+  assert.ok(Math.abs(alto - 147.95 * 1.2) < 0.01, `máscara de glifo completo (${alto})`);
+  // y el viaje arranca EXACTAMENTE escondido: dy inicial = 1.1 × altoUnidad ≥ alto de máscara
+  const dy0 = estadoEn(comp, 0).capas[0].unidades[0].dy;
+  assert.ok(dy0 >= alto - 0.01, `arranca fuera de la máscara (dy ${dy0} ≥ ${alto})`);
 });

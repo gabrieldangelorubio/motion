@@ -112,10 +112,15 @@ function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
     ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
     if (u.recorte) {
       // La máscara del revelado: la caja de REPOSO de la unidad (por eso el
-      // rect va antes del translate por dx/dy). Generosa a los costados,
-      // exacta en vertical — ahí es donde la máscara «corta» el movimiento.
+      // rect va antes del translate por dx/dy). Generosa a los costados; en
+      // vertical cubre el GLIFO COMPLETO (nunca menos que 1.2× el cuerpo):
+      // con interlineado apretado una máscara de un interlineado de alto
+      // cortaría la base de las letras en su posición final. El alto de la
+      // máscara es EL MISMO que el viaje del preset (altoUnidad): la unidad
+      // arranca exactamente escondida y termina exactamente entera.
+      const altoMascara = Math.max(interlineado, tamano * 1.2);
       ctx.beginPath();
-      ctx.rect(x - tamano * 0.25, y - tamano * 0.85, ancho + tamano * 0.5, interlineado);
+      ctx.rect(x - tamano * 0.25, y - tamano * 0.85, ancho + tamano * 0.5, altoMascara);
       ctx.clip();
     }
     ctx.translate(x + u.dx, y + u.dy);

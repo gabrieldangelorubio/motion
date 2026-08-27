@@ -76,7 +76,11 @@ del lienzo), **texto multilínea con revelado enmascarado** (`\n` real con inter
 propio, división por caracteres/palabras/**líneas**, presets
 `revelar`/`ocultar`: cada unidad sube dentro de su renglón recortada a su
 caja de reposo — el clásico reveal de SplitText con máscara, sin crear
-máscaras a mano; el recorte se apaga en reposo para no cortar descendentes;
+máscaras a mano; el recorte se apaga en reposo para no cortar descendentes,
+y con interlineado APRETADO (display al 80%) la máscara y el viaje cubren
+el GLIFO COMPLETO (nunca menos que 1.2× el cuerpo): una máscara de un
+interlineado de alto cortaba la base de las letras en su posición final y
+la franja aparecía de golpe al apagarse la ventana;
 y dividir SIEMPRE se ve: activar una división en el inspector, por el agente
 o al aplicar un efecto de la biblioteca pone un escalonado sano por división
 —35/90/140 ms para caracteres/palabras/líneas— en los segmentos que no
