@@ -90,6 +90,7 @@ function SeccionSegmento({
               min={0}
               paso={5}
               sufijo="ms"
+              porDefecto={0}
               onInicio={onCheckpoint}
               onCambio={(escalonado) => onEditar({ escalonado })}
             />
@@ -157,7 +158,8 @@ export function Inspector({
             min={1}
             paso={5}
             sufijo="%"
-            onInicio={onCheckpoint}
+            porDefecto={100}
+              onInicio={onCheckpoint}
             onCambio={(v) => editar({ escala: v / 100 })}
           />
           <CampoNumero
@@ -167,7 +169,8 @@ export function Inspector({
             max={100}
             paso={5}
             sufijo="%"
-            onInicio={onCheckpoint}
+            porDefecto={100}
+              onInicio={onCheckpoint}
             onCambio={(v) => editar({ opacidad: v / 100 })}
           />
         </div>
@@ -178,6 +181,7 @@ export function Inspector({
               valor={capa.rotacion ?? 0}
               paso={1}
               sufijo="°"
+              porDefecto={0}
               onInicio={onCheckpoint}
               onCambio={(rotacion) => editar({ rotacion })}
             />
@@ -188,6 +192,7 @@ export function Inspector({
               max={2}
               paso={0.1}
               sufijo="×"
+              porDefecto={0}
               onInicio={onCheckpoint}
               onCambio={(motionBlur) => editar({ motionBlur })}
             />
@@ -274,7 +279,8 @@ export function Inspector({
                   min={4}
                   paso={2}
                   sufijo="px"
-                  onInicio={onCheckpoint}
+                  porDefecto={Math.round(capa.fuente.tamano * 1.15)}
+              onInicio={onCheckpoint}
                   onCambio={(interlineado) => editar({ fuente: { ...capa.fuente, interlineado } })}
                 />
               </div>
@@ -304,6 +310,7 @@ export function Inspector({
               max={100}
               paso={5}
               sufijo="%"
+              porDefecto={0}
               onInicio={onCheckpoint}
               onCambio={(v) => editar({ trazoInicio: v / 100 })}
             />
@@ -314,6 +321,7 @@ export function Inspector({
               max={100}
               paso={5}
               sufijo="%"
+              porDefecto={100}
               onInicio={onCheckpoint}
               onCambio={(v) => editar({ trazoFin: v / 100 })}
             />

@@ -84,7 +84,8 @@ export function InspectorCamara({
             max={1000}
             paso={5}
             sufijo="%"
-            onInicio={onCheckpoint}
+            porDefecto={100}
+                  onInicio={onCheckpoint}
             onCambio={(v) => onFijar("zoom", v / 100)}
           />
         </div>
@@ -125,6 +126,7 @@ export function InspectorCamara({
                   max={300}
                   paso={10}
                   sufijo="%"
+                  porDefecto={100}
                   onInicio={onCheckpoint}
                   onCambio={(v) => onTemblor({ ...composicion.camara!.temblor!, intensidad: v / 100 })}
                 />
@@ -135,6 +137,7 @@ export function InspectorCamara({
                   max={400}
                   paso={10}
                   sufijo="%"
+                  porDefecto={100}
                   onInicio={onCheckpoint}
                   onCambio={(v) => onTemblor({ ...composicion.camara!.temblor!, velocidad: v / 100 })}
                 />

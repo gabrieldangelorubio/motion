@@ -23,7 +23,10 @@ escalonado — cada campo con checkpoint por sesión de foco o por gesto;
 los campos numéricos tienen SCRUB estilo Figma/Blender: arrastrás
 horizontal sobre el campo y el valor corre suave con el mouse —Pointer
 Lock cuando el browser lo da, Shift ×10, Alt ×0.1, click seco para
-tipear—, los valores acotados muestran un relleno de slider, y cada
+tipear—, los valores acotados muestran un relleno de slider, DOBLE CLICK
+vuelve al predeterminado del campo (escala/opacidad 100, rotación/blur/
+escalonado 0, interlineado auto, zoom 100, temblor 100 — con el tooltip
+diciéndolo y un paso de undo), y cada
 sección aplica divulgación progresiva: lo esencial a la vista y el resto
 atrás de un «Más ajustes» plegado — rotación/motion blur/mezcla, peso/
 interlineado, escalonado/orden), **selección MÚLTIPLE y

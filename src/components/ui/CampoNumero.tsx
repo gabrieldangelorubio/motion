@@ -14,6 +14,10 @@
    La etiqueta vive ADENTRO del campo (chica, apagada) y el número a la
    derecha en mono: una sola fila sólida por propiedad. En punteros gruesos
    el número sube a 16px para no disparar el zoom de iOS (kit §2.8).
+
+   DOBLE CLICK = volver al predeterminado (como en AE): cuando el campo
+   declara `porDefecto`, un doble click lo restaura — con su checkpoint de
+   undo — y lo dice en el tooltip.
 ----------------------------------------------------------------------------- */
 
 import { useRef, useState } from "react";
@@ -27,6 +31,7 @@ export function CampoNumero({
   min,
   max,
   sufijo,
+  porDefecto,
 }: {
   etiqueta: string;
   valor: number;
@@ -36,6 +41,8 @@ export function CampoNumero({
   min?: number;
   max?: number;
   sufijo?: string;
+  /** doble click = volver a este valor (el «predeterminado» del campo) */
+  porDefecto?: number;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const marcado = useRef(false);
@@ -96,10 +103,22 @@ export function CampoNumero({
   const acotado = min !== undefined && max !== undefined && Number.isFinite(valor);
   const pct = acotado ? Math.min(100, Math.max(0, ((valor - min!) / (max! - min!)) * 100)) : 0;
 
+  const restaurar = () => {
+    if (porDefecto === undefined) return;
+    onInicio?.();
+    marcado.current = false;
+    onCambio(clamp(redondear(porDefecto)));
+    inputRef.current?.blur();
+  };
+
   return (
-    <label className="block select-none">
+    <label
+      className="block select-none"
+      title={porDefecto !== undefined ? `${etiqueta}: doble click = ${redondear(porDefecto)}${sufijo ?? ""}` : undefined}
+    >
       <div
         onPointerDown={alBajar}
+        onDoubleClick={restaurar}
         className={[
           "relative flex h-8 items-center gap-1.5 overflow-hidden rounded-control px-2 shadow-hueco",
           "cursor-ew-resize",
