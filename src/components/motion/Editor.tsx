@@ -1367,6 +1367,7 @@ export function Editor({
             seleccionIds={seleccionIds}
             onSeleccionar={seleccionar}
             onAlternarSeleccion={alternarSeleccion}
+            onSeleccionarVarias={seleccionarVarias}
             onAlternarVisibilidad={alternarVisibilidad}
             onCheckpoint={registrar}
             onReordenarCapa={reordenarCapaEnVivo}

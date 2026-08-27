@@ -14,7 +14,7 @@
 
 import { useRef, useState } from "react";
 import type { Capa, Composicion } from "@/lib/motion/modelo";
-import { CAMARA_ID } from "@/lib/motion/herramientas-puro";
+import { CAMARA_ID, filasDeCapas } from "@/lib/motion/herramientas-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
@@ -59,6 +59,7 @@ export function Capas({
   seleccionIds = [],
   onSeleccionar,
   onAlternarSeleccion,
+  onSeleccionarVarias,
   onAlternarVisibilidad,
   onCheckpoint,
   onReordenarCapa,
@@ -72,6 +73,8 @@ export function Capas({
   onSeleccionar: (id: string) => void;
   /** shift+click en una fila: entra/sale de la selección múltiple */
   onAlternarSeleccion?: (id: string) => void;
+  /** click en la cabecera de un SUBGRUPO: selecciona todas sus capas */
+  onSeleccionarVarias?: (ids: string[]) => void;
   onAlternarVisibilidad: (id: string) => void;
   onCheckpoint: () => void;
   /** mover capaId para quedar antes/después de referenciaId (mismo contenedor) */
@@ -190,6 +193,57 @@ export function Capas({
   const elementos = elementosDe(composicion);
   const seleccionada = composicion.capas.find((c) => c.id === seleccionId);
 
+  // ——— SUBGRUPOS (grupos de Figma) adentro de una pantalla: sub-nivel
+  // plegable — el logo con sus letras es UNA fila hasta que lo abrís.
+  // Click en la cabecera selecciona el grupo entero (para mover/animar en
+  // bloque); las capas siguen sueltas en el modelo.
+  const [subAbiertos, setSubAbiertos] = useState<Set<string>>(new Set());
+  const filasConSubgrupos = (miembros: Capa[], cont: string) =>
+    filasDeCapas(miembros).map((f) => {
+      if (f.tipo === "capa") return fila(f.capa, cont, true);
+      const ids = f.capas.map((c) => c.id);
+      const abierto = subAbiertos.has(f.id) || ids.includes(seleccionId ?? "");
+      const alguna = ids.some((id) => id === seleccionId || seleccionIds.includes(id));
+      return (
+        <div key={f.id}>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label={t("Subgrupo «{nombre}»: seleccionar sus {n} capas", { nombre: f.nombre, n: f.capas.length })}
+            onClick={() => onSeleccionarVarias?.(ids)}
+            className={[
+              "group/fila relative mb-0.5 flex h-8 cursor-pointer touch-none items-center gap-1 rounded-control pl-4 pr-1",
+              alguna ? "bg-ink/[0.08]" : "hover:bg-ink/[0.04]",
+            ].join(" ")}
+          >
+            <span className={["absolute inset-y-1 left-0 w-0.5 rounded-full", alguna ? "bg-acento" : "bg-transparent"].join(" ")} />
+            <span onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+              <BotonIcono
+                tam={22}
+                activo={abierto}
+                etiqueta={abierto ? t("Plegar el grupo «{nombre}»", { nombre: f.nombre }) : t("Desplegar el grupo «{nombre}»", { nombre: f.nombre })}
+                onClick={() =>
+                  setSubAbiertos((prev) => {
+                    const nuevo = new Set(prev);
+                    if (nuevo.has(f.id)) nuevo.delete(f.id);
+                    else nuevo.add(f.id);
+                    return nuevo;
+                  })
+                }
+              >
+                <Icono nombre="chevronAbajo" width={11} height={11} className={abierto ? "" : "-rotate-90"} />
+              </BotonIcono>
+            </span>
+            <span className={["min-w-0 flex-1 truncate text-left text-[12px]", alguna ? "text-foreground" : "text-foreground/70"].join(" ")}>
+              {f.nombre}
+            </span>
+            <span className="shrink-0 pr-1 font-mono text-[10px] tabular-nums text-foreground/40">{f.capas.length}</span>
+          </div>
+          {abierto && f.capas.map((c) => fila(c, cont, true))}
+        </div>
+      );
+    });
+
   return (
     <aside className="flex h-full select-none flex-col border-r border-(--glass-border) bg-(--chrome-bg)">
       <div className="px-3 pt-3 pb-2 text-[11px] font-medium uppercase tracking-[0.02em] text-foreground/50">
@@ -254,7 +308,7 @@ export function Capas({
                   </BotonIcono>
                 </span>
               </div>
-              {abierta && el.miembros.map((capa) => fila(capa, grupo, true))}
+              {abierta && filasConSubgrupos(el.miembros, grupo)}
             </div>
           );
         })}

@@ -106,7 +106,9 @@ activa), **duración editable** (campo Dur con scrub en el transport:
 cuánto dura TODO lo que se renderiza de la escena, 0.5–120s), **SUBGRUPOS de Figma** (un grupo del
 diseño — el logo con cada letra en su vector — llega AGRUPADO: el plugin
 marca cada nodo con su contenedor más externo debajo del frame, el
-normalizador lo hace único por pantalla, y en el TIMELINE el subgrupo es
+normalizador lo hace único por pantalla, y tanto en el PANEL DE CAPAS (cabecera con chevron y
+contador adentro de su pantalla; click = seleccionar el grupo entero)
+como en el TIMELINE el subgrupo es
 UNA fila plegable — plegada por defecto, con chevron, nombre y contador;
 su barra punteada muestra el rango de animación del grupo y arrastrarla
 mueve el bloque entero; expandís cuando querés animar letra por letra;
