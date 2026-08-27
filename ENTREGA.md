@@ -19,7 +19,14 @@ cursor propio: el borde derecho alarga la duración con el inicio clavado, el
 izquierdo corre el inicio con el fin clavado, y el cuerpo sigue moviendo el
 span entero),
 **inspector de propiedades** (transformación, texto, presets con easing y
-escalonado — cada campo con checkpoint por sesión de foco), **selección MÚLTIPLE y
+escalonado — cada campo con checkpoint por sesión de foco o por gesto;
+los campos numéricos tienen SCRUB estilo Figma/Blender: arrastrás
+horizontal sobre el campo y el valor corre suave con el mouse —Pointer
+Lock cuando el browser lo da, Shift ×10, Alt ×0.1, click seco para
+tipear—, los valores acotados muestran un relleno de slider, y cada
+sección aplica divulgación progresiva: lo esencial a la vista y el resto
+atrás de un «Más ajustes» plegado — rotación/motion blur/mezcla, peso/
+interlineado, escalonado/orden), **selección MÚLTIPLE y
 drag de capas EN el lienzo** (marquee arrastrando en el vacío — el pan
 del viewport queda en la rueda — y también sobre la placa de una pantalla
 NO seleccionada: seleccionás adentro del frame sin moverlo — la pantalla

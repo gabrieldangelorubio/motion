@@ -16,6 +16,7 @@ import { t } from "@/lib/i18n/stub";
 import { Etiqueta } from "@/components/ui/Etiqueta";
 import { CampoNumero } from "@/components/ui/CampoNumero";
 import { Desplegable } from "@/components/ui/Desplegable";
+import { MasAjustes } from "@/components/ui/MasAjustes";
 
 const OPCIONES_EASING = Object.keys(EASINGS).map((n) => ({ valor: n, nombre: n }));
 const OPCIONES_ORDEN: { valor: OrdenEscalonado; nombre: string }[] = [
@@ -81,23 +82,25 @@ function SeccionSegmento({
           opciones={OPCIONES_EASING}
           onCambio={(easing) => conCheckpoint({ easing: easing as NombreEasing })}
         />
-        <div className="grid grid-cols-2 gap-2">
-          <CampoNumero
-            etiqueta={t("Escalonado")}
-            valor={segmento.escalonado ?? 0}
-            min={0}
-            paso={5}
-            sufijo="ms"
-            onInicio={onCheckpoint}
-            onCambio={(escalonado) => onEditar({ escalonado })}
-          />
-          <Desplegable
-            etiqueta={t("Orden")}
-            valor={segmento.ordenEscalonado ?? "inicio"}
-            opciones={OPCIONES_ORDEN}
-            onCambio={(orden) => conCheckpoint({ ordenEscalonado: orden as OrdenEscalonado })}
-          />
-        </div>
+        <MasAjustes>
+          <div className="grid grid-cols-2 gap-2">
+            <CampoNumero
+              etiqueta={t("Escalonado")}
+              valor={segmento.escalonado ?? 0}
+              min={0}
+              paso={5}
+              sufijo="ms"
+              onInicio={onCheckpoint}
+              onCambio={(escalonado) => onEditar({ escalonado })}
+            />
+            <Desplegable
+              etiqueta={t("Orden")}
+              valor={segmento.ordenEscalonado ?? "inicio"}
+              opciones={OPCIONES_ORDEN}
+              onCambio={(orden) => conCheckpoint({ ordenEscalonado: orden as OrdenEscalonado })}
+            />
+          </div>
+        </MasAjustes>
       </div>
     </section>
   );
@@ -155,14 +158,6 @@ export function Inspector({
             onCambio={(v) => editar({ escala: v / 100 })}
           />
           <CampoNumero
-            etiqueta={t("Rotación")}
-            valor={capa.rotacion ?? 0}
-            paso={1}
-            sufijo="°"
-            onInicio={onCheckpoint}
-            onCambio={(rotacion) => editar({ rotacion })}
-          />
-          <CampoNumero
             etiqueta={t("Opacidad")}
             valor={(capa.opacidad ?? 1) * 100}
             min={0}
@@ -172,18 +167,28 @@ export function Inspector({
             onInicio={onCheckpoint}
             onCambio={(v) => editar({ opacidad: v / 100 })}
           />
-          <CampoNumero
-            etiqueta={t("Motion blur")}
-            valor={capa.motionBlur ?? 0}
-            min={0}
-            max={2}
-            paso={0.1}
-            sufijo="×"
-            onInicio={onCheckpoint}
-            onCambio={(motionBlur) => editar({ motionBlur })}
-          />
         </div>
-        <div className="mt-2.5">
+        <MasAjustes>
+          <div className="grid grid-cols-2 gap-2">
+            <CampoNumero
+              etiqueta={t("Rotación")}
+              valor={capa.rotacion ?? 0}
+              paso={1}
+              sufijo="°"
+              onInicio={onCheckpoint}
+              onCambio={(rotacion) => editar({ rotacion })}
+            />
+            <CampoNumero
+              etiqueta={t("Motion blur")}
+              valor={capa.motionBlur ?? 0}
+              min={0}
+              max={2}
+              paso={0.1}
+              sufijo="×"
+              onInicio={onCheckpoint}
+              onCambio={(motionBlur) => editar({ motionBlur })}
+            />
+          </div>
           <Desplegable
             etiqueta={t("Mezcla")}
             valor={capa.mezcla ?? ""}
@@ -193,7 +198,7 @@ export function Inspector({
               editar({ mezcla: (v || undefined) as MezclaCapa | undefined });
             }}
           />
-        </div>
+        </MasAjustes>
       </section>
 
       {capa.tipo === "texto" && (
@@ -216,37 +221,15 @@ export function Inspector({
                 className="w-full resize-y rounded-control bg-transparent px-2 py-1.5 text-base text-foreground shadow-hueco outline-none"
               />
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              <CampoNumero
-                etiqueta={t("Tamaño")}
-                valor={capa.fuente.tamano}
-                min={4}
-                paso={4}
-                sufijo="px"
-                onInicio={onCheckpoint}
-                onCambio={(tamano) => editar({ fuente: { ...capa.fuente, tamano } })}
-              />
-              <CampoNumero
-                etiqueta={t("Peso")}
-                valor={capa.fuente.peso}
-                min={100}
-                max={900}
-                paso={100}
-                onInicio={onCheckpoint}
-                onCambio={(peso) => editar({ fuente: { ...capa.fuente, peso } })}
-              />
-            </div>
-            {capa.texto.includes("\n") && (
-              <CampoNumero
-                etiqueta={t("Interlineado")}
-                valor={capa.fuente.interlineado ?? Math.round(capa.fuente.tamano * 1.15)}
-                min={4}
-                paso={2}
-                sufijo="px"
-                onInicio={onCheckpoint}
-                onCambio={(interlineado) => editar({ fuente: { ...capa.fuente, interlineado } })}
-              />
-            )}
+            <CampoNumero
+              etiqueta={t("Tamaño")}
+              valor={capa.fuente.tamano}
+              min={4}
+              paso={4}
+              sufijo="px"
+              onInicio={onCheckpoint}
+              onCambio={(tamano) => editar({ fuente: { ...capa.fuente, tamano } })}
+            />
             <Desplegable
               etiqueta={t("División")}
               valor={capa.division}
@@ -271,6 +254,28 @@ export function Inspector({
                 editar(cambios);
               }}
             />
+            <MasAjustes>
+              <div className="grid grid-cols-2 gap-2">
+                <CampoNumero
+                  etiqueta={t("Peso")}
+                  valor={capa.fuente.peso}
+                  min={100}
+                  max={900}
+                  paso={100}
+                  onInicio={onCheckpoint}
+                  onCambio={(peso) => editar({ fuente: { ...capa.fuente, peso } })}
+                />
+                <CampoNumero
+                  etiqueta={t("Interlineado")}
+                  valor={capa.fuente.interlineado ?? Math.round(capa.fuente.tamano * 1.15)}
+                  min={4}
+                  paso={2}
+                  sufijo="px"
+                  onInicio={onCheckpoint}
+                  onCambio={(interlineado) => editar({ fuente: { ...capa.fuente, interlineado } })}
+                />
+              </div>
+            </MasAjustes>
           </div>
         </section>
       )}
