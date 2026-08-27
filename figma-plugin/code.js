@@ -344,7 +344,10 @@ async function nodoAIR(nodo, marco, salida) {
         tamano: tamano,
         interletrado: Math.abs(espaciado) > 0.01 ? Math.round(espaciado * 100) / 100 : undefined,
         interlineado: interlineado,
-        lineasEstimadas: lineasEstimadas > 1 && contenido.indexOf("\n") < 0 ? lineasEstimadas : undefined,
+        // se exporta cuando Figma renderizó MÁS líneas que las escritas: la
+        // diferencia es wrap de la caja, y puede convivir con Enters de
+        // autor (el caso «un Enter tipeado + el wrap parte otra línea»)
+        lineasEstimadas: lineasEstimadas > contenido.split("\n").length ? lineasEstimadas : undefined,
         tintaY: tintaY,
         alineacion: alineacionDe(nodo),
         color: colorDePintura(pintura),

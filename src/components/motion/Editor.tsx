@@ -603,8 +603,11 @@ export function Editor({
     const medir = (t: string) => ctx.measureText(t).width + interletrado * Math.max(0, t.length - 1);
     const texto = envolverEnLineas(original, anchoCaja * 1.02, medir, lineas);
     const n = texto.split("\n").length;
+    // el y original ya contaba las líneas EXPLÍCITAS del contenido: acá se
+    // corrige sólo por las que el wrap agregó (el motor centra el bloque)
+    const n0 = original.split("\n").length;
     const interlineado = capa.fuente.interlineado ?? capa.fuente.tamano * 1.15;
-    return { texto, y: yOriginal + ((n - 1) / 2) * interlineado };
+    return { texto, y: yOriginal + ((n - n0) / 2) * interlineado };
   }, []);
 
   const reajustarTextos = useCallback((comp: Composicion, reajustes: ResultadoImport["reajustes"]): Composicion => {
@@ -614,7 +617,9 @@ export function Editor({
     if (!ctx) return comp;
     const capas = comp.capas.map((c) => {
       const ajuste = reajustes.find((r) => r.capaId === c.id);
-      if (!ajuste || c.tipo !== "texto" || c.texto.includes("\n")) return c;
+      // aplica sólo si al texto le FALTAN líneas (los \n explícitos de autor
+      // cuentan: el wrap de la caja puede convivir con ellos)
+      if (!ajuste || c.tipo !== "texto" || c.texto.split("\n").length >= ajuste.lineas) return c;
       const { texto, y } = envolverCapaTexto(c, ajuste.anchoCaja, ajuste.lineas, c.texto, c.y, ctx);
       if (texto === c.texto) return c;
       reajustesRef.current.push({ ...ajuste, original: c.texto, yOriginal: c.y, aplicado: texto });

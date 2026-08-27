@@ -201,3 +201,41 @@ test("la mezcla viaja del IR a la capa; una desconocida degrada a normal CON avi
   assert.equal(punto.mezcla, undefined);
   assert.ok(avisos.some((a) => a.includes("Punto") && a.includes("modo-inventado")));
 });
+
+test("envolverEnLineas respeta los Enter de autor y reparte el wrap por párrafo", async () => {
+  const { envolverEnLineas } = await import("@/lib/motion/figma-puro");
+  const medir = (t: string) => t.length * 10;
+  // el caso real: «ARGENTINA FOOTBALL\nCULTURE» renderiza 3 líneas en Figma
+  // (el Enter de autor + el wrap que parte el primer párrafo)
+  const res = envolverEnLineas("ARGENTINA FOOTBALL\nCULTURE", 500, medir, 3);
+  assert.equal(res, "ARGENTINA\nFOOTBALL\nCULTURE");
+  // sin objetivo: cada párrafo se envuelve por separado a la caja
+  assert.equal(envolverEnLineas("AB CD\nEF", 200, medir), "AB CD\nEF");
+  // un objetivo menor que los cortes explícitos no los puede borrar
+  assert.equal(envolverEnLineas("AB\nCD", 500, medir, 1), "AB\nCD");
+  // párrafo vacío (doble Enter) se conserva como línea en blanco
+  assert.equal(envolverEnLineas("AB\n\nCD EF", 500, medir, 4), "AB\n\nCD\nEF");
+});
+
+test("normalizarFigma pide reajuste cuando Figma renderizó MÁS líneas que las escritas", async () => {
+  const { normalizarFigma } = await import("@/lib/motion/figma-puro");
+  const base = {
+    origen: "figma" as const, version: 1 as const,
+    frame: { nombre: "f", ancho: 1920, alto: 1080, fondo: "#000" },
+  };
+  const nodoTexto = (contenido: string, lineasEstimadas?: number) => ({
+    nombre: "t", tipo: "texto" as const, x: 90, y: 380, ancho: 701, alto: 354,
+    texto: {
+      contenido, familia: "Vecino", peso: 250, tamano: 147.95,
+      interlineado: 118.36, lineasEstimadas,
+      alineacion: "izquierda" as const, color: "#fff",
+    },
+  });
+  // contenido con UN Enter de autor pero 3 líneas renderizadas → reajuste a 3
+  const conEnter = normalizarFigma({ ...base, nodos: [nodoTexto("ARGENTINA FOOTBALL\nCULTURE", 3)] });
+  assert.equal(conEnter.reajustes.length, 1);
+  assert.equal(conEnter.reajustes[0].lineas, 3);
+  // 3 líneas escritas y 3 renderizadas → nada que reconstruir
+  const explicito = normalizarFigma({ ...base, nodos: [nodoTexto("ARGENTINA\nFOOTBALL\nCULTURE", undefined)] });
+  assert.equal(explicito.reajustes.length, 0);
+});

@@ -206,11 +206,13 @@ export function Inspector({
                 value={capa.texto}
                 rows={Math.min(5, capa.texto.split("\n").length)}
                 onFocus={onCheckpoint}
-                onChange={(e) =>
-                  // cambiar el CONTENIDO invalida los tramos de estilo (rich
-                  // text): quedarían indexados a otros caracteres
-                  editar(capa.tramos ? { texto: e.target.value, tramos: undefined } : { texto: e.target.value })
-                }
+                onChange={(e) => {
+                  // los tramos de estilo se indexan por carácter NO BLANCO:
+                  // mover espacios o Enters no los toca; cambiar la tinta sí
+                  const v = e.target.value;
+                  const mismaTinta = v.replace(/\s+/g, "") === capa.texto.replace(/\s+/g, "");
+                  editar(capa.tramos && !mismaTinta ? { texto: v, tramos: undefined } : { texto: v });
+                }}
                 className="w-full resize-y rounded-control bg-transparent px-2 py-1.5 text-base text-foreground shadow-hueco outline-none"
               />
             </label>

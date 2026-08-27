@@ -163,8 +163,10 @@ export function ejecutarHerramienta(
         const extra = cambios as Partial<CapaTexto>;
         if (typeof input.texto === "string") {
           extra.texto = input.texto;
-          // otro contenido invalida los tramos de estilo (índices por carácter)
-          if (capa.tramos && input.texto !== capa.texto) extra.tramos = undefined;
+          // los tramos se indexan por carácter NO BLANCO: mover espacios o
+          // saltos de línea no los invalida; cambiar la tinta sí
+          const mismaTinta = input.texto.replace(/\s+/g, "") === capa.texto.replace(/\s+/g, "");
+          if (capa.tramos && !mismaTinta) extra.tramos = undefined;
         }
         if (typeof input.color === "string") extra.color = input.color;
         if (input.division === "ninguna" || input.division === "caracteres" || input.division === "palabras" || input.division === "lineas") {

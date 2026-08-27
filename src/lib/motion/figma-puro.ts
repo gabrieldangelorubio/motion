@@ -116,11 +116,15 @@ function envolverGreedy(palabras: string[], anchoMax: number, medir: MedirAncho)
 
 /**
  * Reconstruye el wrap que Figma hizo en su caja. Pura: la medición entra
- * como función. Primero prueba el ancho de la caja; si el conteo no coincide
- * con las líneas que Figma REALMENTE renderizó (las métricas de la fuente
- * medida pueden diferir de la real), busca por bisección el ancho más
- * angosto que produce exactamente ese conteo — el dato fuerte es el conteo,
- * no el ancho. Una palabra más ancha que la caja desborda, no se corta.
+ * como función. Los \n EXPLÍCITOS del texto se respetan siempre (un Enter
+ * tipeado a mano es un corte de autor): cada párrafo se envuelve por
+ * separado y el objetivo cuenta el TOTAL de líneas renderizadas — el caso
+ * real «un Enter + el wrap de la caja» produce ambas cosas. Primero prueba
+ * el ancho de la caja; si el conteo total no coincide con las líneas que
+ * Figma REALMENTE renderizó (las métricas de la fuente medida pueden
+ * diferir de la real), busca por bisección el ancho más angosto que
+ * produce exactamente ese conteo — el dato fuerte es el conteo, no el
+ * ancho. Una palabra más ancha que la caja desborda, no se corta.
  */
 export function envolverEnLineas(
   texto: string,
@@ -128,21 +132,30 @@ export function envolverEnLineas(
   medir: MedirAncho,
   lineasObjetivo?: number,
 ): string {
-  const palabras = texto.split(/\s+/).filter(Boolean);
-  if (palabras.length < 2) return texto;
+  const parrafos = texto.split("\n").map((p) => p.split(/\s+/).filter(Boolean));
+  const totalPalabras = parrafos.reduce((a, p) => a + p.length, 0);
+  if (totalPalabras < 2) return texto;
 
-  const porCaja = envolverGreedy(palabras, anchoMax, medir);
-  const objetivo = Math.min(lineasObjetivo ?? 0, palabras.length);
-  if (objetivo <= 1 || porCaja.length === objetivo) return porCaja.join("\n");
+  // párrafo vacío (doble Enter) = una línea en blanco, se conserva
+  const envolverTodo = (ancho: number): string[] =>
+    parrafos.flatMap((p) => (p.length ? envolverGreedy(p, ancho, medir) : [""]));
 
-  let angosto = Math.max(...palabras.map(medir));
-  let ancho = medir(palabras.join(" "));
+  const porCaja = envolverTodo(anchoMax);
+  // tope alcanzable: una línea por palabra + las líneas en blanco de autor
+  const vacios = parrafos.filter((p) => p.length === 0).length;
+  const objetivo = Math.min(lineasObjetivo ?? 0, totalPalabras + vacios);
+  // el objetivo nunca puede bajar de los cortes explícitos: si no alcanza,
+  // manda el wrap de la caja tal cual
+  if (objetivo <= parrafos.length || porCaja.length === objetivo) return porCaja.join("\n");
+
+  let angosto = Math.max(...parrafos.flat().map(medir));
+  let ancho = medir(parrafos.flat().join(" "));
   for (let i = 0; i < 30; i++) {
     const medio = (angosto + ancho) / 2;
-    if (envolverGreedy(palabras, medio, medir).length > objetivo) angosto = medio;
+    if (envolverTodo(medio).length > objetivo) angosto = medio;
     else ancho = medio;
   }
-  return envolverGreedy(palabras, ancho, medir).join("\n");
+  return envolverTodo(ancho).join("\n");
 }
 
 const sanitizarId = (nombre: string, indice: number) =>
@@ -287,8 +300,10 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
       // línea adicional. La baseline usa el modelo de centrado de Figma.
       const lineas = t.contenido.split("\n").length;
       const interlineado = t.interlineado ?? t.tamano * 1.15;
-      if (lineas === 1 && (t.lineasEstimadas ?? 1) > 1) {
-        // el quiebre era wrap de la caja: el editor lo reconstruye midiendo
+      if ((t.lineasEstimadas ?? 0) > lineas) {
+        // Figma renderizó MÁS líneas de las que el contenido trae escritas:
+        // la diferencia es wrap de la caja (puede convivir con Enters de
+        // autor) y el editor lo reconstruye midiendo, párrafo por párrafo
         reajustes.push({ capaId: id, anchoCaja: nodo.ancho, lineas: t.lineasEstimadas! });
       }
       anclas.push({ capaId: id, topCaja: nodo.y, tintaY: t.tintaY });
