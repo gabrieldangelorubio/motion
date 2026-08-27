@@ -128,9 +128,14 @@ bordes diagonales de un display grande dejan de escalonar; los radios de
 MSE contra un ground truth 4×), back-pressure del encoder y progreso en
 vivo. El editor arranca PARADO en 0 (sin autoplay) y con la línea de
 tiempo alta (340px). El texto de Figma con ESTILOS MIXTOS (dos fuentes en
-un título, un color por palabra) ya no se rasteriza: el plugin lo parte
-con getStyledTextSegments y lo trae EDITABLE con el estilo dominante (el
-de más caracteres), avisando qué tramos pierden su dibujo.
+un título, un color por palabra) ya no se rasteriza NI pierde estilos: es
+RICH TEXT real — el plugin exporta el estilo dominante como base más
+«tramos» (corridas de fuente/peso/tamaño/color indexadas por carácter NO
+BLANCO, así el re-wrap del import no las corre), y el motor pinta corrida
+por corrida sobre la misma baseline, midiendo cada una con su propia
+fuente — compatible con la división por caracteres/palabras/líneas y sus
+escalonados. Editar el CONTENIDO del texto descarta los tramos (quedarían
+indexados a otros caracteres): degradar, no romper.
 
 ## Qué NO hace (con motivo)
 

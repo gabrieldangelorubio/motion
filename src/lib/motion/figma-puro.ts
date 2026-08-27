@@ -43,6 +43,9 @@ export type NodoFigma = {
     tintaY?: number;
     alineacion: "izquierda" | "centro" | "derecha";
     color: string;
+    /** corridas de estilo distintas al dominante (rich text): índices sobre
+        los caracteres NO BLANCOS del contenido — sobreviven al re-wrap */
+    tramos?: { desde: number; hasta: number; familia?: string; peso?: number; tamano?: number; color?: string }[];
   };
   forma?: { color: string; radio?: number };
   imagen?: { dataUri: string };
@@ -301,6 +304,7 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
           interlineado: t.interlineado,
         },
         color: t.color,
+        tramos: t.tramos && t.tramos.length ? t.tramos : undefined,
         division: "ninguna",
         alineacion: t.alineacion,
         x,

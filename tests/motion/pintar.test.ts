@@ -114,3 +114,58 @@ test("con supersampling espacial el blur de ctx.filter escala (px de dispositivo
   pintar(estado, doble.ctx, {}, 2);
   assert.ok(doble.llamadas.includes("set filter=blur(20.00px)"), "a 2× el radio se duplica para verse igual");
 });
+
+test("tramos de estilo: cada corrida se pinta con SU fuente sobre la misma baseline", async () => {
+  const { crearComposicion } = await import("@/lib/motion/herramientas-puro");
+  const base = crearComposicion({ nombre: "rich" });
+  const capa = {
+    id: "t", nombre: "t", tipo: "texto" as const, texto: "AB CD",
+    fuente: { familia: "Base", tamano: 40, peso: 700 },
+    color: "#fff",
+    // índices NO BLANCOS: A=0 B=1 C=2 D=3 → «CD» va con la otra fuente
+    tramos: [{ desde: 2, hasta: 4, familia: "Otra", color: "#f00" }],
+    division: "ninguna" as const,
+    alineacion: "izquierda" as const,
+    x: 0, y: 0,
+  };
+  const comp = { ...base, capas: [capa] };
+  const a = contextoFalso();
+  pintar(estadoEn(comp, 0), a.ctx);
+  // dos corridas: «AB » con la base (3 chars × 10 = ancho 30) y «CD» corrida a x=30 con Otra
+  assert.ok(a.llamadas.includes("fillText(AB ,0.000,0.000)"), "la corrida base arranca en 0");
+  assert.ok(a.llamadas.includes("fillText(CD,30.000,0.000)"), "la corrida estilada continúa donde terminó la anterior");
+  assert.ok(a.llamadas.some((l) => l.startsWith("set font=") && l.includes("Otra")), "la segunda corrida usa su fuente");
+  assert.ok(a.llamadas.includes("set fillStyle=#f00"), "y su color");
+
+  // determinismo: dos pinturas del mismo estado, mismas llamadas
+  const b = contextoFalso();
+  pintar(estadoEn(comp, 0), b.ctx);
+  assert.deepEqual(a.llamadas, b.llamadas);
+
+  // división por palabras: la palabra estilada sigue midiéndose con su corrida
+  const porPalabras = { ...comp, capas: [{ ...capa, division: "palabras" as const }] };
+  const c = contextoFalso();
+  pintar(estadoEn(porPalabras, 0), c.ctx);
+  const textos = c.llamadas.filter((l) => l.startsWith("fillText"));
+  assert.ok(textos.some((l) => l.startsWith("fillText(AB,")), "palabra base");
+  assert.ok(textos.some((l) => l.startsWith("fillText(CD,")), "palabra estilada");
+});
+
+test("figma-puro: los tramos del plugin viajan a la capa de texto", async () => {
+  const { normalizarFigma } = await import("@/lib/motion/figma-puro");
+  const res = normalizarFigma({
+    origen: "figma", version: 1,
+    frame: { nombre: "f", ancho: 100, alto: 100, fondo: "#000" },
+    nodos: [{
+      nombre: "titulo", tipo: "texto", x: 0, y: 0, ancho: 100, alto: 40,
+      texto: {
+        contenido: "AB CD", familia: "Base", peso: 700, tamano: 20,
+        alineacion: "izquierda", color: "#fff",
+        tramos: [{ desde: 2, hasta: 4, familia: "Otra" }],
+      },
+    }],
+  });
+  const texto = res.composicion.capas.find((c) => c.tipo === "texto");
+  assert.ok(texto && texto.tipo === "texto");
+  assert.deepEqual(texto.tramos, [{ desde: 2, hasta: 4, familia: "Otra" }]);
+});

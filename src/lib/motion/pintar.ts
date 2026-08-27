@@ -12,6 +12,7 @@
 ----------------------------------------------------------------------------- */
 
 import type { EstadoCapa, EstadoComposicion, EstadoUnidad } from "@/lib/motion/evaluar-puro";
+import type { TramoTexto } from "@/lib/motion/modelo";
 
 /** El subconjunto de la API de canvas que usamos — permite un doble de test. */
 export type Contexto2D = Pick<
@@ -52,17 +53,60 @@ function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
   if (capa.tipo !== "texto") return;
   const { familia, tamano, peso, interletrado = 0 } = capa.fuente;
   const interlineado = capa.fuente.interlineado ?? tamano * 1.15;
-  ctx.font = `${peso} ${tamano}px ${familia}`;
+  const fuenteBase = `${peso} ${tamano}px ${familia}`;
+  ctx.font = fuenteBase;
   ctx.textBaseline = "alphabetic";
   ctx.textAlign = "left";
   ctx.fillStyle = capa.color;
+
+  // ——— Tramos de estilo (rich text de Figma): corridas de fuente/peso/
+  // tamaño/color dentro del texto, indexadas por carácter NO BLANCO. Todo
+  // segmento a pintar se parte en corridas uniformes; cada una se mide y se
+  // dibuja con su propia font sobre la MISMA baseline. Sin tramos, la única
+  // corrida es el estilo base — el camino de siempre.
+  const tramos = capa.tramos ?? [];
+  const estiloEn = (k: number): TramoTexto | null => {
+    for (const tramo of tramos) if (k >= tramo.desde && k < tramo.hasta) return tramo;
+    return null;
+  };
+  type Corrida = { texto: string; font: string; color: string; ancho: number };
+  const esBlanco = (letra: string) => /\s/.test(letra);
+  const noBlancos = (s: string) => {
+    let n = 0;
+    for (const letra of s) if (!esBlanco(letra)) n++;
+    return n;
+  };
+  // parte `texto` (cuyo primer carácter no blanco es el índice k0) en corridas
+  const corridasDe = (texto: string, k0: number): Corrida[] => {
+    const brutas: { tramo: TramoTexto | null; texto: string }[] = [];
+    let k = k0;
+    for (const letra of texto) {
+      const blanco = esBlanco(letra);
+      const previa = brutas[brutas.length - 1];
+      // el blanco no tiene estilo propio: viaja con la corrida anterior
+      const tramo = blanco ? (previa ? previa.tramo : null) : estiloEn(k);
+      if (previa && previa.tramo === tramo) previa.texto += letra;
+      else brutas.push({ tramo, texto: letra });
+      if (!blanco) k++;
+    }
+    const corridas = brutas.map(({ tramo, texto: tx }) => {
+      const font = tramo
+        ? `${tramo.peso ?? peso} ${tramo.tamano ?? tamano}px ${tramo.familia ?? familia}`
+        : fuenteBase;
+      ctx.font = font;
+      return { texto: tx, font, color: tramo?.color ?? capa.color, ancho: ctx.measureText(tx).width };
+    });
+    ctx.font = fuenteBase;
+    return corridas;
+  };
+  const anchoDe = (corridas: Corrida[]) => corridas.reduce((a, c) => a + c.ancho, 0);
 
   const lineas = capa.texto.split("\n");
   // El bloque queda centrado verticalmente en el ancla: con 1 línea la
   // baseline cae en y=0 (igual que antes de existir multilínea).
   const baseDeLinea = (i: number) => (i - (lineas.length - 1) / 2) * interlineado;
 
-  const pintarUnidad = (texto: string, x: number, y: number, ancho: number, u: EstadoUnidad) => {
+  const pintarUnidad = (corridas: Corrida[], x: number, y: number, ancho: number, u: EstadoUnidad) => {
     ctx.save();
     ctx.globalAlpha *= u.opacidad;
     ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
@@ -83,11 +127,20 @@ function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
       ctx.translate(-ancho / 2, tamano * 0.35);
     }
     ctx.scale(1 + u.dEscala, 1 + u.dEscala);
-    ctx.fillText(texto, 0, 0);
+    let cursorCorrida = 0;
+    for (const corrida of corridas) {
+      ctx.font = corrida.font;
+      ctx.fillStyle = corrida.color;
+      ctx.fillText(corrida.texto, cursorCorrida, 0);
+      cursorCorrida += corrida.ancho;
+    }
+    ctx.font = fuenteBase;
+    ctx.fillStyle = capa.color;
     ctx.restore();
   };
 
   let indiceAnimable = 0;
+  let indiceTinta = 0; // caracteres no blancos ya consumidos (para los tramos)
   const ultima = () => estado.unidades[estado.unidades.length - 1];
   for (let l = 0; l < lineas.length; l++) {
     const linea = lineas[l];
@@ -95,18 +148,29 @@ function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
     const anchoEspacio = ctx.measureText(" ").width;
 
     if (capa.division === "ninguna" || capa.division === "lineas") {
-      const anchoLinea = ctx.measureText(linea).width;
+      const corridas = corridasDe(linea, indiceTinta);
+      const anchoLinea = anchoDe(corridas);
       const x0 = capa.alineacion === "izquierda" ? 0 : capa.alineacion === "derecha" ? -anchoLinea : -anchoLinea / 2;
       const u = capa.division === "lineas"
         ? (estado.unidades[indiceAnimable++] ?? ultima())
         : estado.unidades[0];
-      pintarUnidad(linea, x0, y, anchoLinea, u);
+      pintarUnidad(corridas, x0, y, anchoLinea, u);
+      indiceTinta += noBlancos(linea);
       continue;
     }
 
-    // caracteres / palabras: cada unidad se posiciona con measureText, acumulando anchos.
+    // caracteres / palabras: cada unidad se posiciona midiendo sus corridas,
+    // acumulando anchos.
     const trozos = capa.division === "palabras" ? linea.split(/\s+/).filter(Boolean) : [...linea];
-    const anchos = trozos.map((tz) => (tz.trim() === "" ? anchoEspacio : ctx.measureText(tz).width + interletrado));
+    const corridasPorTrozo: Corrida[][] = [];
+    {
+      let k = indiceTinta;
+      for (const trozo of trozos) {
+        corridasPorTrozo.push(trozo.trim() === "" ? [] : corridasDe(trozo, k));
+        k += noBlancos(trozo);
+      }
+    }
+    const anchos = trozos.map((trozo, i) => (trozo.trim() === "" ? anchoEspacio : anchoDe(corridasPorTrozo[i]) + interletrado));
     const total = anchos.reduce((a, b) => a + b, 0) +
       (capa.division === "palabras" ? anchoEspacio * Math.max(0, trozos.length - 1) : 0);
     let cursor = capa.alineacion === "izquierda" ? 0 : capa.alineacion === "derecha" ? -total : -total / 2;
@@ -115,11 +179,12 @@ function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
       const glifo = trozos[i];
       if (glifo.trim() !== "") {
         const u = estado.unidades[indiceAnimable] ?? ultima();
-        pintarUnidad(glifo, cursor, y, anchos[i], u);
+        pintarUnidad(corridasPorTrozo[i], cursor, y, anchos[i], u);
         indiceAnimable++;
       }
       cursor += anchos[i] + (capa.division === "palabras" ? anchoEspacio : 0);
     }
+    indiceTinta += noBlancos(linea);
   }
 }
 

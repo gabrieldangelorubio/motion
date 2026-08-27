@@ -107,6 +107,20 @@ export type CapaBase = {
   grupo?: string;
 };
 
+/** Corrida de estilo dentro del texto de una capa (rich text de Figma: dos
+    tipografías en un título, un color por palabra). Los índices cuentan
+    CARACTERES NO BLANCOS (0-based, `hasta` exclusivo): así sobreviven al
+    re-wrap del import, que sólo mueve espacios y saltos de línea. Cada campo
+    ausente hereda el estilo base de la capa. */
+export type TramoTexto = {
+  desde: number;
+  hasta: number;
+  familia?: string;
+  peso?: number;
+  tamano?: number;
+  color?: string;
+};
+
 export type CapaTexto = CapaBase & {
   tipo: "texto";
   /** puede tener \n: el motor pinta multilínea con interlineado */
@@ -120,6 +134,9 @@ export type CapaTexto = CapaBase & {
     interlineado?: number;
   };
   color: string;
+  /** corridas de estilo (rich text); editar el CONTENIDO del texto las
+      descarta — quedan indexadas a otros caracteres (degradar, no romper) */
+  tramos?: TramoTexto[];
   division: "ninguna" | "caracteres" | "palabras" | "lineas";
   alineacion?: "izquierda" | "centro" | "derecha";
 };

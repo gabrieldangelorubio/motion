@@ -124,6 +124,46 @@ function estiloDominante(nodo) {
   return mejor ? { seg: mejor.seg, pintura: mejor.pintura, tramos: segmentos.length } : null;
 }
 
+// Corridas de estilo DISTINTAS al dominante, con índices sobre los
+// caracteres NO BLANCOS del contenido (así el re-wrap del editor, que sólo
+// mueve espacios y saltos, no las corre). Cada tramo lleva únicamente los
+// campos que difieren del estilo base de la capa.
+function tramosDe(nodo, base) {
+  var segmentos;
+  try {
+    segmentos = nodo.getStyledTextSegments(["fontName", "fontSize", "fontWeight", "fills"]);
+  } catch (e) {
+    return null;
+  }
+  if (!segmentos) return null;
+  var tramos = [];
+  var k = 0;
+  for (var i = 0; i < segmentos.length; i++) {
+    var s = segmentos[i];
+    var cuenta = 0;
+    for (var j = 0; j < s.characters.length; j++) {
+      if (!/\s/.test(s.characters[j])) cuenta++;
+    }
+    if (cuenta === 0) continue; // sólo blancos: sin estilo propio
+    var tramo = {};
+    if (s.fontName !== figma.mixed && s.fontName.family !== base.familia) tramo.familia = s.fontName.family;
+    if (s.fontWeight !== figma.mixed && s.fontWeight !== base.peso) tramo.peso = s.fontWeight;
+    if (s.fontSize !== figma.mixed && Math.abs(s.fontSize - base.tamano) > 0.01) tramo.tamano = s.fontSize;
+    var pintura = pinturaSolida(s.fills);
+    if (pintura) {
+      var color = colorDePintura(pintura);
+      if (color !== base.color) tramo.color = color;
+    }
+    if (Object.keys(tramo).length > 0) {
+      tramo.desde = k;
+      tramo.hasta = k + cuenta;
+      tramos.push(tramo);
+    }
+    k += cuenta;
+  }
+  return tramos.length ? tramos : null;
+}
+
 async function nodoAIR(nodo, marco, salida) {
   if (!nodo.visible) return;
   var rotado = "rotation" in nodo && Math.abs(nodo.rotation) > 0.01;
@@ -147,8 +187,8 @@ async function nodoAIR(nodo, marco, salida) {
         peso = dominante.seg.fontWeight;
         espaciadoCrudo = dominante.seg.letterSpacing;
         if (alturaLinea === figma.mixed) alturaLinea = dominante.seg.lineHeight;
-        avisoMixto = "estilos mixtos (" + dominante.tramos + " tramos): quedó EDITABLE con el estilo dominante — «" +
-          nombreFuente.family + "» " + peso + " · " + tamano + "px; los tramos con otra fuente/color pierden su dibujo";
+        avisoMixto = "estilos mixtos (" + dominante.tramos + " tramos): quedó EDITABLE — base «" +
+          nombreFuente.family + "» " + peso + " · " + tamano + "px, y los tramos con otra fuente/peso/tamaño/color viajan aparte";
       }
     }
     var simple =
@@ -202,6 +242,12 @@ async function nodoAIR(nodo, marco, salida) {
       interlineado = Math.round((nodo.height / lineasEstimadas) * 100) / 100;
     }
 
+    // Rich text: si el nodo tenía estilos mixtos, las corridas que difieren
+    // del dominante viajan como tramos (el editor las pinta con su fuente).
+    var tramosTexto = avisoMixto
+      ? tramosDe(nodo, { familia: nombreFuente.family, peso: peso, tamano: tamano, color: colorDePintura(pintura) })
+      : null;
+
     // La TINTA: dónde quedaron pintados los píxeles del texto en Figma
     // (absoluteRenderBounds). Su tope es el dato duro para el anclaje
     // vertical del editor — sin depender de modelos de métricas.
@@ -229,6 +275,7 @@ async function nodoAIR(nodo, marco, salida) {
         tintaY: tintaY,
         alineacion: alineacionDe(nodo),
         color: colorDePintura(pintura),
+        tramos: tramosTexto || undefined,
       },
     });
     return;

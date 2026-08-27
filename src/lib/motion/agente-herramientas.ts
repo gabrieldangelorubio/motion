@@ -161,7 +161,11 @@ export function ejecutarHerramienta(
       if (typeof input.nombre === "string") cambios.nombre = input.nombre;
       if (capa.tipo === "texto") {
         const extra = cambios as Partial<CapaTexto>;
-        if (typeof input.texto === "string") extra.texto = input.texto;
+        if (typeof input.texto === "string") {
+          extra.texto = input.texto;
+          // otro contenido invalida los tramos de estilo (índices por carácter)
+          if (capa.tramos && input.texto !== capa.texto) extra.tramos = undefined;
+        }
         if (typeof input.color === "string") extra.color = input.color;
         if (input.division === "ninguna" || input.division === "caracteres" || input.division === "palabras" || input.division === "lineas") {
           extra.division = input.division;
