@@ -96,7 +96,10 @@ pantallas y su cámara, y el corte entre escenas es duro como en un edit;
 la barra de chips arriba del lienzo cambia de escena —flusheando el
 autosave, nada se pierde—, «+» crea una nueva heredando el FORMATO del
 proyecto (unificación de diseño: ancho/alto/fps/fondo, lienzo vacío) y
-«⧉» duplica la activa como documento nuevo; cada escena se guarda por su
+«⧉» duplica la activa como documento nuevo, y cada chip lleva su «×»
+de BORRAR con confirmación inline —el chip pregunta «¿Borrar?» y se
+arrepiente solo a los 4s; la última escena del proyecto no se borra, y
+al borrar la activa se salta a la anterior sin guardar lo que se va—; cada escena se guarda por su
 propio id con el mismo protocolo CAS y el registro del proyecto vive en
 localStorage hasta el catálogo de diosa; el agente dirige la escena
 activa), **duración editable** (campo Dur con scrub en el transport:
@@ -157,7 +160,11 @@ se dice en cada pedazo al cortar escenas—, y el chat de diosa tiene MIC:
 apretás ⏺, hablás el pedido, Whisper lo pasa a texto en el input y lo
 revisás antes de enviar; sin red o sin modelo, aviso legible y todo lo
 demás sigue — la demo publicada lleva un stub (su CSP no deja bajar el
-modelo)),
+modelo); NOTA de import: se usa el bundle dist/ prebuildeado del paquete
+— el src/ importa onnxruntime-node y el bundler de Next lo rompe
+(«Cannot convert undefined or null to object»); verificado el ciclo
+COMPLETO en browser real: modelo bajado, tono transcripto, oraciones
+pintadas y persistidas),
 **media a mano: subir y reemplazar** (botón de subir imagen en la
 toolbar: la foto cae como capa nueva centrada donde mira la cámara, a lo
 sumo al 70% del frame y nunca agrandada; y en el inspector de una capa
@@ -344,7 +351,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **173
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **174
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -367,7 +374,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   final del crc32 corrido en un bit → falló exactamente «crc32 da el valor
   canónico de referencia». (10) fin nulo de oracionesDeTrozos dejando 0 en
   vez del fin del audio → falló exactamente «fin nulo hereda el fin del
-  audio». Restaurados, 173/173 verdes.
+  audio». (11) destino de quitarEscena siempre la primera → primero NO cayó
+  (los casos coincidían con la regla rota: se agregó el caso «borrar la
+  última») y con el caso nuevo falló exacto. Restaurados, 174/174 verdes.
 
 ## Qué necesita cablearse de su lado
 

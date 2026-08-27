@@ -49,7 +49,8 @@ function abrir(): Promise<IDBDatabase | null> {
   });
 }
 
-/** Guarda (o pisa) el audio del proyecto. Nunca lanza. */
+/** Guarda (o pisa) el audio del proyecto. Nunca lanza — pero un fallo
+    queda en la consola: silencioso hacia el flujo, no invisible. */
 export async function recordarAudio(registro: AudioGuardado): Promise<void> {
   const db = await abrir();
   if (!db) return;
@@ -58,9 +59,16 @@ export async function recordarAudio(registro: AudioGuardado): Promise<void> {
       const tx = db.transaction(TABLA, "readwrite");
       tx.objectStore(TABLA).put(registro);
       tx.oncomplete = () => resolver();
-      tx.onerror = () => resolver();
-      tx.onabort = () => resolver();
-    } catch {
+      tx.onerror = () => {
+        console.warn("motion: no se pudo guardar el audio", tx.error);
+        resolver();
+      };
+      tx.onabort = () => {
+        console.warn("motion: guardado del audio abortado", tx.error);
+        resolver();
+      };
+    } catch (e) {
+      console.warn("motion: no se pudo guardar el audio", e);
       resolver();
     }
   });

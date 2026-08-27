@@ -38,7 +38,7 @@ import {
 import { camaraEn } from "@/lib/motion/evaluar-puro";
 import { cajaMundoDeCapa } from "@/lib/motion/cajas-puro";
 import { cargarComposicionAction, guardarComposicionAction } from "@/app/(app)/(modulos)/motion/acciones";
-import { escenaDuplicada, escenaNueva, idDeEscena, type EscenaInfo } from "@/lib/motion/escenas-puro";
+import { escenaDuplicada, escenaNueva, idDeEscena, quitarEscena, type EscenaInfo } from "@/lib/motion/escenas-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
@@ -430,6 +430,38 @@ export function Editor({
     persistirEscenas([...escenasRef.current, { id, nombre }]);
     montarEscena({ ...comp, rev: res.rev }, id);
   }, [composicionId, guardarEscenaAhora, montarEscena, persistirEscenas]);
+
+  // ——— Borrar una escena: con confirmación INLINE (el chip pregunta) y
+  // nunca la última. Si se va la activa, salta a la anterior sin guardar
+  // lo que se está borrando. El documento queda en storage (el registro
+  // del proyecto es la fuente de verdad de qué escenas lo componen).
+  const [confirmandoBorrar, setConfirmandoBorrar] = useState<string | null>(null);
+  useEffect(() => {
+    if (!confirmandoBorrar) return;
+    const timer = setTimeout(() => setConfirmandoBorrar(null), 4000);
+    return () => clearTimeout(timer);
+  }, [confirmandoBorrar]);
+  const borrarEscena = useCallback(async (id: string) => {
+    const resultado = quitarEscena(escenasRef.current, id);
+    if (!resultado) return;
+    if (id !== escenaActivaRef.current) {
+      persistirEscenas(resultado.restantes);
+      return;
+    }
+    // la activa se va: cancelar su autosave pendiente (no guardarla) y
+    // cargar el destino ANTES de tocar el registro — si falla, nada cambió
+    if (timerGuardadoRef.current) {
+      clearTimeout(timerGuardadoRef.current);
+      timerGuardadoRef.current = null;
+    }
+    const cargada = await cargarComposicionAction(resultado.destino.id);
+    if (!cargada) {
+      setAvisoGuardado(t("No se pudo cargar la escena vecina: no se borró nada"));
+      return;
+    }
+    persistirEscenas(resultado.restantes);
+    montarEscena(deserializar(cargada.snapshot), resultado.destino.id);
+  }, [persistirEscenas, montarEscena]);
 
   // Corre EN BLOQUE la animación de las capas seleccionadas (drag del
   // timeline con selección múltiple): deltas incrementales, snapeados al
@@ -1360,20 +1392,51 @@ export function Editor({
               duplica la escena activa */}
           <div className="absolute left-3 top-3 z-10 flex max-w-[60%] flex-wrap items-center gap-1">
             {escenas.map((esc) => (
-              <button
+              <div
                 key={esc.id}
-                type="button"
-                onClick={() => void cambiarEscena(esc.id)}
-                aria-pressed={esc.id === escenaActiva}
                 className={[
-                  "h-7 rounded-control px-2.5 text-[12px] shadow-control transition-colors",
-                  esc.id === escenaActiva
-                    ? "bg-ink/[0.12] font-medium text-foreground"
-                    : "text-foreground/60 hover:bg-ink/[0.06] hover:text-foreground/90",
+                  "flex h-7 items-center rounded-control shadow-control transition-colors",
+                  esc.id === escenaActiva ? "bg-ink/[0.12]" : "hover:bg-ink/[0.06]",
                 ].join(" ")}
               >
-                {esc.nombre}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => void cambiarEscena(esc.id)}
+                  aria-pressed={esc.id === escenaActiva}
+                  className={[
+                    "h-full pl-2.5 text-[12px]",
+                    escenas.length > 1 ? "pr-1" : "pr-2.5",
+                    esc.id === escenaActiva
+                      ? "font-medium text-foreground"
+                      : "text-foreground/60 hover:text-foreground/90",
+                  ].join(" ")}
+                >
+                  {esc.nombre}
+                </button>
+                {escenas.length > 1 &&
+                  (confirmandoBorrar === esc.id ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfirmandoBorrar(null);
+                        void borrarEscena(esc.id);
+                      }}
+                      className="h-full rounded-r-control bg-peligro/15 px-2 text-[11px] font-medium text-peligro hover:bg-peligro/25"
+                    >
+                      {t("¿Borrar?")}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label={t("Borrar la escena {nombre}", { nombre: esc.nombre })}
+                      title={t("Borrar esta escena (pide confirmar)")}
+                      onClick={() => setConfirmandoBorrar(esc.id)}
+                      className="h-full px-1.5 text-[13px] leading-none text-foreground/35 hover:text-peligro"
+                    >
+                      ×
+                    </button>
+                  ))}
+              </div>
             ))}
             <ConPista pista={t("Escena nueva — mismo formato, lienzo vacío")}>
               <BotonIcono tam={28} etiqueta={t("Escena nueva")} onClick={() => void crearEscena(false)}>

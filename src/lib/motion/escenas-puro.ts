@@ -45,6 +45,22 @@ export function escenaDuplicada(referencia: Composicion, nombre: string): Compos
   return { ...copia, nombre };
 }
 
+/**
+ * Quitar una escena del registro: devuelve las restantes y a cuál saltar
+ * si la borrada era la activa (la ANTERIOR en el orden, o la primera).
+ * La última escena del proyecto no se borra: null.
+ */
+export function quitarEscena<T extends { id: string }>(
+  escenas: T[],
+  id: string,
+): { restantes: T[]; destino: T } | null {
+  if (escenas.length <= 1) return null;
+  const indice = escenas.findIndex((e) => e.id === id);
+  if (indice < 0) return null;
+  const restantes = escenas.filter((e) => e.id !== id);
+  return { restantes, destino: restantes[Math.max(0, indice - 1)] };
+}
+
 /** Las escenas de un export concatenado tienen que compartir formato: el
     encoder es UNO solo. Devuelve el problema legible, o null si están bien. */
 export function problemaDeFormatos(escenas: Composicion[]): string | null {

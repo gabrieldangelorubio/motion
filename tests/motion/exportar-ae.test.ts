@@ -7,6 +7,7 @@ import {
   fuentePostScript,
 } from "@/lib/motion/exportar-ae-puro";
 import { nombreDeArchivo } from "@/lib/motion/exportar";
+import { quitarEscena } from "@/lib/motion/escenas-puro";
 import type { CapaTexto, CapaTrazo, Composicion } from "@/lib/motion/modelo";
 
 const base = (extra: Partial<Composicion> = {}): Composicion => ({
@@ -238,6 +239,19 @@ test("solo diseño apagado sigue emitiendo la animación completa (default intac
 test("nombreDeArchivo translitera acentos: Chromium descarta el nombre entero si trae no-ASCII", () => {
   assert.equal(nombreDeArchivo("demo-del-módulo.jsx"), "demo-del-modulo.jsx");
   assert.equal(nombreDeArchivo("Animación ñoña.mp4"), "Animacion nona.mp4");
+});
+
+test("quitarEscena: al borrar salta a la ANTERIOR; la última del proyecto no se borra", () => {
+  const escenas = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  // borrar la del medio → destino: la anterior
+  assert.deepEqual(quitarEscena(escenas, "b"), { restantes: [{ id: "a" }, { id: "c" }], destino: { id: "a" } });
+  // borrar la primera → destino: la que quedó primera
+  assert.deepEqual(quitarEscena(escenas, "a"), { restantes: [{ id: "b" }, { id: "c" }], destino: { id: "b" } });
+  // borrar la ÚLTIMA → destino: su anterior (no la primera del proyecto)
+  assert.deepEqual(quitarEscena(escenas, "c"), { restantes: [{ id: "a" }, { id: "b" }], destino: { id: "b" } });
+  // la última escena no se borra; un id ajeno tampoco hace nada
+  assert.equal(quitarEscena([{ id: "solo" }], "solo"), null);
+  assert.equal(quitarEscena(escenas, "zzz"), null);
 });
 
 test("sin escenas es un error claro, no un script vacio", () => {

@@ -40,7 +40,11 @@ let motorPromesa: Promise<Asr> | null = null;
 function motor(onProgreso?: (fraccion: number) => void, modelo = MODELO_DEFAULT): Promise<Asr> {
   if (!motorPromesa) {
     motorPromesa = (async () => {
-      const { pipeline, env } = await import("@xenova/transformers");
+      // el bundle PREBUILDEADO para browser: el src/ del paquete importa
+      // onnxruntime-node y sharp, y el bundler de Next (Turbopack) rompe la
+      // selección de backend al empaquetarlo («Cannot convert undefined or
+      // null to object»); el dist ya viene aplanado con onnxruntime-web
+      const { pipeline, env } = await import("@xenova/transformers/dist/transformers.min.js");
       env.allowLocalModels = false;
       const progreso = (info: { status?: string; progress?: number }) => {
         if (info.status === "progress" && typeof info.progress === "number") {
@@ -72,8 +76,11 @@ export async function transcribir(
   onProgreso?: (fraccion: number) => void,
   modelo?: string,
 ): Promise<Transcripcion> {
-  const asr = await motor(onProgreso, modelo).catch(() => {
-    throw new Error("No se pudo cargar el modelo de voz (¿sin conexión?): probá de nuevo");
+  const asr = await motor(onProgreso, modelo).catch((e: unknown) => {
+    // la causa REAL viaja en el mensaje: sin ella no se puede diagnosticar
+    // si falló la descarga, el bundler o el runtime WASM
+    const causa = e instanceof Error ? e.message : String(e);
+    throw new Error(`No se pudo cargar el modelo de voz: ${causa}`);
   });
   const pcm = remuestrear(aMono(canales), sampleRate, HZ_WHISPER);
   const duracionMs = Math.round((pcm.length / HZ_WHISPER) * 1000);
