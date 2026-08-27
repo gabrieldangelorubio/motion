@@ -262,24 +262,54 @@ export function fuentePostScript(familia: string, peso: number): string {
   return base + (SUFIJO_PESO[peso] ?? "-Regular");
 }
 
-/** CANDIDATOS de nombre PostScript para una familia+peso, en orden de
-    probabilidad. El script los prueba EN AE y verifica cuál agarró de
-    verdad (setear una fuente inexistente no lanza: AE sustituye en
-    silencio — por eso hay que releer y comparar). */
+const SUFIJOS_POR_PESO: Record<number, string[]> = {
+  100: ["Thin", "Hairline"],
+  200: ["ExtraLight", "UltraLight"],
+  300: ["Light"],
+  400: ["Regular", "Book", "Roman", "Normal"],
+  500: ["Medium"],
+  600: ["SemiBold", "Semibold", "DemiBold", "Demi"],
+  700: ["Bold"],
+  800: ["ExtraBold", "Heavy", "UltraBold"],
+  900: ["Black", "Heavy"],
+};
+
+/** El orden CSS de fallback de pesos: el pedido primero y de ahí los
+    vecinos (400 y 500 se prefieren entre sí; un pedido liviano baja antes
+    de subir, uno pesado sube antes de bajar). Una familia que NO tiene el
+    estilo pedido cae al MÁS PARECIDO — no al que AE sustituya en silencio
+    (así fue como un peso 400 terminó en Thin). */
+export function escaleraDePesos(peso: number): number[] {
+  const todos = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+  const pedido = todos.reduce((m, p) => (Math.abs(p - peso) < Math.abs(m - peso) ? p : m));
+  const abajo = todos.filter((p) => p < pedido).reverse();
+  const arriba = todos.filter((p) => p > pedido);
+  if (pedido === 400) return [400, 500, ...abajo, ...arriba.filter((p) => p !== 500)];
+  if (pedido === 500) return [500, 400, ...abajo.filter((p) => p !== 400), ...arriba];
+  if (pedido < 400) return [pedido, ...abajo, ...arriba];
+  return [pedido, ...arriba, ...abajo];
+}
+
+/** CANDIDATOS de nombre PostScript para una familia+peso: primero todas
+    las variantes del peso pedido y después la ESCALERA entera de pesos
+    vecinos. El script los prueba EN AE y verifica cuál agarró de verdad
+    (setear una fuente inexistente no lanza: AE sustituye en silencio —
+    por eso hay que releer y comparar). */
 export function candidatosDeFuente(familia: string, peso: number): string[] {
   const base = familia.replace(/\s+/g, "");
-  const sufijos: Record<number, string[]> = {
-    100: ["Thin"], 200: ["ExtraLight", "UltraLight"], 300: ["Light"],
-    400: ["Regular", ""], 500: ["Medium"],
-    600: ["SemiBold", "Semibold", "DemiBold"], 700: ["Bold"],
-    800: ["ExtraBold", "Heavy"], 900: ["Black", "Heavy"],
-  };
   const candidatos: string[] = [];
-  for (const sufijo of sufijos[peso] ?? ["Regular"]) {
-    if (sufijo) candidatos.push(`${base}-${sufijo}`, `${base}${sufijo}`);
-    else candidatos.push(base);
+  const sumar = (n: string) => {
+    if (!candidatos.includes(n)) candidatos.push(n);
+  };
+  for (const p of escaleraDePesos(peso)) {
+    for (const sufijo of SUFIJOS_POR_PESO[p]) {
+      sumar(`${base}-${sufijo}`);
+      sumar(`${base}${sufijo}`);
+    }
+    // el Regular de muchas familias es el nombre pelado, sin sufijo
+    if (p === 400) sumar(base);
   }
-  if (!candidatos.includes(base)) candidatos.push(base);
+  sumar(base);
   return candidatos;
 }
 
@@ -342,16 +372,22 @@ export function assetsDeEscenas(escenas: Composicion[]): AssetAE[] {
 
 /** Comentario de capa con lo que TODAVÍA no se traduce, para que nada se
     pierda en silencio al abrir el proyecto en AE. */
-function comentarioPendientes(capa: Capa, sinAnimacion: boolean, conAsset = false, horneado = false): string | null {
+function comentarioPendientes(
+  capa: Capa,
+  sinAnimacion: boolean,
+  conAsset = false,
+  animacion: AnimacionAE | null = null,
+): string | null {
   const pendientes: string[] = [];
   if (!sinAnimacion) {
-    if (horneado) {
+    if (animacion) {
       // los presets ya viajaron como keyframes: el comentario informa, no
       // reclama — y la división avisa que llegó como bloque
       const partes = [capa.entrada && `entrada ${capa.entrada.preset}`, capa.salida && `salida ${capa.salida.preset}`]
         .filter(Boolean)
         .join(" + ");
-      pendientes.push(`animacion horneada a keyframes (${partes}) — la coreografia se edita en motion`);
+      if (animacion.ralas) pendientes.push(`animacion en keyframes editables (${partes})`);
+      else pendientes.push(`animacion horneada a keyframes (${partes}) — la coreografia se edita en motion`);
       if (capa.tipo === "texto" && capa.division !== "ninguna") {
         pendientes.push(`division por ${capa.division}: horneada como bloque (letra por letra pendiente)`);
       }
@@ -386,6 +422,70 @@ type ClavesHorneadas = {
   trazoFin?: ClaveAE[];
 };
 
+/** La animación de la capa resuelta a keyframes; `ralas` dice si son los
+    2 keyframes editables por segmento (in y out con ease) o el horneado
+    denso frame a frame. */
+type AnimacionAE = { claves: ClavesHorneadas; ralas: boolean };
+
+const varia = (claves: ClaveAE[]) =>
+  claves.some((c) => JSON.stringify(c.v) !== JSON.stringify(claves[0].v));
+
+/** Muestreador del estado RESUELTO por el motor (el mismo `estadoEn` del
+    preview) para UNA capa, con la división colapsada a bloque. Devuelve los
+    valores en unidades de AE (escala/opacidad/trim en %, y con el ancla de
+    texto corrida). */
+function muestreador(comp: Composicion, capa: Capa, desplazarY: number) {
+  const plana: Capa =
+    capa.tipo === "texto" && capa.division !== "ninguna" ? { ...capa, division: "ninguna" } : capa;
+  const compUna: Composicion = { ...comp, capas: [plana] };
+  return (t: number) => {
+    const est = estadoEn(compUna, t).capas[0];
+    const u = est?.unidades[0];
+    if (!est || !u) return null;
+    const s = redondear(Math.max(0, est.escala * (1 + u.dEscala)) * 100);
+    return {
+      posicion: [redondear(est.x + u.dx), redondear(est.y + u.dy - desplazarY)] as [number, number],
+      escala: s,
+      rotacion: redondear(est.rotacion + u.dRotacion),
+      opacidad: redondear(Math.min(1, Math.max(0, est.opacidad * u.opacidad)) * 100),
+      desenfoque: redondear(u.desenfoque),
+      trazoInicio: redondear(u.trazoInicio * 100),
+      trazoFin: redondear(u.trazoFin * 100),
+    };
+  };
+}
+
+function canalesVacios(): Required<ClavesHorneadas> {
+  return { posicion: [], escala: [], rotacion: [], opacidad: [], desenfoque: [], trazoInicio: [], trazoFin: [] };
+}
+
+function empujarMuestra(
+  canales: Required<ClavesHorneadas>,
+  t: number,
+  m: NonNullable<ReturnType<ReturnType<typeof muestreador>>>,
+): void {
+  const ts = redondear(t / 1000);
+  canales.posicion.push({ t: ts, v: m.posicion });
+  canales.escala.push({ t: ts, v: [m.escala, m.escala] });
+  canales.rotacion.push({ t: ts, v: m.rotacion });
+  canales.opacidad.push({ t: ts, v: m.opacidad });
+  canales.desenfoque.push({ t: ts, v: m.desenfoque });
+  canales.trazoInicio.push({ t: ts, v: m.trazoInicio });
+  canales.trazoFin.push({ t: ts, v: m.trazoFin });
+}
+
+function filtrarCanales(canales: Required<ClavesHorneadas>, capa: Capa): ClavesHorneadas {
+  return {
+    posicion: varia(canales.posicion) ? canales.posicion : undefined,
+    escala: varia(canales.escala) ? canales.escala : undefined,
+    rotacion: varia(canales.rotacion) ? canales.rotacion : undefined,
+    opacidad: varia(canales.opacidad) ? canales.opacidad : undefined,
+    desenfoque: varia(canales.desenfoque) ? canales.desenfoque : undefined,
+    trazoInicio: capa.tipo === "trazo" && varia(canales.trazoInicio) ? canales.trazoInicio : undefined,
+    trazoFin: capa.tipo === "trazo" && varia(canales.trazoFin) ? canales.trazoFin : undefined,
+  };
+}
+
 /**
  * HORNEA los presets de entrada/salida a keyframes: el mismo `estadoEn`
  * del preview se muestrea a un keyframe POR FRAME dentro de las ventanas
@@ -396,9 +496,6 @@ type ClavesHorneadas = {
  */
 function clavesHorneadas(comp: Composicion, capa: Capa, desplazarY: number): ClavesHorneadas | null {
   if ((!capa.entrada && !capa.salida) || capa.oculta) return null;
-  const plana: Capa =
-    capa.tipo === "texto" && capa.division !== "ninguna" ? { ...capa, division: "ninguna" } : capa;
-  const compUna: Composicion = { ...comp, capas: [plana] };
   const paso = 1000 / comp.fps;
 
   const ventanas: [number, number][] = [];
@@ -417,34 +514,103 @@ function clavesHorneadas(comp: Composicion, capa: Capa, desplazarY: number): Cla
   for (let t = desde; t < hasta; t += paso) tiempos.push(t);
   tiempos.push(hasta);
 
-  const canales: Required<ClavesHorneadas> = {
-    posicion: [], escala: [], rotacion: [], opacidad: [], desenfoque: [], trazoInicio: [], trazoFin: [],
-  };
+  const muestra = muestreador(comp, capa, desplazarY);
+  const canales = canalesVacios();
   for (const t of tiempos) {
-    const est = estadoEn(compUna, t).capas[0];
-    const u = est?.unidades[0];
-    if (!est || !u) return null;
-    const ts = redondear(t / 1000);
-    const s = redondear(Math.max(0, est.escala * (1 + u.dEscala)) * 100);
-    canales.posicion.push({ t: ts, v: [redondear(est.x + u.dx), redondear(est.y + u.dy - desplazarY)] });
-    canales.escala.push({ t: ts, v: [s, s] });
-    canales.rotacion.push({ t: ts, v: redondear(est.rotacion + u.dRotacion) });
-    canales.opacidad.push({ t: ts, v: redondear(Math.min(1, Math.max(0, est.opacidad * u.opacidad)) * 100) });
-    canales.desenfoque.push({ t: ts, v: redondear(u.desenfoque) });
-    canales.trazoInicio.push({ t: ts, v: redondear(u.trazoInicio * 100) });
-    canales.trazoFin.push({ t: ts, v: redondear(u.trazoFin * 100) });
+    const m = muestra(t);
+    if (!m) return null;
+    empujarMuestra(canales, t, m);
   }
-  const varia = (claves: ClaveAE[]) =>
-    claves.some((c) => JSON.stringify(c.v) !== JSON.stringify(claves[0].v));
-  return {
-    posicion: varia(canales.posicion) ? canales.posicion : undefined,
-    escala: varia(canales.escala) ? canales.escala : undefined,
-    rotacion: varia(canales.rotacion) ? canales.rotacion : undefined,
-    opacidad: varia(canales.opacidad) ? canales.opacidad : undefined,
-    desenfoque: varia(canales.desenfoque) ? canales.desenfoque : undefined,
-    trazoInicio: capa.tipo === "trazo" && varia(canales.trazoInicio) ? canales.trazoInicio : undefined,
-    trazoFin: capa.tipo === "trazo" && varia(canales.trazoFin) ? canales.trazoFin : undefined,
+  return filtrarCanales(canales, capa);
+}
+
+// Los resortes rebotan de verdad en el motor: un solo tramo bezier de AE no
+// puede contar esa curva — van horneados densos. Los back sí: su overshoot
+// es un cubic-bezier y el temporal ease lo aproxima bien.
+const EASINGS_NO_RALOS: NombreEasing[] = ["resorteSuave", "resorteTenso", "resorteRebote"];
+
+/** ¿El segmento se puede contar RALO (in y out, 2 keyframes con ease) sin
+    mentir? Sí cuando cada canal de su preset es un tramo simple 0→1 (el
+    valor en el tiempo es exactamente la curva del easing reescalada) y el
+    easing es un bezier de verdad. Los presets con puntos intermedios (pop,
+    rebotar: el overshoot vive EN la pista) van horneados densos. */
+function esSegmentoRalo(seg: Segmento, duracionComp: number): boolean {
+  if (EASINGS_NO_RALOS.includes(seg.easing ?? "suave")) return false;
+  if (seg.en < 0 || seg.en + seg.duracion > duracionComp) return false;
+  if (seg.duracion <= 0) return false;
+  const compilado = compilarSegmento(seg);
+  return Object.values(compilado.pista).every(
+    (pista) => !pista || (pista.length === 2 && pista[0].p === 0 && pista[1].p === 1),
+  );
+}
+
+/** Keyframes RALOS: un keyframe en cada borde de segmento con el easing
+    convertido a temporal ease — el «in y un out» editable que se espera en
+    AE, en vez del muro de keyframes por frame. Solo cuando la capa es
+    representable así (presets simples, sin pistas crudas encima, segmentos
+    sin solaparse); si no, null y el caller cae al horneado denso. */
+function clavesRalas(comp: Composicion, capa: Capa, desplazarY: number): ClavesHorneadas | null {
+  if ((!capa.entrada && !capa.salida) || capa.oculta) return null;
+  // una pista cruda sobre el mismo canal se SUMA al preset: eso ya no es un
+  // tramo simple — denso (las pistas solas, sin presets, van por su via)
+  if (Object.values(capa.pistas ?? {}).some((p) => (p ?? []).length > 0)) return null;
+  const segs = [capa.entrada, capa.salida].filter((s): s is Segmento => Boolean(s));
+  if (!segs.every((s) => esSegmentoRalo(s, comp.duracion))) return null;
+  if (capa.entrada && capa.salida && capa.entrada.en + capa.entrada.duracion > capa.salida.en) return null;
+
+  const tiempos = [...new Set(segs.flatMap((s) => [s.en, s.en + s.duracion]))].sort((a, b) => a - b);
+  const muestra = muestreador(comp, capa, desplazarY);
+  const canales = canalesVacios();
+  for (const t of tiempos) {
+    const m = muestra(t);
+    if (!m) return null;
+    empujarMuestra(canales, t, m);
+  }
+
+  // el ease del segmento, en el tramo de keyframes que le corresponde; los
+  // tramos entre segmentos quedan lineales (los valores son iguales: reposo)
+  for (const seg of segs) {
+    const i = tiempos.indexOf(seg.en);
+    const j = tiempos.indexOf(seg.en + seg.duracion);
+    if (i < 0 || j !== i + 1) continue;
+    const dt = seg.duracion / 1000;
+    for (const claves of Object.values(canales)) {
+      const a = claves[i];
+      const b = claves[j];
+      if (JSON.stringify(a.v) === JSON.stringify(b.v)) continue;
+      const dv = Array.isArray(a.v) && Array.isArray(b.v)
+        ? Math.hypot(b.v[0] - a.v[0], b.v[1] - a.v[1])
+        : (b.v as number) - (a.v as number);
+      const ease = easeDeTramo(seg.easing, dv, dt);
+      if (!ease) continue;
+      a.eo = ease.salida;
+      b.ei = ease.entrada;
+    }
+  }
+
+  // recortar las puntas quietas de cada canal (un canal que solo anima la
+  // entrada no necesita arrastrar los keyframes planos de la salida)
+  const igual = (a: ClaveAE, b: ClaveAE) => JSON.stringify(a.v) === JSON.stringify(b.v);
+  const recortar = (claves: ClaveAE[]): ClaveAE[] => {
+    let d = 0;
+    let h = claves.length - 1;
+    while (d < h && igual(claves[d], claves[d + 1]) && !claves[d].eo) d++;
+    while (h > d && igual(claves[h - 1], claves[h]) && !claves[h].ei) h--;
+    return claves.slice(d, h + 1);
   };
+  const listos = canalesVacios();
+  for (const canal of Object.keys(canales) as (keyof ClavesHorneadas)[]) {
+    listos[canal] = recortar(canales[canal]);
+  }
+  return filtrarCanales(listos, capa);
+}
+
+/** La animación de la capa lista para AE: ralas si se puede, densa si no. */
+function animacionDeCapa(comp: Composicion, capa: Capa, desplazarY: number): AnimacionAE | null {
+  const ralas = clavesRalas(comp, capa, desplazarY);
+  if (ralas) return { claves: ralas, ralas: true };
+  const densas = clavesHorneadas(comp, capa, desplazarY);
+  return densas ? { claves: densas, ralas: false } : null;
 }
 
 /** Emite transformaciones (base + pistas) de una capa ya creada en `capa`.
@@ -542,13 +708,19 @@ function emitirTransform(
   }
 }
 
-function emitirComunes(L: string[], capa: Capa, sinAnimacion: boolean, conAsset = false, horneado = false): void {
+function emitirComunes(
+  L: string[],
+  capa: Capa,
+  sinAnimacion: boolean,
+  conAsset = false,
+  animacion: AnimacionAE | null = null,
+): void {
   L.push(`capa.name = ${cadena(capa.nombre)};`);
   if (capa.oculta) L.push("capa.enabled = false;");
   if (capa.mezcla && MEZCLA_AE[capa.mezcla]) {
     L.push(`try { capa.blendingMode = BlendingMode.${MEZCLA_AE[capa.mezcla]}; } catch (e) {}`);
   }
-  const comentario = comentarioPendientes(capa, sinAnimacion, conAsset, horneado);
+  const comentario = comentarioPendientes(capa, sinAnimacion, conAsset, animacion);
   if (comentario) L.push(`capa.comment = ${cadena(comentario)};`);
 }
 
@@ -559,9 +731,9 @@ function emitirCapa(
   rutasMedia: Record<string, string> = {},
   compHorneo: Composicion | null = null,
 ): void {
-  // horneado del preset (entrada/salida) a keyframes — solo con animación
+  // presets (entrada/salida) a keyframes — ralos si se puede, densos si no
   const hornearCon = (desplazarY: number) =>
-    !sinAnimacion && compHorneo ? clavesHorneadas(compHorneo, capa, desplazarY) : null;
+    !sinAnimacion && compHorneo ? animacionDeCapa(compHorneo, capa, desplazarY) : null;
 
   if (capa.tipo === "texto") {
     const lineas = capa.texto.split("\n").length;
@@ -585,15 +757,16 @@ function emitirCapa(
     L.push(`doc.autoLeading = false;`);
     L.push(`doc.leading = ${num(interlineado)};`);
     L.push(`capa.property("ADBE Text Properties").property("ADBE Text Document").setValue(doc);`);
-    const horneadasTexto = hornearCon(desplazarY);
-    emitirComunes(L, capa, sinAnimacion, false, Boolean(horneadasTexto));
+    const animTexto = hornearCon(desplazarY);
+    emitirComunes(L, capa, sinAnimacion, false, animTexto);
     // DESPUÉS del comentario: si la fuente no aparece, el helper le anexa
     // «tipografia original: …» y la suma al resumen final de faltantes.
     // OJO: la familia del import viene como STACK CSS entero («'Yamantaka',
     // -apple-system, …») — a AE va SOLO la familia real.
     const familiaReal = familiaPrincipal(capa.fuente.familia) ?? capa.fuente.familia;
-    L.push(`__fijarFuente(capa, [${candidatosDeFuente(familiaReal, capa.fuente.peso).map(cadena).join(", ")}], ${cadena(`${familiaReal} (peso ${capa.fuente.peso})`)});`);
-    emitirTransform(L, capa, desplazarY, sinAnimacion, false, horneadasTexto);
+    const baseFamilia = familiaReal.replace(/\s+/g, "");
+    L.push(`__fijarFuente(capa, [${candidatosDeFuente(familiaReal, capa.fuente.peso).map(cadena).join(", ")}], ${cadena(baseFamilia)}, ${cadena(`${familiaReal} (peso ${capa.fuente.peso})`)});`);
+    emitirTransform(L, capa, desplazarY, sinAnimacion, false, animTexto?.claves ?? null);
     return;
   }
 
@@ -609,9 +782,9 @@ function emitirCapa(
       if (capa.radio) L.push(`forma.property("ADBE Vector Rect Roundness").setValue(${num(capa.radio)});`);
     }
     L.push(`gr.property("ADBE Vectors Group").addProperty("ADBE Vector Graphic - Fill").property("ADBE Vector Fill Color").setValue(${colorLit(capa.color)});`);
-    const horneadasForma = hornearCon(0);
-    emitirComunes(L, capa, sinAnimacion, false, Boolean(horneadasForma));
-    emitirTransform(L, capa, 0, sinAnimacion, false, horneadasForma);
+    const animForma = hornearCon(0);
+    emitirComunes(L, capa, sinAnimacion, false, animForma);
+    emitirTransform(L, capa, 0, sinAnimacion, false, animForma?.claves ?? null);
     return;
   }
 
@@ -627,14 +800,14 @@ function emitirCapa(
     L.push(`tr.property("ADBE Vector Stroke Color").setValue(${colorLit(capa.color)});`);
     L.push(`tr.property("ADBE Vector Stroke Width").setValue(${num(capa.grosor)});`);
     L.push(`tr = gr.property("ADBE Vectors Group").addProperty("ADBE Vector Filter - Trim");`);
-    const horneadasTrazo = hornearCon(0);
-    if (horneadasTrazo?.trazoInicio) {
-      L.push(`__pista(tr.property("ADBE Vector Trim Start"), ${clavesLit(horneadasTrazo.trazoInicio)}, 1);`);
+    const animTrazo = hornearCon(0);
+    if (animTrazo?.claves.trazoInicio) {
+      L.push(`__pista(tr.property("ADBE Vector Trim Start"), ${clavesLit(animTrazo.claves.trazoInicio)}, 1);`);
     }
-    if (horneadasTrazo?.trazoFin) {
-      L.push(`__pista(tr.property("ADBE Vector Trim End"), ${clavesLit(horneadasTrazo.trazoFin)}, 1);`);
+    if (animTrazo?.claves.trazoFin) {
+      L.push(`__pista(tr.property("ADBE Vector Trim End"), ${clavesLit(animTrazo.claves.trazoFin)}, 1);`);
     }
-    const pistas: Pistas = sinAnimacion || horneadasTrazo ? {} : (capa.pistas ?? {});
+    const pistas: Pistas = sinAnimacion || animTrazo ? {} : (capa.pistas ?? {});
     if (pistas.trazoInicio?.length) {
       L.push(`__pista(tr.property("ADBE Vector Trim Start"), ${clavesLit(
         clavesDe(pistas.trazoInicio, (v) => redondear(v * 100), (a, b) => (b - a) * 100),
@@ -649,8 +822,8 @@ function emitirCapa(
     } else if ((capa.trazoFin ?? 1) !== 1) {
       L.push(`tr.property("ADBE Vector Trim End").setValue(${num((capa.trazoFin ?? 1) * 100)});`);
     }
-    emitirComunes(L, capa, sinAnimacion, false, Boolean(horneadasTrazo));
-    emitirTransform(L, capa, 0, sinAnimacion, false, horneadasTrazo);
+    emitirComunes(L, capa, sinAnimacion, false, animTrazo);
+    emitirTransform(L, capa, 0, sinAnimacion, false, animTrazo?.claves ?? null);
     return;
   }
 
@@ -672,15 +845,15 @@ function emitirCapa(
     L.push(`capa = comp.layers.addSolid([0.5, 0.5, 0.55], ${cadena(capa.nombre)}, ${num(capa.ancho)}, ${num(capa.alto)}, 1);`);
     L.push(`capa.comment = ${cadena(`falta ${ruta}: descomprimi el zip ENTERO y deja assets/ al lado del .jsx`)};`);
     L.push(`}`);
-    const horneadasMedia = hornearCon(0);
-    emitirComunes(L, capa, sinAnimacion, true, Boolean(horneadasMedia));
-    emitirTransform(L, capa, 0, sinAnimacion, true, horneadasMedia);
+    const animMedia = hornearCon(0);
+    emitirComunes(L, capa, sinAnimacion, true, animMedia);
+    emitirTransform(L, capa, 0, sinAnimacion, true, animMedia?.claves ?? null);
     return;
   }
   L.push(`capa = comp.layers.addSolid([0.5, 0.5, 0.55], ${cadena(capa.nombre)}, ${num(capa.ancho)}, ${num(capa.alto)}, 1);`);
-  const horneadasSolido = hornearCon(0);
-  emitirComunes(L, capa, sinAnimacion, false, Boolean(horneadasSolido));
-  emitirTransform(L, capa, 0, sinAnimacion, false, horneadasSolido);
+  const animSolido = hornearCon(0);
+  emitirComunes(L, capa, sinAnimacion, false, animSolido);
+  emitirTransform(L, capa, 0, sinAnimacion, false, animSolido?.claves ?? null);
 }
 
 /* ——— Cámara ——————————————————————————————————————————————————— */
@@ -791,18 +964,29 @@ function __importar(rel) {
   } catch (e) { return null; }
 }
 // AE sustituye una fuente inexistente EN SILENCIO: probamos candidatos y
-// RELEEMOS cual agarro; si ninguno pega, la capa recuerda la original en su
-// comentario y el resumen final lista todas las faltantes.
+// RELEEMOS cual agarro. Un candidato EXACTO gana; si ninguno pega pero AE
+// resolvio alguna cara de la MISMA familia (peso 400 en una familia sin
+// Regular, p. ej.), nos quedamos con esa y la capa lo anota; si ni eso,
+// la capa recuerda la original y el resumen final lista las faltantes.
 var __fuentesFaltantes = [];
-function __fijarFuente(capaTexto, candidatos, original) {
+function __fijarFuente(capaTexto, candidatos, base, original) {
   var prop = capaTexto.property("ADBE Text Properties").property("ADBE Text Document");
+  var baseMin = base.toLowerCase();
+  var mejor = null;
   for (var i = 0; i < candidatos.length; i++) {
     try {
       var v = prop.value;
       v.font = candidatos[i];
       prop.setValue(v);
-      if (prop.value.font === candidatos[i]) return;
+      var puesto = String(prop.value.font);
+      if (puesto.toLowerCase() === candidatos[i].toLowerCase()) return;
+      if (!mejor && puesto.toLowerCase().indexOf(baseMin) === 0) mejor = puesto;
     } catch (e) {}
+  }
+  if (mejor) {
+    try { var v2 = prop.value; v2.font = mejor; prop.setValue(v2); } catch (e2) {}
+    capaTexto.comment = (capaTexto.comment ? capaTexto.comment + " | " : "") + "tipografia aproximada: pedida " + original + ", AE puso " + mejor;
+    return;
   }
   __fuentesFaltantes.push(original);
   capaTexto.comment = (capaTexto.comment ? capaTexto.comment + " | " : "") + "tipografia original: " + original;
@@ -815,8 +999,17 @@ function __eases(par, n) {
   return lista;
 }
 var __avisos = [];
-function __avisar(texto) {
-  if (__avisos.length < 12) __avisos.push(String(texto));
+// OJO: los errores nativos de AE NO se pueden concatenar con + (el operador
+// de ExtendScript los rechaza: "Object of type Error found where a Number,
+// Array, or Property is needed" -- y ESO si aborta el script). El detalle
+// se lee por .message, con red por si tampoco.
+function __detalle(e) {
+  try { return String(e.message !== undefined ? e.message : e); } catch (x) { return "error sin detalle"; }
+}
+function __avisar(texto, e) {
+  var linea = String(texto);
+  if (e !== undefined) linea += ": " + __detalle(e);
+  if (__avisos.length < 12) __avisos.push(linea);
 }
 function __pista(prop, claves, dims) {
   var i;
@@ -824,12 +1017,12 @@ function __pista(prop, claves, dims) {
   for (i = 0; i < claves.length; i++) {
     var c = claves[i];
     if (c.hold) {
-      try { prop.setInterpolationTypeAtKey(i + 1, KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.HOLD); } catch (e) { __avisar("hold: " + e); }
+      try { prop.setInterpolationTypeAtKey(i + 1, KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.HOLD); } catch (e) { __avisar("hold", e); }
     } else if (c.ei || c.eo) {
       // BEZIER explicito ANTES del ease: sin esto algunas versiones dejan
       // el keyframe lineal en silencio (visto en AE real)
-      try { prop.setInterpolationTypeAtKey(i + 1, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER); } catch (e) { __avisar("bezier: " + e); }
-      try { prop.setTemporalEaseAtKey(i + 1, __eases(c.ei, dims), __eases(c.eo, dims)); } catch (e) { __avisar("ease: " + e); }
+      try { prop.setInterpolationTypeAtKey(i + 1, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER); } catch (e) { __avisar("bezier", e); }
+      try { prop.setTemporalEaseAtKey(i + 1, __eases(c.ei, dims), __eases(c.eo, dims)); } catch (e) { __avisar("ease", e); }
     }
   }
 }`;

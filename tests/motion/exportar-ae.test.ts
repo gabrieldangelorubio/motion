@@ -11,6 +11,7 @@ import {
   archivoDeFamilia,
   leemeDeFuentes,
   candidatosDeFuente,
+  escaleraDePesos,
 } from "@/lib/motion/exportar-ae-puro";
 import { duracionDesdeAudio } from "@/lib/motion/audio-puro";
 import { nombreDeArchivo } from "@/lib/motion/exportar";
@@ -84,8 +85,10 @@ test("genera la comp con formato y fondo; la capa de texto con fuente, leading y
   assert.match(jsx, /addComp\("Prueba AE", 1920, 1080, 1, 4, 30\)/);
   assert.match(jsx, /comp\.bgColor = \[0\.0627, 0\.0627, 0\.0824\];/);
   assert.match(jsx, /addText\("HOLA"\)/);
-  // la fuente se fija con candidatos VERIFICADOS (AE sustituye en silencio)
-  assert.match(jsx, /__fijarFuente\(capa, \["SpaceGrotesk-Bold", "SpaceGroteskBold", "SpaceGrotesk"\], "Space Grotesk \(peso 700\)"\)/);
+  // la fuente se fija con candidatos VERIFICADOS (AE sustituye en silencio):
+  // primero el peso pedido, después la escalera de vecinos, y la base para
+  // el chequeo de familia + la etiqueta original para el comentario
+  assert.match(jsx, /__fijarFuente\(capa, \["SpaceGrotesk-Bold", "SpaceGroteskBold", "SpaceGrotesk-ExtraBold",.*\], "SpaceGrotesk", "Space Grotesk \(peso 700\)"\)/);
   assert.match(jsx, /doc\.fontSize = 120;/);
   assert.match(jsx, /doc\.leading = 138;/); // 120 × 1.15
   assert.match(jsx, /LEFT_JUSTIFY/);
@@ -161,7 +164,7 @@ test("temblor: la expresion lleva la misma suma de senos con amplitud escalada a
   assert.match(jsx, /"ADBE Scale"\)\.setValue\(\[120, 120\]\);/);
 });
 
-test("los presets se HORNEAN a keyframes: la animación llega a AE, con el comentario informando", () => {
+test("presets simples → keyframes RALOS: un in y un out por segmento, con el ease del easing", () => {
   const comp = base({
     capas: [
       titulo({
@@ -171,19 +174,65 @@ test("los presets se HORNEAN a keyframes: la animación llega a AE, con el comen
     ],
   });
   const jsx = generarScriptAE([comp]);
-  // el comentario informa el horneado (ya no reclama pendiente)
-  assert.match(jsx, /animacion horneada a keyframes \(entrada revelar\)/);
+  // el comentario informa que la animación viajó editable
+  assert.match(jsx, /animacion en keyframes editables \(entrada revelar\)/);
   assert.match(jsx, /division por palabras: horneada como bloque/);
-  assert.ok(!jsx.includes("pendiente de traducir: entrada"), "ya no queda como pendiente");
-  // hay keyframes DENSOS de posición y opacidad (600ms a 30fps ≈ 19 claves)
+  assert.ok(!jsx.includes("pendiente de traducir: entrada revelar ("), "ya no queda como pendiente");
+  // la posición son DOS keyframes (in y out) con temporal ease, no un muro
   const posicion = /__pista\(__t\(capa, "ADBE Position"\), (\[.*?\]), 1\);/.exec(jsx);
-  assert.ok(posicion, "hay pista de posición horneada");
+  assert.ok(posicion, "hay pista de posición");
   const claves = posicion![1].match(/\{t: /g) ?? [];
-  assert.ok(claves.length >= 15, `keyframes densos (${claves.length})`);
+  assert.equal(claves.length, 2, `keyframes ralos (salieron ${claves.length})`);
+  assert.match(posicion![1], /eo: \[/);
+  assert.match(posicion![1], /ei: \[/);
   // revelar no toca opacidad (máscara + viaje): el canal quieto NO se emite,
-  // y la máscara imposible de hornear queda avisada en el comentario
+  // y la máscara imposible de trasladar queda avisada en el comentario
   assert.ok(!jsx.includes('"ADBE Opacity"), [{'), "opacidad quieta no emite pista");
   assert.match(jsx, /la MASCARA del revelado no viaja/);
+});
+
+test("entrada + salida ralas comparten la pista: 4 claves con el tramo del medio plano", () => {
+  const comp = base({
+    capas: [
+      titulo({
+        entrada: { preset: "subir", en: 0, duracion: 600, easing: "salidaExpo" },
+        salida: { preset: "desvanecer", en: 2400, duracion: 400 },
+      }),
+    ],
+  });
+  const jsx = generarScriptAE([comp]);
+  const opacidad = /__pista\(__t\(capa, "ADBE Opacity"\), (\[.*?\]), 1\);/.exec(jsx);
+  assert.ok(opacidad, "hay pista de opacidad");
+  assert.equal((opacidad![1].match(/\{t: /g) ?? []).length, 4);
+  assert.match(opacidad![1], /\{t: 0\.6, v: 100, ei: \[/); // fin de la entrada, con ease
+  assert.match(opacidad![1], /\{t: 2\.4, v: 100, eo: \[/); // arranque de la salida
+  // la posición solo la anima la entrada: las puntas quietas se recortan
+  const posicion = /__pista\(__t\(capa, "ADBE Position"\), (\[.*?\]), 1\);/.exec(jsx);
+  assert.equal((posicion![1].match(/\{t: /g) ?? []).length, 2);
+});
+
+test("presets con overshoot en la pista (pop) y resortes van HORNEADOS densos", () => {
+  const pop = base({ capas: [titulo({ entrada: { preset: "pop", en: 0, duracion: 400 } })] });
+  const jsxPop = generarScriptAE([pop]);
+  assert.match(jsxPop, /animacion horneada a keyframes \(entrada pop\)/);
+  const escala = /__pista\(__t\(capa, "ADBE Scale"\), (\[.*?\]), 2\);/.exec(jsxPop);
+  assert.ok(escala, "hay pista de escala");
+  assert.ok((escala![1].match(/\{t: /g) ?? []).length >= 10, "keyframes densos para pop");
+
+  const resorte = base({
+    capas: [titulo({ entrada: { preset: "subir", en: 0, duracion: 500, easing: "resorteRebote" } })],
+  });
+  const jsxResorte = generarScriptAE([resorte]);
+  assert.match(jsxResorte, /animacion horneada a keyframes \(entrada subir\)/);
+
+  // una pista cruda sobre el preset también fuerza el horneado (se SUMAN)
+  const mezcla = base({
+    capas: [titulo({
+      entrada: { preset: "subir", en: 0, duracion: 500 },
+      pistas: { x: [{ t: 0, v: 100 }, { t: 1000, v: 500 }] },
+    })],
+  });
+  assert.match(generarScriptAE([mezcla]), /animacion horneada a keyframes/);
 });
 
 test("horneado: el «solo diseño» lo apaga y una capa sin presets sigue con keyframes editables", () => {
@@ -203,7 +252,7 @@ test("la familia CSS con stack va LIMPIA a AE (la fuente real, no el chorizo)", 
     ],
   });
   const jsx = generarScriptAE([comp]);
-  assert.match(jsx, /__fijarFuente\(capa, \["Yamantaka-Bold", "YamantakaBold", "Yamantaka"\], "Yamantaka \(peso 700\)"\)/);
+  assert.match(jsx, /__fijarFuente\(capa, \["Yamantaka-Bold", "YamantakaBold", .*\], "Yamantaka", "Yamantaka \(peso 700\)"\)/);
   assert.ok(!jsx.includes("apple-system"), "el stack CSS no viaja");
 });
 
@@ -383,18 +432,56 @@ test("el tracking de AE sale ENTERO (un float aborta el script) y el interletrad
   assert.equal(Number(m[1]), -30); // -3.6012/120*1000 = -30.01 → -30
 });
 
-test("candidatosDeFuente cubre variantes de peso y termina en la familia pelada", () => {
-  assert.deepEqual(candidatosDeFuente("Space Grotesk", 700), ["SpaceGrotesk-Bold", "SpaceGroteskBold", "SpaceGrotesk"]);
-  assert.deepEqual(candidatosDeFuente("Inter", 400), ["Inter-Regular", "InterRegular", "Inter"]);
+test("escaleraDePesos: el pedido primero y los vecinos en orden CSS de fallback", () => {
+  // 400 prefiere 500 antes de bajar; después los livianos bajando y los pesados subiendo
+  assert.deepEqual(escaleraDePesos(400), [400, 500, 300, 200, 100, 600, 700, 800, 900]);
+  assert.deepEqual(escaleraDePesos(500), [500, 400, 300, 200, 100, 600, 700, 800, 900]);
+  // liviano: baja antes de subir; pesado: sube antes de bajar
+  assert.deepEqual(escaleraDePesos(300), [300, 200, 100, 400, 500, 600, 700, 800, 900]);
+  assert.deepEqual(escaleraDePesos(700), [700, 800, 900, 600, 500, 400, 300, 200, 100]);
+  // un peso raro se acomoda al múltiplo más cercano
+  assert.equal(escaleraDePesos(450)[0], 400);
+});
+
+test("candidatosDeFuente: el peso pedido primero, la ESCALERA entera después (una familia sin Regular cae al vecino, no a Thin)", () => {
+  const inter = candidatosDeFuente("Inter", 400);
+  assert.deepEqual(inter.slice(0, 2), ["Inter-Regular", "InterRegular"]);
+  // la familia pelada aparece con el grupo del 400 (suele SER el Regular)
+  assert.ok(inter.indexOf("Inter") < inter.indexOf("Inter-Medium"));
+  // el caso Yamantaka: peso 400 en una familia Thin/Light/Medium/Bold/Heavy
+  // tiene que probar Medium y Light ANTES que Thin (orden CSS de cercanía)
+  const y = candidatosDeFuente("Yamantaka", 400);
+  assert.ok(y.indexOf("Yamantaka-Medium") < y.indexOf("Yamantaka-Light"));
+  assert.ok(y.indexOf("Yamantaka-Light") < y.indexOf("Yamantaka-Thin"));
+  assert.ok(y.indexOf("Yamantaka-Thin") < y.indexOf("Yamantaka-Bold"));
+  const bold = candidatosDeFuente("Space Grotesk", 700);
+  assert.deepEqual(bold.slice(0, 2), ["SpaceGrotesk-Bold", "SpaceGroteskBold"]);
   assert.ok(candidatosDeFuente("Archivo", 600).includes("Archivo-SemiBold"));
   assert.ok(candidatosDeFuente("Archivo", 600).includes("Archivo-DemiBold"));
+  // sin duplicados
+  assert.equal(new Set(bold).size, bold.length);
 });
 
 test("fuentes que AE no encuentre: el script las junta y las canta al final", () => {
   const jsx = generarScriptAE([base({ capas: [titulo()] })]);
   assert.match(jsx, /var __fuentesFaltantes = \[\];/);
   assert.match(jsx, /tipografia original: /);
+  // familia correcta con otro estilo: se queda con esa cara y lo anota
+  assert.match(jsx, /tipografia aproximada: pedida /);
   assert.match(jsx, /if \(__fuentesFaltantes\.length\) alert\(/);
+});
+
+test("los avisos técnicos no concatenan el Error nativo (eso ABORTA ExtendScript): pasan por __detalle", () => {
+  const jsx = generarScriptAE([base({ capas: [titulo()] })]);
+  // el operador + de ExtendScript rechaza los Error nativos de AE con
+  // "Object of type Error found where a Number, Array, or Property is
+  // needed" (visto en AE real, linea 54): el detalle se lee por .message
+  assert.match(jsx, /function __detalle\(e\)/);
+  assert.match(jsx, /e\.message !== undefined/);
+  assert.match(jsx, /__avisar\("ease", e\)/);
+  assert.match(jsx, /__avisar\("bezier", e\)/);
+  assert.match(jsx, /__avisar\("hold", e\)/);
+  assert.ok(!jsx.includes('+ e);'), "ningún catch concatena el Error a pelo");
 });
 
 test("filasDeCapas pliega los subgrupos consecutivos en UNA fila", () => {

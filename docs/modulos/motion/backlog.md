@@ -47,6 +47,15 @@
 - **Horneado (2026-08-27):** HECHO — los presets viajan como keyframes
   densos (estadoEn por frame); familia CSS limpia; tracking entero; eases
   con BEZIER explícito y alert de avisos técnicos.
+- **Ronda 3 del AE real (2026-08-27):** HECHA — (1) el abort de la línea 54
+  era el catch concatenando el Error nativo con «+» (ExtendScript lo
+  rechaza): ahora `__avisar(texto, e)` lee `.message` vía `__detalle`;
+  (2) fuentes con ESCALERA DE PESOS en orden CSS + aceptación de familia
+  aproximada («tipografia aproximada: pedida …, AE puso …») — el peso 400
+  de una familia sin Regular ya no cae a Thin; (3) keyframes RALOS: los
+  presets simples van con un in y un out por segmento y el easing como
+  temporal ease (editables); densos solo pop/rebotar/resortes o pistas
+  crudas sumadas al preset.
 - **Tanda 2 (reducida, falta):** división letra por letra → text animators con range
   selector + offset (división por caracteres/palabras/líneas y escalonado),
   máscaras de revelado por línea, path SVG real del trazo, tramos rich text

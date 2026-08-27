@@ -1,4 +1,4 @@
-# ENTREGA — módulo motion (estado al 2026-08-26)
+# ENTREGA — módulo motion (estado al 2026-08-27)
 
 > Contrato: `docs/kit-diosa-2026-08-26.md` (copia del kit recibido, sello `main=9a8e79ce`).
 
@@ -166,17 +166,35 @@ TIPOGRAFÍAS también viajan: fuentes/ lleva los bytes de las subidas como
 archivo (instalar con doble click — AE no puede instalarlas por script) y
 un LEEME que lista las de Google con su link y las que hay que tener; y
 en AE la fuente se fija probando CANDIDATOS de nombre PostScript y
-RELEYENDO cuál agarró — AE sustituye en silencio —: si ninguno pega, la
-capa guarda «tipografia original: …» en su comentario y un alert final
-lista las faltantes; el tracking va ENTERO (un float aborta el script —
+RELEYENDO cuál agarró — AE sustituye en silencio —: los candidatos ahora
+recorren la ESCALERA DE PESOS entera en orden CSS de fallback (400
+prefiere 500 antes de bajar; sufijos Book/Roman/Demi/Heavy incluidos),
+así una familia sin el estilo pedido cae al MÁS PARECIDO — no a Thin,
+como le pasó al RIVALS de Gabriel (ronda 3); si ningún candidato pega
+EXACTO pero AE resolvió otra cara de la MISMA familia, el script se queda
+con esa y la capa anota «tipografia aproximada: pedida …, AE puso …»; si
+ni eso, guarda «tipografia original: …» y un alert final lista las
+faltantes; el tracking va ENTERO (un float aborta el script —
 cazado en el AE real de Gabriel; la familia CSS del import va LIMPIA a
 AE — antes viajaba el stack entero y AE no encontraba la fuente
 instalada—; los eases se aplican con interpolación BEZIER explícita y los
-errores técnicos del script se juntan en un alert final; y los PRESETS de
-entrada/salida se HORNEAN a keyframes: el mismo estadoEn del preview
-muestreado a un keyframe por frame en las ventanas animadas —posición/
-escala/rotación/opacidad/desenfoque/trim, solo los canales que se
-mueven—, así la coreografía LLEGA a AE exacta; un texto con división va
+errores técnicos del script se juntan en un alert final — que ya NO
+concatena el Error nativo con «+» (el operador de ExtendScript los
+rechaza con «Object of type Error found where a Number, Array, or
+Property is needed» y abortaba en la línea 54, cazado en la ronda 3): el
+detalle se lee por `.message` vía el helper `__detalle`, con red; y los
+PRESETS de entrada/salida viajan como KEYFRAMES: los simples (cada canal
+un tramo 0→1: subir, revelar, desvanecer, deslizar…) van RALOS — un
+keyframe de in y uno de out por segmento con el easing convertido a
+temporal ease, editables como los haría un motionero (lo que pidió
+Gabriel en la ronda 3: nada de muro de keyframes por frame) — y los que
+no se pueden contar con un solo tramo (pop/rebotar con overshoot en la
+pista, resortes que rebotan de verdad, o pistas crudas SUMADAS encima
+del preset) se HORNEAN densos: el mismo estadoEn del preview muestreado
+a un keyframe por frame en las ventanas animadas —posición/escala/
+rotación/opacidad/desenfoque/trim, solo los canales que se mueven—, así
+la coreografía llega exacta igual; el comentario de la capa dice cuál de
+los dos viajó; un texto con división va
 como bloque (letra por letra = text animators, pendiente) y la máscara
 del revelado no viaja, avisada en el comentario),
 **audio de proyecto** (la voz en off / música que
@@ -408,7 +426,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **190
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **194
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -440,7 +458,12 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   exactamente «el tracking de AE sale ENTERO». (15) filasDeCapas ignorando subgrupo →
   fallaron exactamente los dos tests de plegado y precomp. (16) canal de
   posición ausente del horneado → falló exacto. (17) mínimo de medio
-  segundo del recorte quitado → falló exacto. Restaurados, 190/190 verdes.
+  segundo del recorte quitado → falló exacto. (18) gate de resortes de
+  `esSegmentoRalo` quitado (resortes saliendo como keyframes ralos) →
+  falló exactamente «presets con overshoot en la pista (pop) y resortes
+  van HORNEADOS densos». (19) el catch de ease volviendo a concatenar el
+  Error nativo con «+» → falló exactamente «los avisos técnicos no
+  concatenan el Error nativo». Restaurados, 194/194 verdes.
 
 ## Qué necesita cablearse de su lado
 
