@@ -30,12 +30,19 @@ export function familiaPrincipal(stack: string): string | null {
 /** Familias reales que usa la composición, con los pesos que cada una necesita. */
 export function familiasDeComposicion(comp: Composicion): { familia: string; pesos: number[] }[] {
   const porFamilia = new Map<string, Set<number>>();
+  const sumar = (cruda: string, peso: number) => {
+    const familia = familiaPrincipal(cruda);
+    if (!familia) return;
+    if (!porFamilia.has(familia)) porFamilia.set(familia, new Set());
+    porFamilia.get(familia)!.add(peso);
+  };
   for (const capa of comp.capas) {
     if (capa.tipo !== "texto") continue;
-    const familia = familiaPrincipal(capa.fuente.familia);
-    if (!familia) continue;
-    if (!porFamilia.has(familia)) porFamilia.set(familia, new Set());
-    porFamilia.get(familia)!.add(capa.fuente.peso);
+    sumar(capa.fuente.familia, capa.fuente.peso);
+    // los tramos de rich text pueden traer una SEGUNDA tipografía
+    for (const tramo of capa.tramos ?? []) {
+      if (tramo.familia) sumar(tramo.familia, tramo.peso ?? capa.fuente.peso);
+    }
   }
   return [...porFamilia.entries()].map(([familia, pesos]) => ({
     familia,

@@ -7,7 +7,12 @@ import {
   easeDeTramo,
   colorAE,
   fuentePostScript,
+  extensionDeFuente,
+  archivoDeFamilia,
+  leemeDeFuentes,
+  candidatosDeFuente,
 } from "@/lib/motion/exportar-ae-puro";
+import { duracionDesdeAudio } from "@/lib/motion/audio-puro";
 import { nombreDeArchivo } from "@/lib/motion/exportar";
 import { quitarEscena } from "@/lib/motion/escenas-puro";
 import { estirarTiempoCapas, rangoAnimacionCapas } from "@/lib/motion/herramientas-puro";
@@ -79,7 +84,8 @@ test("genera la comp con formato y fondo; la capa de texto con fuente, leading y
   assert.match(jsx, /addComp\("Prueba AE", 1920, 1080, 1, 4, 30\)/);
   assert.match(jsx, /comp\.bgColor = \[0\.0627, 0\.0627, 0\.0824\];/);
   assert.match(jsx, /addText\("HOLA"\)/);
-  assert.match(jsx, /doc\.font = "SpaceGrotesk-Bold"/);
+  // la fuente se fija con candidatos VERIFICADOS (AE sustituye en silencio)
+  assert.match(jsx, /__fijarFuente\(capa, \["SpaceGrotesk-Bold", "SpaceGroteskBold", "SpaceGrotesk"\], "Space Grotesk \(peso 700\)"\)/);
   assert.match(jsx, /doc\.fontSize = 120;/);
   assert.match(jsx, /doc\.leading = 138;/); // 120 × 1.15
   assert.match(jsx, /LEFT_JUSTIFY/);
@@ -324,6 +330,59 @@ test("generarProyectoAE: el .jsx importa los assets por su ruta y cae a placehol
   assert.equal(seco.assets.length, 0);
   // (la cabecera define el helper __importar siempre; sin assets no hay LLAMADAS)
   assert.ok(!/^fuente = __importar\(/m.test(seco.jsx));
+});
+
+test("el tracking de AE sale ENTERO (un float aborta el script) y el interletrado negativo también", () => {
+  const comp = base({
+    capas: [titulo({ fuente: { familia: "Inter", tamano: 120, peso: 400, interletrado: -3.6012 } })],
+  });
+  const jsx = generarScriptAE([comp]);
+  const m = /doc\.tracking = (-?[\d.]+);/.exec(jsx);
+  assert.ok(m, "hay tracking");
+  assert.ok(Number.isInteger(Number(m[1])), `tracking entero (salió ${m[1]})`);
+  assert.equal(Number(m[1]), -30); // -3.6012/120*1000 = -30.01 → -30
+});
+
+test("candidatosDeFuente cubre variantes de peso y termina en la familia pelada", () => {
+  assert.deepEqual(candidatosDeFuente("Space Grotesk", 700), ["SpaceGrotesk-Bold", "SpaceGroteskBold", "SpaceGrotesk"]);
+  assert.deepEqual(candidatosDeFuente("Inter", 400), ["Inter-Regular", "InterRegular", "Inter"]);
+  assert.ok(candidatosDeFuente("Archivo", 600).includes("Archivo-SemiBold"));
+  assert.ok(candidatosDeFuente("Archivo", 600).includes("Archivo-DemiBold"));
+});
+
+test("fuentes que AE no encuentre: el script las junta y las canta al final", () => {
+  const jsx = generarScriptAE([base({ capas: [titulo()] })]);
+  assert.match(jsx, /var __fuentesFaltantes = \[\];/);
+  assert.match(jsx, /tipografia original: /);
+  assert.match(jsx, /if \(__fuentesFaltantes\.length\) alert\(/);
+});
+
+test("extensionDeFuente reconoce el formato por número mágico", () => {
+  const de = (s: string) => Array.from(s).map((c) => c.charCodeAt(0));
+  assert.equal(extensionDeFuente(de("OTTO....")), "otf");
+  assert.equal(extensionDeFuente(de("wOFF....")), "woff");
+  assert.equal(extensionDeFuente(de("wOF2....")), "woff2");
+  assert.equal(extensionDeFuente([0, 1, 0, 0]), "ttf");
+});
+
+test("archivoDeFamilia y leemeDeFuentes arman la carpeta fuentes/ legible", () => {
+  assert.equal(archivoDeFamilia("Space Grotesk", "otf"), "fuentes/SpaceGrotesk.otf");
+  assert.equal(archivoDeFamilia("Canción Ñandú", "ttf"), "fuentes/CancionNandu.ttf");
+  const leeme = leemeDeFuentes(
+    [{ familia: "Archivo Black", archivo: "fuentes/ArchivoBlack.otf" }],
+    ["Space Grotesk"],
+    ["Helvetica"],
+  );
+  assert.match(leeme, /Archivo Black -> ArchivoBlack\.otf/);
+  assert.match(leeme, /fonts\.google\.com\/specimen\/Space\+Grotesk/);
+  assert.match(leeme, /- Helvetica/);
+  assert.match(leeme, /ANTES de correr el \.jsx/);
+});
+
+test("duracionDesdeAudio: el largo del audio + 10% de aire, acotado a una escena", () => {
+  assert.equal(duracionDesdeAudio(4000), 4400);
+  assert.equal(duracionDesdeAudio(100), 500);
+  assert.equal(duracionDesdeAudio(500000), 120000);
 });
 
 test("sin escenas es un error claro, no un script vacio", () => {

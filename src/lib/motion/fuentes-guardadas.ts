@@ -51,11 +51,9 @@ export async function recordarFuente(registro: FuenteRecordada): Promise<void> {
   db.close();
 }
 
-/**
- * Recarga todas las fuentes recordadas en document.fonts.
- * Devuelve las familias que efectivamente levantó (para re-anclar textos).
- */
-export async function cargarFuentesRecordadas(): Promise<string[]> {
+/** Todos los registros recordados, tal cual (para el export a AE, que se
+    lleva los BYTES de las subidas y lista las de Google en el LEEME). */
+export async function registrosDeFuentes(): Promise<FuenteRecordada[]> {
   const db = await abrir();
   if (!db) return [];
   const registros = await new Promise<FuenteRecordada[]>((resolver) => {
@@ -69,6 +67,15 @@ export async function cargarFuentesRecordadas(): Promise<string[]> {
     }
   });
   db.close();
+  return registros;
+}
+
+/**
+ * Recarga todas las fuentes recordadas en document.fonts.
+ * Devuelve las familias que efectivamente levantó (para re-anclar textos).
+ */
+export async function cargarFuentesRecordadas(): Promise<string[]> {
+  const registros = await registrosDeFuentes();
   const cargadas: string[] = [];
   for (const registro of registros) {
     if (familiaDisponible(registro.familia)) continue; // ya está (del sistema o cargada)

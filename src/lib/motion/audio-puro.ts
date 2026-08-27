@@ -75,6 +75,15 @@ export function posicionGlobal(cortes: CorteEscena[], id: string, localMs: numbe
 }
 
 /**
+ * Duración que le queda a una escena VACÍA cuando entra el audio: el largo
+ * de la locución más un 10% de aire (que la animación respire después de
+ * la última palabra), dentro de los límites de una escena (0.5–120s).
+ */
+export function duracionDesdeAudio(duracionAudioMs: number): number {
+  return Math.min(120000, Math.max(500, Math.round(duracionAudioMs * 1.1)));
+}
+
+/**
  * Recorte del audio para el export: qué muestras del PCM cubren el tramo
  * de video [desdeMs, desdeMs + duracionMs). Clampeado al largo real: un
  * video más largo que el audio termina en silencio (el recorte se acaba),

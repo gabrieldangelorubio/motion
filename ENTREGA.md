@@ -144,7 +144,15 @@ armar la animación de cero en AE; y los ASSETS VIAJAN: con capas media el
 botón baja un ZIP con el .jsx + assets/ ordenados (media-01.png…) — se
 descomprime, se corre el script y AE IMPORTA los archivos solo, cada uno
 en su capa con su caja y su escala; falta un archivo → sólido placeholder
-con la instrucción en el comentario, nunca un proyecto roto),
+con la instrucción en el comentario, nunca un proyecto roto; las
+TIPOGRAFÍAS también viajan: fuentes/ lleva los bytes de las subidas como
+archivo (instalar con doble click — AE no puede instalarlas por script) y
+un LEEME que lista las de Google con su link y las que hay que tener; y
+en AE la fuente se fija probando CANDIDATOS de nombre PostScript y
+RELEYENDO cuál agarró — AE sustituye en silencio —: si ninguno pega, la
+capa guarda «tipografia original: …» en su comentario y un alert final
+lista las faltantes; el tracking va ENTERO (un float aborta el script —
+cazado en el AE real de Gabriel)),
 **audio de proyecto** (la voz en off / música que
 estructura las escenas: UN audio por proyecto —botón ♪ en la barra de
 escenas, acepta audio y el sonido de un mp4/webm—, guardado ENTERO en el
@@ -189,9 +197,12 @@ flujo «los videos acá son solo referencia»: las gráficas solas sobre
 fondo TRANSPARENTE, frame a frame, en un ZIP —zip STORE propio,
 determinista, sin dependencias— que se monta ENCIMA del video real en
 AE/Premiere; respeta Desde/Hasta y «todas las escenas» con numeración
-global de frames; mismo motor determinista con supersampling 2×), **el proyecto arranca VACÍO**
-(lienzo limpio con el formato de la casa — la composición demo quedó en
-`lib/motion/demo.ts` para tests y harness),
+global de frames; mismo motor determinista con supersampling 2×), **el proyecto arranca VACÍO con su punto de partida**
+(lienzo limpio con el formato de la casa y una tarjeta al centro con los
+tres arranques: subir la voz en off — que además le pone el TEMPO a la
+escena: la duración toma el largo del audio + 10% de aire —, importar la
+pantalla de Figma, o subir una imagen; con capas la tarjeta desaparece;
+la composición demo quedó en `lib/motion/demo.ts` para tests y harness),
 **el paradigma canvas + cámara** (el lienzo es
 infinito: cada import de Figma se SUMA a la derecha de lo existente con su
 fondo como placa — ids únicos, anclas remapeadas — y el plugin exporta
@@ -363,7 +374,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **178
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **184
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -390,7 +401,10 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   (los casos coincidían con la regla rota: se agregó el caso «borrar la
   última») y con el caso nuevo falló exacto. (12) escalonado sin escalar en el
   time-stretch grupal → falló exactamente «escala inicios, duraciones,
-  keyframes y escalonado». Restaurados, 178/178 verdes.
+  keyframes y escalonado». (13) OTTO detectado como ttf en
+  extensionDeFuente → falló exacto; (14) tracking sin redondear → falló
+  exactamente «el tracking de AE sale ENTERO». Restaurados, 184/184
+  verdes.
 
 ## Qué necesita cablearse de su lado
 

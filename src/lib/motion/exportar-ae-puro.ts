@@ -87,6 +87,65 @@ function colorLit(hex: string): string {
   return `[${num(r)}, ${num(g)}, ${num(b)}]`;
 }
 
+/* ——— Fuentes del proyecto: viajan en fuentes/ dentro del zip ————————
+   AE no puede instalar tipografías por script (eso es del sistema): van
+   como ARCHIVOS para instalar con doble click antes de correr el .jsx,
+   más un LEEME que lista qué hace falta y de dónde sacar lo que no viaja. */
+
+/** Formato real del binario de una fuente, por número mágico. */
+export function extensionDeFuente(bytes: ArrayLike<number>): "otf" | "ttf" | "woff" | "woff2" {
+  const magia = [bytes[0], bytes[1], bytes[2], bytes[3]];
+  const es = (s: string) => s.split("").every((c, i) => magia[i] === c.charCodeAt(0));
+  if (es("OTTO")) return "otf";
+  if (es("wOFF")) return "woff";
+  if (es("wOF2")) return "woff2";
+  return "ttf"; // 0x00010000 y "true" son TrueType; default sano
+}
+
+/** Nombre de archivo ASCII-seguro para una familia. */
+export function archivoDeFamilia(familia: string, ext: string): string {
+  const base = familia
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9 _-]/g, "")
+    .replace(/\s+/g, "");
+  return `fuentes/${base || "fuente"}.${ext}`;
+}
+
+/** El LEEME de fuentes/: qué instalar, qué bajar de Google, qué conseguir. */
+export function leemeDeFuentes(
+  incluidas: { familia: string; archivo: string }[],
+  deGoogle: string[],
+  restantes: string[],
+): string {
+  const L: string[] = [
+    "FUENTES DEL PROYECTO",
+    "====================",
+    "Instalalas ANTES de correr el .jsx en After Effects (doble click en",
+    "cada archivo > Instalar). AE no puede instalarlas solo: eso es del",
+    "sistema operativo.",
+    "",
+  ];
+  if (incluidas.length) {
+    L.push("Incluidas en esta carpeta:");
+    for (const f of incluidas) L.push(`- ${f.familia} -> ${f.archivo.replace("fuentes/", "")}`);
+    L.push("");
+  }
+  if (deGoogle.length) {
+    L.push("De Google Fonts (bajalas gratis e instalalas):");
+    for (const familia of deGoogle) {
+      L.push(`- ${familia}: https://fonts.google.com/specimen/${familia.replace(/\s+/g, "+")}`);
+    }
+    L.push("");
+  }
+  if (restantes.length) {
+    L.push("Usadas por el proyecto (si no las tenes instaladas, conseguilas):");
+    for (const familia of restantes) L.push(`- ${familia}`);
+    L.push("");
+  }
+  return L.join("\n");
+}
+
 /* ——— Easings → temporal ease de AE ——————————————————————————————— */
 
 // Los mismos cubic-bezier de easings-puro. Los resortes no tienen bezier
@@ -198,6 +257,27 @@ const SUFIJO_PESO: Record<number, string> = {
 export function fuentePostScript(familia: string, peso: number): string {
   const base = familia.replace(/\s+/g, "");
   return base + (SUFIJO_PESO[peso] ?? "-Regular");
+}
+
+/** CANDIDATOS de nombre PostScript para una familia+peso, en orden de
+    probabilidad. El script los prueba EN AE y verifica cuál agarró de
+    verdad (setear una fuente inexistente no lanza: AE sustituye en
+    silencio — por eso hay que releer y comparar). */
+export function candidatosDeFuente(familia: string, peso: number): string[] {
+  const base = familia.replace(/\s+/g, "");
+  const sufijos: Record<number, string[]> = {
+    100: ["Thin"], 200: ["ExtraLight", "UltraLight"], 300: ["Light"],
+    400: ["Regular", ""], 500: ["Medium"],
+    600: ["SemiBold", "Semibold", "DemiBold"], 700: ["Bold"],
+    800: ["ExtraBold", "Heavy"], 900: ["Black", "Heavy"],
+  };
+  const candidatos: string[] = [];
+  for (const sufijo of sufijos[peso] ?? ["Regular"]) {
+    if (sufijo) candidatos.push(`${base}-${sufijo}`, `${base}${sufijo}`);
+    else candidatos.push(base);
+  }
+  if (!candidatos.includes(base)) candidatos.push(base);
+  return candidatos;
 }
 
 const MEZCLA_AE: Record<MezclaCapa, string> = {
@@ -351,16 +431,19 @@ function emitirCapa(L: string[], capa: Capa, sinAnimacion: boolean, rutasMedia: 
     L.push(`capa = comp.layers.addText(${cadena(capa.texto)});`);
     L.push(`doc = capa.property("ADBE Text Properties").property("ADBE Text Document").value;`);
     L.push(`doc.resetCharStyle();`);
-    L.push(`try { doc.font = ${cadena(fuentePostScript(capa.fuente.familia, capa.fuente.peso))}; } catch (e) {}`);
     L.push(`doc.fontSize = ${num(capa.fuente.tamano)};`);
     L.push(`doc.applyFill = true;`);
     L.push(`doc.fillColor = ${colorLit(capa.color)};`);
     L.push(`doc.justification = ParagraphJustification.${justif};`);
-    L.push(`doc.tracking = ${num(((capa.fuente.interletrado ?? 0) / capa.fuente.tamano) * 1000)};`);
+    // el tracking de AE es ENTERO (milésimas de em): un float lo hace abortar
+    L.push(`doc.tracking = ${num(Math.round(((capa.fuente.interletrado ?? 0) / capa.fuente.tamano) * 1000))};`);
     L.push(`doc.autoLeading = false;`);
     L.push(`doc.leading = ${num(interlineado)};`);
     L.push(`capa.property("ADBE Text Properties").property("ADBE Text Document").setValue(doc);`);
     emitirComunes(L, capa, sinAnimacion);
+    // DESPUÉS del comentario: si la fuente no aparece, el helper le anexa
+    // «tipografia original: …» y la suma al resumen final de faltantes
+    L.push(`__fijarFuente(capa, [${candidatosDeFuente(capa.fuente.familia, capa.fuente.peso).map(cadena).join(", ")}], ${cadena(`${capa.fuente.familia} (peso ${capa.fuente.peso})`)});`);
     emitirTransform(L, capa, desplazarY, sinAnimacion);
     return;
   }
@@ -548,6 +631,23 @@ function __importar(rel) {
     return app.project.importFile(new ImportOptions(f));
   } catch (e) { return null; }
 }
+// AE sustituye una fuente inexistente EN SILENCIO: probamos candidatos y
+// RELEEMOS cual agarro; si ninguno pega, la capa recuerda la original en su
+// comentario y el resumen final lista todas las faltantes.
+var __fuentesFaltantes = [];
+function __fijarFuente(capaTexto, candidatos, original) {
+  var prop = capaTexto.property("ADBE Text Properties").property("ADBE Text Document");
+  for (var i = 0; i < candidatos.length; i++) {
+    try {
+      var v = prop.value;
+      v.font = candidatos[i];
+      prop.setValue(v);
+      if (prop.value.font === candidatos[i]) return;
+    } catch (e) {}
+  }
+  __fuentesFaltantes.push(original);
+  capaTexto.comment = (capaTexto.comment ? capaTexto.comment + " | " : "") + "tipografia original: " + original;
+}
 function __t(capa, nombre) { return capa.property("ADBE Transform Group").property(nombre); }
 function __eases(par, n) {
   var e = par ? new KeyframeEase(par[0], __clamp(par[1], 0.1, 100)) : new KeyframeEase(0, 33.3333);
@@ -644,6 +744,7 @@ export function generarScriptAE(
 
   L.push(`app.endUndoGroup();`);
   L.push(`alert(${cadena(`motion: «${proyecto}» importado — ${escenas.length} escena(s), ${totalCapas} capa(s). Las capas con animacion pendiente de traducir lo dicen en su comentario.`)});`);
+  L.push(`if (__fuentesFaltantes.length) alert("Tipografias que AE no encontro (cada capa dice la ORIGINAL en su comentario; instalalas y volve a correr el script):\\n- " + __fuentesFaltantes.join("\\n- "));`);
   L.push(``);
   return L.join("\n");
 }

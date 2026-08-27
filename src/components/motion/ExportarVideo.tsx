@@ -15,8 +15,15 @@ import { useEffect, useState } from "react";
 import type { Composicion } from "@/lib/motion/modelo";
 import type { FuentesDeMedia } from "@/lib/motion/pintar";
 import { exportarMp4, exportarPngSecuencia, descargarBlob, exportSoportado, type AudioExport } from "@/lib/motion/exportar";
-import { generarProyectoAE } from "@/lib/motion/exportar-ae-puro";
+import {
+  generarProyectoAE,
+  extensionDeFuente,
+  archivoDeFamilia,
+  leemeDeFuentes,
+} from "@/lib/motion/exportar-ae-puro";
 import { crearZip, type EntradaZip } from "@/lib/motion/zip-puro";
+import { familiasDeComposicion } from "@/lib/motion/fuentes-puro";
+import { registrosDeFuentes } from "@/lib/motion/fuentes-guardadas";
 
 function bytesDeBase64(base64: string): Uint8Array {
   const crudo = atob(base64);
@@ -173,12 +180,45 @@ export function ExportarVideo({
       const escenas = todas && obtenerEscenas ? await obtenerEscenas() : [activa];
       const base = activa.nombre.replace(/\s+/g, "-");
       const { jsx, assets } = generarProyectoAE(escenas, activa.nombre, { sinAnimacion: soloDiseno });
-      if (assets.length === 0) {
+
+      // ——— fuentes/: las TIPOGRAFÍAS del proyecto viajan también — las
+      // subidas como archivo van con sus bytes (instalar con doble click);
+      // las de Google y las del sistema quedan listadas en el LEEME.
+      const familias = [
+        ...new Set(escenas.flatMap((esc) => familiasDeComposicion(esc).map((f) => f.familia))),
+      ];
+      const fuentes: EntradaZip[] = [];
+      if (familias.length) {
+        const registros = await registrosDeFuentes();
+        const incluidas: { familia: string; archivo: string }[] = [];
+        const deGoogle: string[] = [];
+        const restantes: string[] = [];
+        for (const familia of familias) {
+          const registro = registros.find((r) => r.familia === familia);
+          if (registro?.origen === "archivo") {
+            const bytes = new Uint8Array(registro.datos);
+            const ruta = archivoDeFamilia(familia, extensionDeFuente(bytes));
+            incluidas.push({ familia, archivo: ruta });
+            fuentes.push({ nombre: ruta, datos: bytes });
+          } else if (registro?.origen === "google") {
+            deGoogle.push(familia);
+          } else {
+            restantes.push(familia);
+          }
+        }
+        fuentes.push({
+          nombre: "fuentes/LEEME.txt",
+          datos: new TextEncoder().encode(leemeDeFuentes(incluidas, deGoogle, restantes)),
+        });
+      }
+
+      if (assets.length === 0 && fuentes.length === 0) {
         await entregar(new Blob([jsx], { type: "text/javascript" }), `${base}.jsx`);
       } else {
         const entradas: EntradaZip[] = [
           { nombre: `${base}.jsx`, datos: new TextEncoder().encode(jsx) },
           ...assets.map((a) => ({ nombre: a.ruta, datos: bytesDeBase64(a.base64) })),
+          ...fuentes,
         ];
         await entregar(new Blob([crearZip(entradas) as BlobPart], { type: "application/zip" }), `${base}-ae.zip`);
       }

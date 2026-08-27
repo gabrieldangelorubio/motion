@@ -66,7 +66,7 @@ import {
   recordarAudio,
   type AudioDecodificado,
 } from "@/lib/motion/audio-guardado";
-import { cortesDeEscenas, escenaEnPunto } from "@/lib/motion/audio-puro";
+import { cortesDeEscenas, duracionDesdeAudio, escenaEnPunto } from "@/lib/motion/audio-puro";
 import { encajarMedia } from "@/lib/motion/media-puro";
 import { suavizarGrabacion, type MuestraCamara } from "@/lib/motion/suavizar-puro";
 import { baselineAproximada, envolverEnLineas, sumarAlLienzo, type ResultadoImport } from "@/lib/motion/figma-puro";
@@ -570,7 +570,13 @@ export function Editor({
       if (previo) URL.revokeObjectURL(previo.url);
       return dec;
     });
-  }, [composicionId]);
+    // escena VACÍA (recién abierto el módulo): la locución marca el tempo —
+    // la escena toma su largo + un 10% de aire para que la animación respire
+    if (compRef.current.capas.length === 0) {
+      registrar();
+      cambiarDuracion(duracionDesdeAudio(dec.duracionMs));
+    }
+  }, [composicionId, registrar, cambiarDuracion]);
 
   const quitarAudio = useCallback(() => {
     void olvidarAudio(composicionId);
@@ -1485,6 +1491,48 @@ export function Editor({
               }}
             />
           </div>
+          {/* ESTADO VACÍO: recién abierto el módulo, el lienzo ofrece por
+              dónde arrancar — la voz en off marca el tempo de la escena */}
+          {composicion.capas.length === 0 && (
+            <div className="pointer-events-none absolute inset-0 z-[5] grid place-items-center">
+              <div className="pointer-events-auto w-80 rounded-card border border-(--menu-border) bg-(--menu-solido-bg) p-4 text-center shadow-(--menu-shadow)">
+                <div className="text-[14px] font-semibold text-foreground">{t("Arranquemos esta escena")}</div>
+                <p className="mt-1 text-[12px] leading-snug text-muted">
+                  {audio
+                    ? t("El audio ya está: traé el diseño de Figma o una imagen, o cortá la locución en escenas sobre la onda.")
+                    : t("Subí la voz en off para marcar el tempo — la escena toma su largo solo — o arrancá por el diseño.")}
+                </p>
+                <div className="mt-3 flex flex-col gap-1.5">
+                  {!audio && (
+                    <button
+                      type="button"
+                      onClick={() => entradaAudioRef.current?.click()}
+                      className="boton h-9 rounded-control bg-acento px-3 text-sm font-semibold text-white hover:bg-acento/85"
+                    >
+                      {t("Subir el audio / voz en off")}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setImportarAbierto(true)}
+                    className="flex h-8 items-center justify-center rounded-control px-2 text-[12px] text-foreground/80 shadow-control hover:bg-ink/[0.06]"
+                  >
+                    {t("Importar la pantalla de Figma")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      reemplazoMediaRef.current = null;
+                      entradaMediaRef.current?.click();
+                    }}
+                    className="flex h-8 items-center justify-center rounded-control px-2 text-[12px] text-foreground/80 shadow-control hover:bg-ink/[0.06]"
+                  >
+                    {t("Subir una imagen")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="absolute bottom-3 left-3 flex items-center gap-2">
             <ConPista pista={t("Calidad del preview — el export siempre sale a resolución completa")}>
               <Segmentado
