@@ -36,13 +36,27 @@
   necesita loops compuestos: pulse/float/shimmer (capa de énfasis).
 - **Dónde:** `lib/motion/presets-puro.ts`, `evaluar-puro.ts`
 
-### [P2] Export Lottie (formato, no runtime)
-- **Estado:** abierto
+### [P1] Export a After Effects (script .jsx) — tandas 2 y 3
+- **Estado:** tanda 1 HECHA (2026-08-27) — `exportar-ae-puro.ts` genera un
+  ExtendScript determinista que reconstruye las escenas con objetos NATIVOS
+  de AE (comp por escena + master, texto real con fuente/leading/tracking,
+  shapes, trim paths, keyframes con temporal ease desde nuestros beziers,
+  cámara como precomp, temblor como expresión); botón en el panel de export.
+- **Tanda 2 (falta):** presets de entrada/salida → text animators con range
+  selector + offset (división por caracteres/palabras/líneas y escalonado),
+  máscaras de revelado por línea, path SVG real del trazo, tramos rich text
+  como capas partidas. Hoy todo eso queda ANOTADO en el comentario de capa.
+- **Tanda 3 (falta):** lo que muestre degradado la prueba en AE real de
+  Gabriel (paso suyo: correr el .jsx, chequear editabilidad, renderizar y
+  comparar frames contra nuestro MP4); resortes horneados por frame si la
+  aproximación bezier no alcanza; zoom log con keyframe intermedio.
+- **Dónde:** `lib/motion/exportar-ae-puro.ts`, `ExportarVideo.tsx`
+
+### [P3] Export Lottie (formato, no runtime)
+- **Estado:** abierto — ya NO es el camino a AE (eso es el .jsx de arriba):
+  queda para interchange hacia runtime web/apps.
 - **Qué:** serializar composiciones a Lottie JSON (el easing de Lottie es
-  cubic-bezier: match directo) para importar en AE con el plugin de
-  LottieFiles.
-- **Por qué:** interchange hacia AE gratis de mantener, camino a M7 del
-  blueprint.
+  cubic-bezier: match directo).
 - **Dónde:** `lib/motion/exportar-lottie.ts` (nuevo)
 
 ### [P2] Pista de audio sincronizada

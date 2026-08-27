@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import type { Composicion } from "@/lib/motion/modelo";
 import type { FuentesDeMedia } from "@/lib/motion/pintar";
 import { exportarMp4, descargarBlob, exportSoportado } from "@/lib/motion/exportar";
+import { generarScriptAE } from "@/lib/motion/exportar-ae-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
@@ -116,6 +117,25 @@ export function ExportarVideo({
     }
   };
 
+  // Export a After Effects: genera el script .jsx que reconstruye las escenas
+  // con capas nativas (correr en AE: Archivo → Scripts → Ejecutar archivo…).
+  // Respeta el toggle «todas»: apagado exporta la escena activa sola.
+  const exportarAE = async () => {
+    setError(null);
+    try {
+      const activa = obtenerComposicion();
+      const escenas = todas && obtenerEscenas ? await obtenerEscenas() : [activa];
+      const script = generarScriptAE(escenas, activa.nombre);
+      await entregar(
+        new Blob([script], { type: "text/javascript" }),
+        `${activa.nombre.replace(/\s+/g, "-")}.jsx`,
+      );
+      setAbierto(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("El export a AE falló"));
+    }
+  };
+
   return (
     <div className="relative flex flex-col items-end gap-1.5">
       <ConPista pista={progreso === null ? t("Exportar MP4") : t("Exportando…")}>
@@ -174,6 +194,14 @@ export function ExportarVideo({
             className="boton mt-2 h-9 w-full rounded-control bg-acento px-3 text-sm font-semibold text-white hover:bg-acento/85"
           >
             {t("Exportar")}
+          </button>
+          <button
+            type="button"
+            onClick={() => void exportarAE()}
+            title={t("Genera un script que reconstruye la comp en After Effects con capas editables")}
+            className="mt-1.5 flex h-8 w-full items-center justify-center rounded-control px-2 text-[12px] text-foreground/80 shadow-control hover:bg-ink/[0.06]"
+          >
+            {t("After Effects (.jsx)")}
           </button>
         </div>
       )}

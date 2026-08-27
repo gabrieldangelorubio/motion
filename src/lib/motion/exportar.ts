@@ -191,14 +191,26 @@ export async function exportarMp4(
 }
 
 /** Entrega por defecto: descarga del browser. La demo web puede inyectar otra. */
+/** Nombre de archivo a ASCII: un acento en `a.download` hace que Chromium
+    descarte el nombre ENTERO y baje como «download» (visto en headless).
+    NFD separa el diacrítico del glifo; lo que siga fuera de ASCII va a "-". */
+export function nombreDeArchivo(nombre: string): string {
+  return nombre
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7e]/g, "-");
+}
+
 export function descargarBlob(blob: Blob, nombre: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = nombre;
+  a.download = nombreDeArchivo(nombre);
   // el download= sólo se respeta con el <a> EN el documento
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  // revocar DESPUÉS de que el download arrancó: hacerlo sincrónico le pisa
+  // el nombre de archivo al browser (visto en Chromium headless)
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }

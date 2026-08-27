@@ -108,7 +108,26 @@ más adelante o más atrás, clampeado para que nada quede antes de 0), y
 un panel: Desde/Hasta con scrub para renderizar un pedazo, o «todas las
 escenas» concatenadas con corte duro en UN MP4 — mismo encoder, keyframe
 de video al inicio de cada corte, con la media de las escenas frías
-precalentada antes de codificar), **el paradigma canvas + cámara** (el lienzo es
+precalentada antes de codificar), **export a After Effects**
+(`exportar-ae-puro.ts`: en el panel de export, «After Effects (.jsx)»
+genera un script ExtendScript que corrido en AE —Archivo → Scripts →
+Ejecutar archivo de script— RECONSTRUYE las escenas con objetos nativos,
+100% editables: comp por escena + master concatenado con corte duro,
+capas de texto reales (fuente por nombre PostScript adivinado de
+familia+peso, leading, tracking, justificación, ancla corregida a la
+baseline de la primera línea), formas/trazos como shape layers (el trazo
+con Trim Paths REAL; su path SVG por ahora es un rectángulo anotado),
+media como sólido placeholder para relinkear, keyframes de
+x/y/escala/rotación/opacidad/desenfoque con el easing convertido a
+temporal ease de AE (velocidad+influencia desde nuestros cubic-bezier;
+resortes aproximados con overshoot), la cámara como precomp
+—anchor point keyframeado desde `camaraEn` limpio, zoom = escala— y el
+TEMBLOR como expresión con la misma suma de senos del motor; los presets
+de entrada/salida y la división por unidades TODAVÍA no se traducen
+(tanda 2: text animators) y quedan anotados en el comentario de cada capa
+para que nada se pierda en silencio; el .jsx sale ASCII puro —encoding a
+prueba de AE— y el generador es determinista y testeado byte a byte),
+**el paradigma canvas + cámara** (el lienzo es
 infinito: cada import de Figma se SUMA a la derecha de lo existente con su
 fondo como placa — ids únicos, anclas remapeadas — y el plugin exporta
 VARIOS frames seleccionados en un solo JSON: entran todos al lienzo
@@ -279,10 +298,13 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **102
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **156
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
-  trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`.
+  trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
+  los del script de After Effects (conversión de easings, ancla de texto
+  multilínea, cámara, temblor, master multi-escena, escapado ASCII,
+  determinismo byte a byte) en `tests/motion/exportar-ae.test.ts`.
 - **Sabotajes vistos en rojo** (§2.5): (1) `interpolar` ignorando el easing
   del tramo → falló exactamente «el easing del tramo lo declara el keyframe
   de SALIDA»; (2) gate del motion blur apagado en `evaluar-puro` → falló
@@ -291,7 +313,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   snapping invertida → falló exactamente «UN solo ganador por eje — gana la
   distancia mínima». (4) clamp del agente sin efecto → fallaron los tests de clampeo. (5) ventana del recorte del revelado siempre activa →
   fallaron exactamente los tres tests de la ventana (reposo sin recorte,
-  salida recortando, clip en pintar). Restaurados, 102/102 verdes.
+  salida recortando, clip en pintar). (6) conversión de opacidad del script
+  de AE sin el ×100 → falló exactamente «opacidad va 0-1 → 0-100».
+  Restaurados, 156/156 verdes.
 
 ## Qué necesita cablearse de su lado
 
