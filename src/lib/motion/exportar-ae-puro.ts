@@ -37,8 +37,10 @@ import type {
   Pistas,
   Segmento,
 } from "@/lib/motion/modelo";
-import { camaraEn } from "@/lib/motion/evaluar-puro";
+import { camaraEn, estadoEn } from "@/lib/motion/evaluar-puro";
 import { filasDeCapas, type FilaCapas } from "@/lib/motion/herramientas-puro";
+import { familiaPrincipal } from "@/lib/motion/fuentes-puro";
+import { compilarSegmento } from "@/lib/motion/presets-puro";
 
 /* ——— Números y strings deterministas ————————————————————————————— */
 
@@ -340,13 +342,30 @@ export function assetsDeEscenas(escenas: Composicion[]): AssetAE[] {
 
 /** Comentario de capa con lo que TODAVÍA no se traduce, para que nada se
     pierda en silencio al abrir el proyecto en AE. */
-function comentarioPendientes(capa: Capa, sinAnimacion: boolean, conAsset = false): string | null {
+function comentarioPendientes(capa: Capa, sinAnimacion: boolean, conAsset = false, horneado = false): string | null {
   const pendientes: string[] = [];
   if (!sinAnimacion) {
-    if (capa.entrada) pendientes.push(describirSegmento("entrada", capa.entrada));
-    if (capa.salida) pendientes.push(describirSegmento("salida", capa.salida));
-    if (capa.tipo === "texto" && capa.division !== "ninguna") {
-      pendientes.push(`division: ${capa.division}`);
+    if (horneado) {
+      // los presets ya viajaron como keyframes: el comentario informa, no
+      // reclama — y la división avisa que llegó como bloque
+      const partes = [capa.entrada && `entrada ${capa.entrada.preset}`, capa.salida && `salida ${capa.salida.preset}`]
+        .filter(Boolean)
+        .join(" + ");
+      pendientes.push(`animacion horneada a keyframes (${partes}) — la coreografia se edita en motion`);
+      if (capa.tipo === "texto" && capa.division !== "ninguna") {
+        pendientes.push(`division por ${capa.division}: horneada como bloque (letra por letra pendiente)`);
+      }
+      // el recorte del revelado (la máscara por renglón) no se puede hornear
+      // en keyframes de transform: en AE hay que enmascarar a mano (pendiente)
+      if ([capa.entrada, capa.salida].some((seg) => seg && compilarSegmento(seg).recorte)) {
+        pendientes.push("la MASCARA del revelado no viaja: agregala en AE (pendiente)");
+      }
+    } else {
+      if (capa.entrada) pendientes.push(describirSegmento("entrada", capa.entrada));
+      if (capa.salida) pendientes.push(describirSegmento("salida", capa.salida));
+      if (capa.tipo === "texto" && capa.division !== "ninguna") {
+        pendientes.push(`division: ${capa.division}`);
+      }
     }
   }
   if (capa.tipo === "trazo") pendientes.push("path SVG real (aca va un rectangulo)");
@@ -355,11 +374,126 @@ function comentarioPendientes(capa: Capa, sinAnimacion: boolean, conAsset = fals
   return "motion, pendiente de traducir: " + pendientes.join(" | ");
 }
 
+/** Canales horneados de una capa: la animación RESUELTA por el motor
+    (presets + pistas + escalonado colapsado) muestreada frame a frame. */
+type ClavesHorneadas = {
+  posicion?: ClaveAE[];
+  escala?: ClaveAE[];
+  rotacion?: ClaveAE[];
+  opacidad?: ClaveAE[];
+  desenfoque?: ClaveAE[];
+  trazoInicio?: ClaveAE[];
+  trazoFin?: ClaveAE[];
+};
+
+/**
+ * HORNEA los presets de entrada/salida a keyframes: el mismo `estadoEn`
+ * del preview se muestrea a un keyframe POR FRAME dentro de las ventanas
+ * animadas — la coreografía llega a AE exacta (lineal denso: la curva del
+ * easing ya viene adentro de las muestras). Un texto con división se
+ * hornea como bloque entero (letra por letra = text animators, tanda
+ * aparte). Devuelve solo los canales que realmente se mueven.
+ */
+function clavesHorneadas(comp: Composicion, capa: Capa, desplazarY: number): ClavesHorneadas | null {
+  if ((!capa.entrada && !capa.salida) || capa.oculta) return null;
+  const plana: Capa =
+    capa.tipo === "texto" && capa.division !== "ninguna" ? { ...capa, division: "ninguna" } : capa;
+  const compUna: Composicion = { ...comp, capas: [plana] };
+  const paso = 1000 / comp.fps;
+
+  const ventanas: [number, number][] = [];
+  for (const seg of [capa.entrada, capa.salida]) {
+    if (seg) ventanas.push([seg.en, seg.en + seg.duracion]);
+  }
+  for (const pista of Object.values(capa.pistas ?? {})) {
+    const ts = (pista ?? []).map((k) => k.t);
+    if (ts.length) ventanas.push([Math.min(...ts), Math.max(...ts)]);
+  }
+  const desde = Math.max(0, Math.min(...ventanas.map((v) => v[0])));
+  const hasta = Math.min(comp.duracion, Math.max(...ventanas.map((v) => v[1])));
+  if (hasta <= desde) return null;
+
+  const tiempos: number[] = [];
+  for (let t = desde; t < hasta; t += paso) tiempos.push(t);
+  tiempos.push(hasta);
+
+  const canales: Required<ClavesHorneadas> = {
+    posicion: [], escala: [], rotacion: [], opacidad: [], desenfoque: [], trazoInicio: [], trazoFin: [],
+  };
+  for (const t of tiempos) {
+    const est = estadoEn(compUna, t).capas[0];
+    const u = est?.unidades[0];
+    if (!est || !u) return null;
+    const ts = redondear(t / 1000);
+    const s = redondear(Math.max(0, est.escala * (1 + u.dEscala)) * 100);
+    canales.posicion.push({ t: ts, v: [redondear(est.x + u.dx), redondear(est.y + u.dy - desplazarY)] });
+    canales.escala.push({ t: ts, v: [s, s] });
+    canales.rotacion.push({ t: ts, v: redondear(est.rotacion + u.dRotacion) });
+    canales.opacidad.push({ t: ts, v: redondear(Math.min(1, Math.max(0, est.opacidad * u.opacidad)) * 100) });
+    canales.desenfoque.push({ t: ts, v: redondear(u.desenfoque) });
+    canales.trazoInicio.push({ t: ts, v: redondear(u.trazoInicio * 100) });
+    canales.trazoFin.push({ t: ts, v: redondear(u.trazoFin * 100) });
+  }
+  const varia = (claves: ClaveAE[]) =>
+    claves.some((c) => JSON.stringify(c.v) !== JSON.stringify(claves[0].v));
+  return {
+    posicion: varia(canales.posicion) ? canales.posicion : undefined,
+    escala: varia(canales.escala) ? canales.escala : undefined,
+    rotacion: varia(canales.rotacion) ? canales.rotacion : undefined,
+    opacidad: varia(canales.opacidad) ? canales.opacidad : undefined,
+    desenfoque: varia(canales.desenfoque) ? canales.desenfoque : undefined,
+    trazoInicio: capa.tipo === "trazo" && varia(canales.trazoInicio) ? canales.trazoInicio : undefined,
+    trazoFin: capa.tipo === "trazo" && varia(canales.trazoFin) ? canales.trazoFin : undefined,
+  };
+}
+
 /** Emite transformaciones (base + pistas) de una capa ya creada en `capa`.
     Con `sinAnimacion` las pistas se ignoran: queda el estado base, quieto.
     `escalaYaPuesta`: el footage importado ya lleva su escala de encaje —
     la base no se pisa (pistas de escala crudas igual mandan). */
-function emitirTransform(L: string[], capa: Capa, desplazarY = 0, sinAnimacion = false, escalaYaPuesta = false): void {
+function emitirTransform(
+  L: string[],
+  capa: Capa,
+  desplazarY = 0,
+  sinAnimacion = false,
+  escalaYaPuesta = false,
+  horneadas: ClavesHorneadas | null = null,
+): void {
+  // ——— HORNEADO: la animación resuelta llega como keyframes densos; las
+  // pistas crudas NO se emiten aparte (el muestreo ya las compone) ———
+  if (horneadas) {
+    if (horneadas.posicion) {
+      L.push(`__pista(__t(capa, "ADBE Position"), ${clavesLit(horneadas.posicion)}, 1);`);
+    } else {
+      L.push(`__t(capa, "ADBE Position").setValue([${num(capa.x)}, ${num(capa.y - desplazarY)}]);`);
+    }
+    if (horneadas.escala && escalaYaPuesta) {
+      // el footage importado ya lleva su escala de encaje: hornearle otra
+      // encima la pisaría — degradar avisado, no romper
+      L.push(`__avisar(${cadena(`la escala animada de «${capa.nombre}» no se horneo (imagen importada): ajustala en AE`)});`);
+    } else if (horneadas.escala) {
+      L.push(`__pista(__t(capa, "ADBE Scale"), ${clavesLit(horneadas.escala)}, 2);`);
+    } else if ((capa.escala ?? 1) !== 1 && !escalaYaPuesta) {
+      const s = num((capa.escala ?? 1) * 100);
+      L.push(`__t(capa, "ADBE Scale").setValue([${s}, ${s}]);`);
+    }
+    if (horneadas.rotacion) {
+      L.push(`__pista(__t(capa, "ADBE Rotate Z"), ${clavesLit(horneadas.rotacion)}, 1);`);
+    } else if (capa.rotacion) {
+      L.push(`__t(capa, "ADBE Rotate Z").setValue(${num(capa.rotacion)});`);
+    }
+    if (horneadas.opacidad) {
+      L.push(`__pista(__t(capa, "ADBE Opacity"), ${clavesLit(horneadas.opacidad)}, 1);`);
+    } else if ((capa.opacidad ?? 1) !== 1) {
+      L.push(`__t(capa, "ADBE Opacity").setValue(${num((capa.opacidad ?? 1) * 100)});`);
+    }
+    if (horneadas.desenfoque) {
+      L.push(`fx = capa.property("ADBE Effect Parade").addProperty("ADBE Gaussian Blur 2");`);
+      L.push(`__pista(fx.property("ADBE Gaussian Blur 2-0001"), ${clavesLit(horneadas.desenfoque)}, 1);`);
+    }
+    return;
+  }
+
   const pistas: Pistas = sinAnimacion ? {} : (capa.pistas ?? {});
   const mapY = (v: number) => redondear(v - desplazarY);
 
@@ -408,17 +542,27 @@ function emitirTransform(L: string[], capa: Capa, desplazarY = 0, sinAnimacion =
   }
 }
 
-function emitirComunes(L: string[], capa: Capa, sinAnimacion: boolean, conAsset = false): void {
+function emitirComunes(L: string[], capa: Capa, sinAnimacion: boolean, conAsset = false, horneado = false): void {
   L.push(`capa.name = ${cadena(capa.nombre)};`);
   if (capa.oculta) L.push("capa.enabled = false;");
   if (capa.mezcla && MEZCLA_AE[capa.mezcla]) {
     L.push(`try { capa.blendingMode = BlendingMode.${MEZCLA_AE[capa.mezcla]}; } catch (e) {}`);
   }
-  const comentario = comentarioPendientes(capa, sinAnimacion, conAsset);
+  const comentario = comentarioPendientes(capa, sinAnimacion, conAsset, horneado);
   if (comentario) L.push(`capa.comment = ${cadena(comentario)};`);
 }
 
-function emitirCapa(L: string[], capa: Capa, sinAnimacion: boolean, rutasMedia: Record<string, string> = {}): void {
+function emitirCapa(
+  L: string[],
+  capa: Capa,
+  sinAnimacion: boolean,
+  rutasMedia: Record<string, string> = {},
+  compHorneo: Composicion | null = null,
+): void {
+  // horneado del preset (entrada/salida) a keyframes — solo con animación
+  const hornearCon = (desplazarY: number) =>
+    !sinAnimacion && compHorneo ? clavesHorneadas(compHorneo, capa, desplazarY) : null;
+
   if (capa.tipo === "texto") {
     const lineas = capa.texto.split("\n").length;
     const interlineado = capa.fuente.interlineado ?? capa.fuente.tamano * 1.15;
@@ -441,11 +585,15 @@ function emitirCapa(L: string[], capa: Capa, sinAnimacion: boolean, rutasMedia: 
     L.push(`doc.autoLeading = false;`);
     L.push(`doc.leading = ${num(interlineado)};`);
     L.push(`capa.property("ADBE Text Properties").property("ADBE Text Document").setValue(doc);`);
-    emitirComunes(L, capa, sinAnimacion);
+    const horneadasTexto = hornearCon(desplazarY);
+    emitirComunes(L, capa, sinAnimacion, false, Boolean(horneadasTexto));
     // DESPUÉS del comentario: si la fuente no aparece, el helper le anexa
-    // «tipografia original: …» y la suma al resumen final de faltantes
-    L.push(`__fijarFuente(capa, [${candidatosDeFuente(capa.fuente.familia, capa.fuente.peso).map(cadena).join(", ")}], ${cadena(`${capa.fuente.familia} (peso ${capa.fuente.peso})`)});`);
-    emitirTransform(L, capa, desplazarY, sinAnimacion);
+    // «tipografia original: …» y la suma al resumen final de faltantes.
+    // OJO: la familia del import viene como STACK CSS entero («'Yamantaka',
+    // -apple-system, …») — a AE va SOLO la familia real.
+    const familiaReal = familiaPrincipal(capa.fuente.familia) ?? capa.fuente.familia;
+    L.push(`__fijarFuente(capa, [${candidatosDeFuente(familiaReal, capa.fuente.peso).map(cadena).join(", ")}], ${cadena(`${familiaReal} (peso ${capa.fuente.peso})`)});`);
+    emitirTransform(L, capa, desplazarY, sinAnimacion, false, horneadasTexto);
     return;
   }
 
@@ -461,8 +609,9 @@ function emitirCapa(L: string[], capa: Capa, sinAnimacion: boolean, rutasMedia: 
       if (capa.radio) L.push(`forma.property("ADBE Vector Rect Roundness").setValue(${num(capa.radio)});`);
     }
     L.push(`gr.property("ADBE Vectors Group").addProperty("ADBE Vector Graphic - Fill").property("ADBE Vector Fill Color").setValue(${colorLit(capa.color)});`);
-    emitirComunes(L, capa, sinAnimacion);
-    emitirTransform(L, capa, 0, sinAnimacion);
+    const horneadasForma = hornearCon(0);
+    emitirComunes(L, capa, sinAnimacion, false, Boolean(horneadasForma));
+    emitirTransform(L, capa, 0, sinAnimacion, false, horneadasForma);
     return;
   }
 
@@ -478,7 +627,14 @@ function emitirCapa(L: string[], capa: Capa, sinAnimacion: boolean, rutasMedia: 
     L.push(`tr.property("ADBE Vector Stroke Color").setValue(${colorLit(capa.color)});`);
     L.push(`tr.property("ADBE Vector Stroke Width").setValue(${num(capa.grosor)});`);
     L.push(`tr = gr.property("ADBE Vectors Group").addProperty("ADBE Vector Filter - Trim");`);
-    const pistas: Pistas = sinAnimacion ? {} : (capa.pistas ?? {});
+    const horneadasTrazo = hornearCon(0);
+    if (horneadasTrazo?.trazoInicio) {
+      L.push(`__pista(tr.property("ADBE Vector Trim Start"), ${clavesLit(horneadasTrazo.trazoInicio)}, 1);`);
+    }
+    if (horneadasTrazo?.trazoFin) {
+      L.push(`__pista(tr.property("ADBE Vector Trim End"), ${clavesLit(horneadasTrazo.trazoFin)}, 1);`);
+    }
+    const pistas: Pistas = sinAnimacion || horneadasTrazo ? {} : (capa.pistas ?? {});
     if (pistas.trazoInicio?.length) {
       L.push(`__pista(tr.property("ADBE Vector Trim Start"), ${clavesLit(
         clavesDe(pistas.trazoInicio, (v) => redondear(v * 100), (a, b) => (b - a) * 100),
@@ -493,8 +649,8 @@ function emitirCapa(L: string[], capa: Capa, sinAnimacion: boolean, rutasMedia: 
     } else if ((capa.trazoFin ?? 1) !== 1) {
       L.push(`tr.property("ADBE Vector Trim End").setValue(${num((capa.trazoFin ?? 1) * 100)});`);
     }
-    emitirComunes(L, capa, sinAnimacion);
-    emitirTransform(L, capa, 0, sinAnimacion);
+    emitirComunes(L, capa, sinAnimacion, false, Boolean(horneadasTrazo));
+    emitirTransform(L, capa, 0, sinAnimacion, false, horneadasTrazo);
     return;
   }
 
@@ -516,13 +672,15 @@ function emitirCapa(L: string[], capa: Capa, sinAnimacion: boolean, rutasMedia: 
     L.push(`capa = comp.layers.addSolid([0.5, 0.5, 0.55], ${cadena(capa.nombre)}, ${num(capa.ancho)}, ${num(capa.alto)}, 1);`);
     L.push(`capa.comment = ${cadena(`falta ${ruta}: descomprimi el zip ENTERO y deja assets/ al lado del .jsx`)};`);
     L.push(`}`);
-    emitirComunes(L, capa, sinAnimacion, true);
-    emitirTransform(L, capa, 0, sinAnimacion, true);
+    const horneadasMedia = hornearCon(0);
+    emitirComunes(L, capa, sinAnimacion, true, Boolean(horneadasMedia));
+    emitirTransform(L, capa, 0, sinAnimacion, true, horneadasMedia);
     return;
   }
   L.push(`capa = comp.layers.addSolid([0.5, 0.5, 0.55], ${cadena(capa.nombre)}, ${num(capa.ancho)}, ${num(capa.alto)}, 1);`);
-  emitirComunes(L, capa, sinAnimacion);
-  emitirTransform(L, capa, 0, sinAnimacion);
+  const horneadasSolido = hornearCon(0);
+  emitirComunes(L, capa, sinAnimacion, false, Boolean(horneadasSolido));
+  emitirTransform(L, capa, 0, sinAnimacion, false, horneadasSolido);
 }
 
 /* ——— Cámara ——————————————————————————————————————————————————— */
@@ -656,15 +814,22 @@ function __eases(par, n) {
   for (var i = 0; i < n; i++) lista.push(e);
   return lista;
 }
+var __avisos = [];
+function __avisar(texto) {
+  if (__avisos.length < 12) __avisos.push(String(texto));
+}
 function __pista(prop, claves, dims) {
   var i;
   for (i = 0; i < claves.length; i++) prop.setValueAtTime(claves[i].t, claves[i].v);
   for (i = 0; i < claves.length; i++) {
     var c = claves[i];
     if (c.hold) {
-      try { prop.setInterpolationTypeAtKey(i + 1, KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.HOLD); } catch (e) {}
+      try { prop.setInterpolationTypeAtKey(i + 1, KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.HOLD); } catch (e) { __avisar("hold: " + e); }
     } else if (c.ei || c.eo) {
-      try { prop.setTemporalEaseAtKey(i + 1, __eases(c.ei, dims), __eases(c.eo, dims)); } catch (e) {}
+      // BEZIER explicito ANTES del ease: sin esto algunas versiones dejan
+      // el keyframe lineal en silencio (visto en AE real)
+      try { prop.setInterpolationTypeAtKey(i + 1, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER); } catch (e) { __avisar("bezier: " + e); }
+      try { prop.setTemporalEaseAtKey(i + 1, __eases(c.ei, dims), __eases(c.eo, dims)); } catch (e) { __avisar("ease: " + e); }
     }
   }
 }`;
@@ -713,12 +878,12 @@ export function generarScriptAE(
       L.push(`comp = app.project.items.addComp(${cadena(`${escena.nombre} . ${g.nombre}`)}, ${dims});`);
       L.push(`comp.parentFolder = __carpeta;`);
       L.push(`var ${varEscena}g${k} = comp;`);
-      for (const capa of g.capas) emitirCapa(L, capa, sinAnimacion, rutasMedia);
+      for (const capa of g.capas) emitirCapa(L, capa, sinAnimacion, rutasMedia, escena);
     });
     const emitirContenido = () => {
       for (const fila of filas) {
         if (fila.tipo === "capa") {
-          emitirCapa(L, fila.capa, sinAnimacion, rutasMedia);
+          emitirCapa(L, fila.capa, sinAnimacion, rutasMedia, escena);
           continue;
         }
         const k = grupos.indexOf(fila);
@@ -771,6 +936,7 @@ export function generarScriptAE(
   L.push(`app.endUndoGroup();`);
   L.push(`alert(${cadena(`motion: «${proyecto}» importado — ${escenas.length} escena(s), ${totalCapas} capa(s). Las capas con animacion pendiente de traducir lo dicen en su comentario.`)});`);
   L.push(`if (__fuentesFaltantes.length) alert("Tipografias que AE no encontro (cada capa dice la ORIGINAL en su comentario; instalalas y volve a correr el script):\\n- " + __fuentesFaltantes.join("\\n- "));`);
+  L.push(`if (__avisos.length) alert("Avisos tecnicos del import (mandale una captura de esto a motion):\\n- " + __avisos.join("\\n- "));`);
   L.push(``);
   return L.join("\n");
 }

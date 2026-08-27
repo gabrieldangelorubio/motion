@@ -161,7 +161,7 @@ test("temblor: la expresion lleva la misma suma de senos con amplitud escalada a
   assert.match(jsx, /"ADBE Scale"\)\.setValue\(\[120, 120\]\);/);
 });
 
-test("presets entrada/salida quedan anotados en el comentario de la capa (nada se pierde en silencio)", () => {
+test("los presets se HORNEAN a keyframes: la animación llega a AE, con el comentario informando", () => {
   const comp = base({
     capas: [
       titulo({
@@ -171,7 +171,47 @@ test("presets entrada/salida quedan anotados en el comentario de la capa (nada s
     ],
   });
   const jsx = generarScriptAE([comp]);
-  assert.match(jsx, /capa\.comment = ".*entrada: revelar \(en 200ms, dura 600ms, escalonado 40ms\).*division: palabras/);
+  // el comentario informa el horneado (ya no reclama pendiente)
+  assert.match(jsx, /animacion horneada a keyframes \(entrada revelar\)/);
+  assert.match(jsx, /division por palabras: horneada como bloque/);
+  assert.ok(!jsx.includes("pendiente de traducir: entrada"), "ya no queda como pendiente");
+  // hay keyframes DENSOS de posición y opacidad (600ms a 30fps ≈ 19 claves)
+  const posicion = /__pista\(__t\(capa, "ADBE Position"\), (\[.*?\]), 1\);/.exec(jsx);
+  assert.ok(posicion, "hay pista de posición horneada");
+  const claves = posicion![1].match(/\{t: /g) ?? [];
+  assert.ok(claves.length >= 15, `keyframes densos (${claves.length})`);
+  // revelar no toca opacidad (máscara + viaje): el canal quieto NO se emite,
+  // y la máscara imposible de hornear queda avisada en el comentario
+  assert.ok(!jsx.includes('"ADBE Opacity"), [{'), "opacidad quieta no emite pista");
+  assert.match(jsx, /la MASCARA del revelado no viaja/);
+});
+
+test("horneado: el «solo diseño» lo apaga y una capa sin presets sigue con keyframes editables", () => {
+  const conPreset = base({ capas: [titulo({ entrada: { preset: "pop", en: 0, duracion: 400 } })] });
+  const sinAnim = generarScriptAE([conPreset], undefined, { sinAnimacion: true });
+  assert.ok(!/^__pista\(/m.test(sinAnim));
+  // sin presets: las pistas crudas siguen saliendo como keyframes con ease
+  const crudas = base({ capas: [titulo({ pistas: { x: [{ t: 0, v: 0, easing: "suave" }, { t: 1000, v: 500 }] } })] });
+  const jsx = generarScriptAE([crudas]);
+  assert.match(jsx, /"ADBE Position_0"\), \[\{t: 0, v: 0, eo: \[0, 40\]\}/);
+});
+
+test("la familia CSS con stack va LIMPIA a AE (la fuente real, no el chorizo)", () => {
+  const comp = base({
+    capas: [
+      titulo({ fuente: { familia: "'Yamantaka', -apple-system, 'Segoe UI', Roboto, sans-serif", tamano: 120, peso: 700 } }),
+    ],
+  });
+  const jsx = generarScriptAE([comp]);
+  assert.match(jsx, /__fijarFuente\(capa, \["Yamantaka-Bold", "YamantakaBold", "Yamantaka"\], "Yamantaka \(peso 700\)"\)/);
+  assert.ok(!jsx.includes("apple-system"), "el stack CSS no viaja");
+});
+
+test("los errores de ease ya no mueren en silencio: se juntan y se cantan al final", () => {
+  const jsx = generarScriptAE([base({ capas: [titulo()] })]);
+  assert.match(jsx, /var __avisos = \[\];/);
+  assert.match(jsx, /KeyframeInterpolationType\.BEZIER, KeyframeInterpolationType\.BEZIER/);
+  assert.match(jsx, /if \(__avisos\.length\) alert\(/);
 });
 
 test("trazo: rectangulo placeholder con Trim Paths real desde las pistas", () => {

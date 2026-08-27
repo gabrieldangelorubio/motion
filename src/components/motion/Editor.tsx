@@ -61,11 +61,14 @@ import { AudioDeProyecto } from "@/components/motion/AudioDeProyecto";
 import {
   cargarAudioGuardado,
   decodificarAudio,
+  guardarRecorte,
   guardarTranscripcion,
   olvidarAudio,
   recordarAudio,
   type AudioDecodificado,
+  type RecorteAudio as RecorteAudioTipo,
 } from "@/lib/motion/audio-guardado";
+import { RecorteAudio } from "@/components/motion/RecorteAudio";
 import { cortesDeEscenas, duracionDesdeAudio, escenaEnPunto } from "@/lib/motion/audio-puro";
 import { encajarMedia } from "@/lib/motion/media-puro";
 import { suavizarGrabacion, type MuestraCamara } from "@/lib/motion/suavizar-puro";
@@ -152,6 +155,12 @@ export function Editor({
   // la concatenación de escenas y el preview reproduce el tramo que le toca
   // a la activa. La franja de forma de onda vive arriba del timeline.
   const [audio, setAudio] = useState<AudioDecodificado | null>(null);
+  const [recortando, setRecortando] = useState(false);
+  // offset del SEGMENTO en uso dentro del archivo (el reloj suma esto)
+  const recorteDesdeRef = useRef(0);
+  useEffect(() => {
+    recorteDesdeRef.current = audio?.recorte?.desdeMs ?? 0;
+  }, [audio]);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const entradaAudioRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
@@ -169,6 +178,14 @@ export function Editor({
     if (!audio) return;
     const el = new Audio(audio.url);
     el.preload = "auto";
+    // el archivo suena entero pero el proyecto usa un SEGMENTO: pasado su
+    // fin, silencio (pausa) — el próximo play resincroniza
+    if (audio.recorte) {
+      const hastaS = audio.recorte.hastaMs / 1000;
+      el.ontimeupdate = () => {
+        if (el.currentTime >= hastaS) el.pause();
+      };
+    }
     audioElRef.current = el;
     return () => {
       el.pause();
@@ -226,7 +243,7 @@ export function Editor({
     const el = audioElRef.current;
     if (!el) return;
     const corte = cortesRef.current.find((c) => c.id === escenaActivaRef.current);
-    el.currentTime = ((corte?.desdeMs ?? 0) + tiempoRef.current) / 1000;
+    el.currentTime = (recorteDesdeRef.current + (corte?.desdeMs ?? 0) + tiempoRef.current) / 1000;
   }, []);
   // ——— Modo cámara: grabar el gesto del viewport y suavizarlo a keyframes ———
   const [grabandoCamara, setGrabandoCamara] = useState(false);
@@ -570,8 +587,25 @@ export function Editor({
       if (previo) URL.revokeObjectURL(previo.url);
       return dec;
     });
-    // escena VACÍA (recién abierto el módulo): la locución marca el tempo —
-    // la escena toma su largo + un 10% de aire para que la animación respire
+    // primero elegís QUÉ PEDAZO de la locución va (el panel de recorte);
+    // la duración de la escena vacía se fija al confirmar
+    setRecortando(true);
+  }, [composicionId]);
+
+  // Aplica el segmento elegido (undefined = usar el archivo entero): se
+  // guarda con el audio, se re-decodifica, y si la escena está VACÍA la
+  // locución le marca el tempo (su largo + 10% de aire).
+  const aplicarRecorte = useCallback(async (recorte: RecorteAudioTipo | undefined) => {
+    setRecortando(false);
+    await guardarRecorte(composicionId, recorte);
+    const registro = await cargarAudioGuardado(composicionId);
+    if (!registro) return;
+    const dec = await decodificarAudio(registro);
+    if (!dec) return;
+    setAudio((previo) => {
+      if (previo) URL.revokeObjectURL(previo.url);
+      return dec;
+    });
     if (compRef.current.capas.length === 0) {
       registrar();
       cambiarDuracion(duracionDesdeAudio(dec.duracionMs));
@@ -600,8 +634,11 @@ export function Editor({
       void ctxAudio.close().catch(() => undefined);
       const { transcribir } = await import("@/lib/motion/stt");
       setTranscribiendo(t("Transcribiendo…"));
+      const recT = registro.recorte;
+      const t0 = recT ? Math.max(0, Math.round((recT.desdeMs / 1000) * buffer.sampleRate)) : 0;
+      const t1 = recT ? Math.min(buffer.length, Math.round((recT.hastaMs / 1000) * buffer.sampleRate)) : buffer.length;
       const transcripcion = await transcribir(
-        Array.from({ length: buffer.numberOfChannels }, (_, i) => buffer.getChannelData(i)),
+        Array.from({ length: buffer.numberOfChannels }, (_, i) => buffer.getChannelData(i).subarray(t0, Math.max(t0 + 1, t1))),
         buffer.sampleRate,
         (f) => setTranscribiendo(t("Bajando el modelo… {p}%", { p: Math.round(f * 100) })),
       );
@@ -623,8 +660,11 @@ export function Editor({
       const ctx = new AudioContext();
       const buffer = await ctx.decodeAudioData(registro.datos.slice(0));
       void ctx.close().catch(() => undefined);
+      const rec = registro.recorte;
+      const m0 = rec ? Math.max(0, Math.round((rec.desdeMs / 1000) * buffer.sampleRate)) : 0;
+      const m1 = rec ? Math.min(buffer.length, Math.round((rec.hastaMs / 1000) * buffer.sampleRate)) : buffer.length;
       const canales = Array.from({ length: Math.min(2, buffer.numberOfChannels) }, (_, i) =>
-        buffer.getChannelData(i),
+        buffer.getChannelData(i).subarray(m0, Math.max(m0 + 1, m1)),
       );
       const inicioActiva = todas
         ? 0
@@ -1698,8 +1738,16 @@ export function Editor({
             onSaltar={(globalMs) => void saltarGlobal(globalMs)}
             onCortar={(id, ms) => void cortarEscena(id, ms)}
             onQuitar={quitarAudio}
+            onRecortarAudio={() => setRecortando(true)}
             onTranscribir={() => void transcribirAudio()}
             transcribiendo={transcribiendo}
+          />
+        )}
+        {audio && recortando && (
+          <RecorteAudio
+            audio={audio}
+            onConfirmar={(desdeMs, hastaMs) => void aplicarRecorte({ desdeMs, hastaMs })}
+            onUsarTodo={() => void aplicarRecorte(undefined)}
           />
         )}
         <LineaDeTiempo

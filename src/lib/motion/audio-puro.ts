@@ -75,6 +75,21 @@ export function posicionGlobal(cortes: CorteEscena[], id: string, localMs: numbe
 }
 
 /**
+ * Recorte del archivo de audio: qué SEGMENTO de la locución usa el
+ * proyecto ("de acá a acá"). Clampeado al largo real, mínimo medio
+ * segundo, y siempre desde < hasta.
+ */
+export function limitarRecorte(
+  desdeMs: number,
+  hastaMs: number,
+  totalMs: number,
+): { desdeMs: number; hastaMs: number } {
+  const desde = Math.min(Math.max(0, Math.round(desdeMs)), Math.max(0, totalMs - 500));
+  const hasta = Math.max(desde + 500, Math.min(totalMs, Math.round(hastaMs)));
+  return { desdeMs: desde, hastaMs: hasta };
+}
+
+/**
  * Duración que le queda a una escena VACÍA cuando entra el audio: el largo
  * de la locución más un 10% de aire (que la animación respire después de
  * la última palabra), dentro de los límites de una escena (0.5–120s).

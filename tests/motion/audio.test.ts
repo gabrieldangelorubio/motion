@@ -7,6 +7,7 @@ import {
   posicionGlobal,
   picosDe,
   recorteDeAudio,
+  limitarRecorte,
 } from "@/lib/motion/audio-puro";
 import { encajarMedia } from "@/lib/motion/media-puro";
 
@@ -70,6 +71,16 @@ test("recorteDeAudio: el tramo de video elige sus muestras, clampeado al largo r
   assert.deepEqual(recorteDeAudio(2000, 1000, 1500, 1000), { desde: 1500, muestras: 500 });
   // arranca DESPUÉS del final: mudo (0 muestras)
   assert.deepEqual(recorteDeAudio(2000, 1000, 3000, 1000), { desde: 2000, muestras: 0 });
+});
+
+test("limitarRecorte: clampea al archivo, mínimo medio segundo, desde < hasta", () => {
+  assert.deepEqual(limitarRecorte(1000, 3000, 10000), { desdeMs: 1000, hastaMs: 3000 });
+  // hasta pegado al desde: se abre al mínimo
+  assert.deepEqual(limitarRecorte(1000, 1100, 10000), { desdeMs: 1000, hastaMs: 1500 });
+  // fuera de rango: adentro del archivo
+  assert.deepEqual(limitarRecorte(-50, 99999, 4000), { desdeMs: 0, hastaMs: 4000 });
+  // desde demasiado al fondo: deja lugar para el mínimo
+  assert.deepEqual(limitarRecorte(3900, 4000, 4000), { desdeMs: 3500, hastaMs: 4000 });
 });
 
 test("encajarMedia: entra al 70% del frame como máximo, sin agrandar nunca", () => {

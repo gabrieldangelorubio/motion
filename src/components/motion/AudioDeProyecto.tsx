@@ -31,6 +31,7 @@ export function AudioDeProyecto({
   onSaltar,
   onCortar,
   onQuitar,
+  onRecortarAudio,
   onTranscribir,
   transcribiendo = null,
 }: {
@@ -43,6 +44,8 @@ export function AudioDeProyecto({
   /** la escena `id` pasa a durar `duracionMs` (soltar el corte) */
   onCortar: (id: string, duracionMs: number) => void;
   onQuitar: () => void;
+  /** reabre el panel de recorte (elegir otro segmento del archivo) */
+  onRecortarAudio?: () => void;
   /** corre Whisper local sobre el audio del proyecto */
   onTranscribir?: () => void;
   /** estado del STT en curso (null = quieto) */
@@ -235,6 +238,16 @@ export function AudioDeProyecto({
         <span className="max-w-40 truncate text-[10px] text-foreground/60" title={audio.nombre}>
           ♪ {audio.nombre}
         </span>
+        {onRecortarAudio && (
+          <button
+            type="button"
+            onClick={onRecortarAudio}
+            title={t("Elegir otro segmento del archivo (el proyecto usa solo ese pedazo)")}
+            className="flex h-5 items-center rounded-control px-1.5 text-[10px] text-foreground/50 hover:bg-ink/[0.06] hover:text-foreground"
+          >
+            {t("Recortar")}
+          </button>
+        )}
         {onTranscribir && !audio.transcripcion && (
           <button
             type="button"
