@@ -11,6 +11,10 @@
    Sin red (networkAccess none): el JSON sale por copy/paste, patrón Jitter.
 ----------------------------------------------------------------------------- */
 
+// Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
+// saber al toque si el plugin que corrió es el del repo actualizado.
+var VERSION_PLUGIN = 3;
+
 function aHex(color) {
   var c = function (v) {
     var s = Math.round(v * 255).toString(16);
@@ -290,6 +294,14 @@ async function nodoAIR(nodo, marco, salida) {
       var porTinta = rbTexto && rbTexto.height > 0 ? Math.max(1, Math.round(rbTexto.height / lh)) : 1;
       lineasEstimadas = Math.max(porCaja, porTinta);
     }
+    // diagnóstico visible en la vista previa del import: cuántas líneas se
+    // detectaron y por qué método — si el número no coincide con Figma, el
+    // problema está acá y no en el editor
+    var avisoLineas = lineasEstimadas > 1
+      ? lineasEstimadas + " líneas " + (cortesReales
+          ? "(cortes reales de Figma)"
+          : "(estimadas: caja " + Math.round(nodo.height) + "px, tinta " + (rbTexto ? Math.round(rbTexto.height) : 0) + "px, interlineado " + Math.round(lh) + "px)")
+      : null;
 
     // lineHeight AUTO usa las métricas de la fuente, no un número: cuando la
     // caja abraza el contenido, alto ÷ líneas ES ese interlineado real — y de
@@ -324,7 +336,7 @@ async function nodoAIR(nodo, marco, salida) {
       x: c.x, y: c.y, ancho: c.ancho, alto: c.alto,
       opacidad: nodo.opacity < 1 ? nodo.opacity : undefined,
       mezcla: mezclaTexto.mezcla,
-      aviso: conAviso({ aviso: conAviso({ aviso: mezclaTexto.aviso || undefined }, avisoCaso) || undefined }, avisoMixto) || undefined,
+      aviso: conAviso({ aviso: conAviso({ aviso: conAviso({ aviso: mezclaTexto.aviso || undefined }, avisoCaso) || undefined }, avisoMixto) || undefined }, avisoLineas) || undefined,
       texto: {
         contenido: contenido,
         familia: nombreFuente.family,
@@ -448,6 +460,7 @@ async function marcoAIR(marco) {
   return {
     origen: "figma",
     version: 1,
+    plugin: VERSION_PLUGIN,
     frame: {
       nombre: marco.name,
       ancho: marco.width,
@@ -491,10 +504,11 @@ async function exportarSeleccion() {
   }
   var salidaFinal = pantallas.length === 1
     ? pantallas[0]
-    : { origen: "figma", version: 1, pantallas: pantallas };
+    : { origen: "figma", version: 1, plugin: VERSION_PLUGIN, pantallas: pantallas };
   var titulo = pantallas.length === 1
     ? "<b>" + pantallas[0].frame.nombre + "</b> — " + totalCapas + " capas listas."
     : "<b>" + pantallas.length + " pantallas</b> — " + totalCapas + " capas listas. La primera que seleccionaste define el tamaño del render.";
+  titulo += ' <span style="color:#999">(plugin v' + VERSION_PLUGIN + ")</span>";
 
   var json = JSON.stringify(salidaFinal);
   var html =
