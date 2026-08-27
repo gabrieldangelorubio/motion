@@ -13,7 +13,7 @@
    4. motion blur sintetizado desde la velocidad del easing del segmento
 ----------------------------------------------------------------------------- */
 
-import type { Capa, Composicion, Segmento, TemblorCamara } from "@/lib/motion/modelo";
+import type { Capa, Composicion, Keyframe, Segmento, TemblorCamara } from "@/lib/motion/modelo";
 import { easing, velocidadEn } from "@/lib/motion/easings-puro";
 import { interpolar, delaysEscalonado } from "@/lib/motion/keyframes-puro";
 import { compilarSegmento, type PresetCompilado, type PistaRelativa } from "@/lib/motion/presets-puro";
@@ -195,6 +195,20 @@ function estadoDeCapa(capa: Capa, t: number): EstadoCapa {
   return base;
 }
 
+/**
+ * El zoom de cámara interpola en espacio LOGARÍTMICO: el zoom es
+ * multiplicativo, y mezclar su valor lineal hace que un zoom-out se sienta
+ * acelerando sobre el final (la tasa percibida es d(log z), no dz) — la
+ * llegada queda «trabada», peleada con el ease del paneo. En log, la
+ * velocidad perceptual es pareja y paneo + zoom cierran juntos. Los
+ * keyframes no cambian (los extremos son exactos): sólo el camino entre
+ * medio. El easing del keyframe se aplica igual, sobre el progreso.
+ */
+function interpolarZoomLog(pista: Keyframe[], t: number): number {
+  const enLog = pista.map((k) => ({ ...k, v: Math.log(Math.max(0.05, k.v)) }));
+  return Math.exp(interpolar(enLog, t));
+}
+
 /** Encuadre resuelto SIN temblor: keyframes/base con defaults sanos. Es lo
     que leen los gestos y el inspector — editar sobre el valor con temblor
     hornearía el jitter adentro de los keyframes. */
@@ -205,7 +219,7 @@ export function camaraEn(comp: Composicion, t: number): { x: number; y: number; 
     x: cam?.x?.length ? interpolar(cam.x, t) : (base?.x ?? comp.ancho / 2),
     y: cam?.y?.length ? interpolar(cam.y, t) : (base?.y ?? comp.alto / 2),
     // zoom nunca ≤ 0: un keyframe roto degrada a casi-plano, no a un frame invertido
-    zoom: Math.max(0.05, cam?.zoom?.length ? interpolar(cam.zoom, t) : (base?.zoom ?? 1)),
+    zoom: Math.max(0.05, cam?.zoom?.length ? interpolarZoomLog(cam.zoom, t) : (base?.zoom ?? 1)),
   };
 }
 

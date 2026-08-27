@@ -330,3 +330,22 @@ test("definir_camara del agente acepta temblor, lo conserva si no viene, y «nin
   const malo = ejecutarHerramienta(base, "definir_camara", { temblor: { preset: "terremoto" } });
   assert.ok(malo.esError);
 });
+
+test("el zoom de cámara interpola en espacio LOG: velocidad perceptual pareja, extremos exactos", async () => {
+  const { crearComposicion, agregarKeyframeCamara } = await import("@/lib/motion/herramientas-puro");
+  const { camaraEn } = await import("@/lib/motion/evaluar-puro");
+  const base = crearComposicion({ nombre: "zoomlog" });
+  let comp = agregarKeyframeCamara(base, 0, { zoom: { v: 1.5, easing: "lineal" } });
+  comp = agregarKeyframeCamara(comp, 1000, { zoom: 1 });
+  // extremos clavados
+  assert.equal(camaraEn(comp, 0).zoom, 1.5);
+  assert.equal(camaraEn(comp, 1000).zoom, 1);
+  // punto medio: media GEOMÉTRICA (√1.5 ≈ 1.2247), no la aritmética (1.25)
+  const medio = camaraEn(comp, 500).zoom;
+  assert.ok(Math.abs(medio - Math.sqrt(1.5)) < 0.0001, `medio geométrico (${medio})`);
+  assert.ok(Math.abs(medio - 1.25) > 0.01, "ya no es el lineal");
+  // hold congela igual que siempre
+  let quieta = crearComposicion({ nombre: "hold" });
+  quieta = { ...quieta, camara: { pistas: { zoom: [{ t: 0, v: 2, hold: true }, { t: 1000, v: 1 }] } } };
+  assert.equal(camaraEn(quieta, 500).zoom, 2);
+});

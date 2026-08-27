@@ -97,7 +97,11 @@ mantenés Z y mover el mouse en vertical la hace entrar (arriba) y salir
 (abajo); soltás la tecla y el gesto termina, y TODO movimiento deja
 keyframe en el playhead — te movés por la timeline, sostenés, y la
 animación queda sola (arrastrar el encuadre sin tecla sigue moviendo la
-posición); la cámara además tiene TEMBLOR procedural — presets handheld /
+posición); el ZOOM de cámara interpola en espacio LOG (el zoom es
+multiplicativo: mezclado lineal, un zoom-out se siente acelerando al final
+y la llegada queda trabada, peleada con el ease del paneo — en log la
+velocidad perceptual es pareja y paneo + zoom cierran juntos; los
+keyframes no cambian, sólo el camino entre medio); la cámara además tiene TEMBLOR procedural — presets handheld /
 flotar / nervioso con intensidad y velocidad en su inspector: movimiento
 constante ENCIMA de los keyframes que nunca los toca ni los crea (el
 wiggle de AE), determinista (mismo t, mismo encuadre: el export sigue
