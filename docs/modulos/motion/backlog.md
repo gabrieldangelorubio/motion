@@ -1,5 +1,18 @@
 # Backlog — módulo motion
 
+> **Cierre 2026-08-27 (para retomar):** rama `claude/css-motion-graphics-v2x3jq`
+> en `388c535`, 199 tests verdes, demo republicada. Las rondas 3 y 4 del AE
+> real quedaron HECHAS (abort de línea 54, escalera de pesos, keyframes
+> ralos, encaje con máscara, tramos rich text por rango, diagnóstico de
+> fuentes, regla dura de cámara del agente). **Lo primero de mañana:** la
+> ronda 5 de Gabriel en su AE — esperamos capturas de (a) vectores ya
+> recortados, (b) título mixto con sus dos fuentes (necesita AE 24.3+),
+> (c) el alert de avisos, que ahora deduplica y trae el diagnóstico de qué
+> fuente resolvió AE (con eso se afina la escalera si el Yamantaka sigue
+> cayendo mal). Después, por prioridad: tanda 2 del export (text animators
+> letra por letra, máscara del revelado por línea, path SVG real del
+> trazo) y lo de abajo.
+
 ### [P1] Render en worker + subida al catálogo de media
 - **Estado:** abierto
 - **Qué:** lo que falta encima del export ya hecho: mover el loop de render
