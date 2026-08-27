@@ -20,6 +20,7 @@ import {
   cargarDeGoogleFonts,
   cargarDeArchivo,
 } from "@/lib/motion/fuentes-puro";
+import { recordarFuente } from "@/lib/motion/fuentes-guardadas";
 import { t } from "@/lib/i18n/stub";
 import { Etiqueta } from "@/components/ui/Etiqueta";
 
@@ -68,8 +69,11 @@ export function PanelFuentes({
   const probarGoogle = async (familia: string, pesos: number[]) => {
     marcar(familia, "cargando");
     const res = await cargarDeGoogleFonts(familia, pesos);
-    if (res.ok) marcar(familia, "disponible");
-    else marcar(familia, "faltante", res.error);
+    if (res.ok) {
+      marcar(familia, "disponible");
+      // recordada en este navegador: la próxima sesión la recarga sola
+      void recordarFuente({ familia, origen: "google", pesos });
+    } else marcar(familia, "faltante", res.error);
   };
 
   const elegirArchivo = (familia: string) => {
@@ -82,9 +86,13 @@ export function PanelFuentes({
     const archivo = lista?.[0];
     if (!familia || !archivo) return;
     marcar(familia, "cargando");
-    const res = await cargarDeArchivo(familia, await archivo.arrayBuffer());
-    if (res.ok) marcar(familia, "disponible");
-    else marcar(familia, "faltante", res.error);
+    const datos = await archivo.arrayBuffer();
+    const res = await cargarDeArchivo(familia, datos);
+    if (res.ok) {
+      marcar(familia, "disponible");
+      // el archivo entero queda recordado en este navegador (IndexedDB)
+      void recordarFuente({ familia, origen: "archivo", datos });
+    } else marcar(familia, "faltante", res.error);
     if (archivoRef.current) archivoRef.current.value = "";
   };
 
@@ -97,7 +105,7 @@ export function PanelFuentes({
       <div className="w-full max-w-lg rounded-card border border-(--menu-border) bg-(--menu-solido-bg) p-5 shadow-(--menu-shadow)">
         <div className="mb-1 text-[15px] font-semibold text-foreground">{t("Tipografías de la composición")}</div>
         <p className="mb-3 text-xs text-muted">
-          {t("Las faltantes se ven con la fuente del sistema hasta que las cargues. El archivo cargado vive en esta sesión.")}
+          {t("Las faltantes se ven con la fuente del sistema hasta que las cargues. Lo que cargues queda recordado en este navegador y se recarga solo.")}
         </p>
 
         {familias.length === 0 && <p className="py-2 text-[13px] text-muted">{t("Esta composición no usa tipografías propias")}</p>}

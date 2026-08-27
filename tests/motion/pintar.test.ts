@@ -94,3 +94,23 @@ test("una capa con mezcla setea el globalCompositeOperation dentro de su save/re
   pintar(estadoEn(comp, 2000), sinMezcla.ctx);
   assert.ok(!sinMezcla.llamadas.some((l) => l.startsWith("set globalCompositeOperation")));
 });
+
+test("con supersampling espacial el blur de ctx.filter escala (px de dispositivo)", async () => {
+  const { crearComposicion } = await import("@/lib/motion/herramientas-puro");
+  const base = crearComposicion({ nombre: "aa" });
+  const comp = {
+    ...base,
+    capas: [{
+      id: "f", nombre: "f", tipo: "forma" as const, forma: "rectangulo" as const,
+      ancho: 10, alto: 10, color: "#fff", x: 5, y: 5,
+      pistas: { desenfoque: [{ t: 0, v: 10 }] },
+    }],
+  };
+  const estado = estadoEn(comp, 0);
+  const normal = contextoFalso();
+  pintar(estado, normal.ctx);
+  assert.ok(normal.llamadas.includes("set filter=blur(10.00px)"), "a 1× el blur va tal cual");
+  const doble = contextoFalso();
+  pintar(estado, doble.ctx, {}, 2);
+  assert.ok(doble.llamadas.includes("set filter=blur(20.00px)"), "a 2× el radio se duplica para verse igual");
+});

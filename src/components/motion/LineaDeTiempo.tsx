@@ -12,7 +12,7 @@
    de marca; tiempos en font-mono tabular-nums.
 ----------------------------------------------------------------------------- */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CanalCamara, Composicion, NombrePropiedad, Segmento } from "@/lib/motion/modelo";
 import { CAMARA_ID } from "@/lib/motion/herramientas-puro";
 import { t } from "@/lib/i18n/stub";
@@ -70,6 +70,9 @@ export function LineaDeTiempo({
   tiempo,
   reproduciendo,
   seleccionId,
+  seleccionIds = [],
+  onSeleccionarVarias,
+  onAlternarSeleccion,
   alto,
   onAlto,
   onScrub,
@@ -87,6 +90,12 @@ export function LineaDeTiempo({
   tiempo: number;
   reproduciendo: boolean;
   seleccionId: string | null;
+  /** selección múltiple (la primaria incluida) para resaltar filas */
+  seleccionIds?: string[];
+  /** marquee sobre las filas: el rectángulo eligió estas capas */
+  onSeleccionarVarias?: (ids: string[]) => void;
+  /** shift+click en una fila: entra o sale de la selección múltiple */
+  onAlternarSeleccion?: (id: string) => void;
   alto: number;
   onAlto: (px: number) => void;
   onScrub: (t: number) => void;
@@ -217,6 +226,50 @@ export function LineaDeTiempo({
     window.addEventListener("pointerup", alSoltar);
   };
 
+  // ——— MARQUEE sobre las filas (como en AE): arrastrás por el fondo del
+  // timeline y el rectángulo elige todas las capas que toca. Los spans,
+  // keyframes y poses frenan la propagación, así que acá llega sólo el
+  // fondo. Un click seco selecciona la fila (shift acumula).
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const alBajarFilas = (e: React.PointerEvent) => {
+    const cont = filasRef.current;
+    if (!cont || e.button !== 0) return;
+    const rect = cont.getBoundingClientRect();
+    const filaEl = (e.target as HTMLElement).closest?.("[data-fila-tl]") as HTMLElement | null;
+    const capaId = filaEl?.dataset.filaTl ?? null;
+    const origen = { x: e.clientX, y: e.clientY, movio: false };
+    const shift = e.shiftKey;
+    const alMover = (ev: PointerEvent) => {
+      if (Math.abs(ev.clientX - origen.x) + Math.abs(ev.clientY - origen.y) > 3) origen.movio = true;
+      if (!origen.movio) return;
+      setMarquee({ x0: origen.x - rect.left, y0: origen.y - rect.top, x1: ev.clientX - rect.left, y1: ev.clientY - rect.top });
+    };
+    const alSoltar = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", alMover);
+      window.removeEventListener("pointerup", alSoltar);
+      setMarquee(null);
+      if (!origen.movio) {
+        if (!capaId) return; // el fondo (o la fila de cámara, que se maneja sola)
+        if (shift && onAlternarSeleccion) onAlternarSeleccion(capaId);
+        else onSeleccionar(capaId);
+        return;
+      }
+      // filas que cruza el rectángulo (alcanza el rango vertical: una fila
+      // ocupa todo el ancho, el eje X del marquee no discrimina capas)
+      const y0 = Math.min(origen.y, ev.clientY);
+      const y1 = Math.max(origen.y, ev.clientY);
+      const ids = [...cont.querySelectorAll<HTMLElement>("[data-fila-tl]")]
+        .filter((el) => {
+          const r = el.getBoundingClientRect();
+          return r.top < y1 && r.bottom > y0;
+        })
+        .map((el) => el.dataset.filaTl!);
+      if (ids.length && onSeleccionarVarias) onSeleccionarVarias(ids);
+    };
+    window.addEventListener("pointermove", alMover);
+    window.addEventListener("pointerup", alSoltar);
+  };
+
   return (
     <div className="flex flex-col border-t border-(--glass-border) bg-(--chrome-bg)" style={{ height: alto }}>
       <div
@@ -296,12 +349,14 @@ export function LineaDeTiempo({
       <div className="mx-3 mb-3 flex min-h-0 flex-1 overflow-y-auto">
         <div className="w-36 shrink-0 pr-2">
           {composicion.capas.map((capa) => {
-            const activa = seleccionId === capa.id;
+            const activa = seleccionId === capa.id || seleccionIds.includes(capa.id);
             return (
               <button
                 key={capa.id}
                 type="button"
-                onClick={() => onSeleccionar(capa.id)}
+                onClick={(e) =>
+                  e.shiftKey && onAlternarSeleccion ? onAlternarSeleccion(capa.id) : onSeleccionar(capa.id)
+                }
                 className={[
                   "relative mb-1 flex h-9 w-full items-center rounded-control pl-2.5 text-left",
                   activa ? "bg-ink/[0.08]" : "hover:bg-ink/[0.04]",
@@ -326,17 +381,28 @@ export function LineaDeTiempo({
           </button>
         </div>
         {/* min-h-full: el playhead cruza TODO el panel aunque haya pocas filas */}
-        <div ref={filasRef} className="relative min-h-full min-w-0 flex-1">
+        <div ref={filasRef} onPointerDown={alBajarFilas} className="relative min-h-full min-w-0 flex-1">
         <div className="pointer-events-none absolute inset-y-0 z-10 w-px bg-acento/60" style={{ left: pct(tiempo) }} />
+        {marquee && (
+          <div
+            className="pointer-events-none absolute z-20 rounded-[3px] border border-acento bg-acento/10"
+            style={{
+              left: Math.min(marquee.x0, marquee.x1),
+              top: Math.min(marquee.y0, marquee.y1),
+              width: Math.abs(marquee.x1 - marquee.x0),
+              height: Math.abs(marquee.y1 - marquee.y0),
+            }}
+          />
+        )}
         {composicion.capas.map((capa) => {
-          const activa = seleccionId === capa.id;
+          const activa = seleccionId === capa.id || seleccionIds.includes(capa.id);
           const spans: { clave: "entrada" | "salida"; seg: Segmento }[] = [];
           if (capa.entrada) spans.push({ clave: "entrada", seg: capa.entrada });
           if (capa.salida) spans.push({ clave: "salida", seg: capa.salida });
           return (
             <div
               key={capa.id}
-              onPointerDown={() => onSeleccionar(capa.id)}
+              data-fila-tl={capa.id}
               className={[
                 "relative mb-1 h-9 rounded-control",
                 activa ? "bg-ink/[0.06]" : "hover:bg-ink/[0.03]",

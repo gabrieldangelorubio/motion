@@ -99,29 +99,75 @@ function alineacionDe(nodo) {
   return "centro";
 }
 
+// Texto con estilos MIXTOS (dos fuentes en un título, un color por palabra):
+// getStyledTextSegments lo parte en corridas uniformes y gana el estilo con
+// más caracteres — el «cuerpo» del texto. Así el texto llega EDITABLE y
+// animable por palabras/caracteres, en vez de volverse un sólido rasterizado.
+function estiloDominante(nodo) {
+  var segmentos;
+  try {
+    segmentos = nodo.getStyledTextSegments(["fontName", "fontSize", "fontWeight", "letterSpacing", "lineHeight", "fills"]);
+  } catch (e) {
+    return null;
+  }
+  if (!segmentos || segmentos.length === 0) return null;
+  var conteos = {};
+  var mejor = null;
+  for (var i = 0; i < segmentos.length; i++) {
+    var s = segmentos[i];
+    var pintura = pinturaSolida(s.fills);
+    if (!pintura) continue;
+    var clave = s.fontName.family + "|" + s.fontName.style + "|" + s.fontSize + "|" + s.fontWeight;
+    conteos[clave] = (conteos[clave] || 0) + (s.end - s.start);
+    if (!mejor || conteos[clave] > mejor.n) mejor = { n: conteos[clave], seg: s, pintura: pintura };
+  }
+  return mejor ? { seg: mejor.seg, pintura: mejor.pintura, tramos: segmentos.length } : null;
+}
+
 async function nodoAIR(nodo, marco, salida) {
   if (!nodo.visible) return;
   var rotado = "rotation" in nodo && Math.abs(nodo.rotation) > 0.01;
 
   if (nodo.type === "TEXT") {
     var pintura = pinturaSolida(nodo.fills);
+    var nombreFuente = nodo.fontName;
+    var tamano = nodo.fontSize;
+    var peso = nodo.fontWeight;
+    var espaciadoCrudo = nodo.letterSpacing;
+    var alturaLinea = nodo.lineHeight;
+    var avisoMixto = null;
+    var esMixto = !pintura || tamano === figma.mixed || nombreFuente === figma.mixed ||
+      peso === figma.mixed || espaciadoCrudo === figma.mixed;
+    if (!rotado && esMixto) {
+      var dominante = estiloDominante(nodo);
+      if (dominante) {
+        pintura = dominante.pintura;
+        nombreFuente = dominante.seg.fontName;
+        tamano = dominante.seg.fontSize;
+        peso = dominante.seg.fontWeight;
+        espaciadoCrudo = dominante.seg.letterSpacing;
+        if (alturaLinea === figma.mixed) alturaLinea = dominante.seg.lineHeight;
+        avisoMixto = "estilos mixtos (" + dominante.tramos + " tramos): quedó EDITABLE con el estilo dominante — «" +
+          nombreFuente.family + "» " + peso + " · " + tamano + "px; los tramos con otra fuente/color pierden su dibujo";
+      }
+    }
     var simple =
       !rotado && pintura &&
-      nodo.fontSize !== figma.mixed && nodo.fontName !== figma.mixed &&
-      nodo.fontWeight !== figma.mixed && nodo.letterSpacing !== figma.mixed;
+      tamano !== figma.mixed && nombreFuente !== figma.mixed &&
+      peso !== figma.mixed && espaciadoCrudo !== figma.mixed;
     if (!simple) {
-      salida.push(await rasterizar(nodo, marco, rotado ? "texto rotado: se rasterizó" : "texto con estilos mixtos: se rasterizó"));
+      salida.push(await rasterizar(nodo, marco, rotado ? "texto rotado: se rasterizó" : "texto con estilos mixtos ilegibles: se rasterizó"));
       return;
     }
     var c = caja(nodo, marco);
     var mezclaTexto = mezclaDe(nodo);
-    var espaciado = nodo.letterSpacing.unit === "PERCENT"
-      ? (nodo.fontSize * nodo.letterSpacing.value) / 100
-      : nodo.letterSpacing.value;
+    var espaciado = espaciadoCrudo.unit === "PERCENT"
+      ? (tamano * espaciadoCrudo.value) / 100
+      : espaciadoCrudo.value;
     var interlineado;
-    if (nodo.lineHeight !== figma.mixed && nodo.lineHeight) {
-      if (nodo.lineHeight.unit === "PIXELS") interlineado = Math.round(nodo.lineHeight.value * 100) / 100;
-      else if (nodo.lineHeight.unit === "PERCENT") interlineado = Math.round(nodo.fontSize * nodo.lineHeight.value) / 100;
+    if (alturaLinea !== figma.mixed && alturaLinea) {
+      if (alturaLinea.unit === "PIXELS") interlineado = Math.round(alturaLinea.value * 100) / 100;
+      else if (alturaLinea.unit === "PERCENT") interlineado = Math.round(tamano * alturaLinea.value) / 100;
     }
 
     // textCase es un ESTILO en Figma: los caracteres quedan como se tipearon
@@ -145,7 +191,7 @@ async function nodoAIR(nodo, marco, salida) {
     // El wrap automático de la caja NO deja \n en characters: estimamos las
     // líneas renderizadas por geometría y el editor re-envuelve al importar
     // (acá no hay medición de texto; allá sí).
-    var lh = interlineado || nodo.fontSize * 1.15;
+    var lh = interlineado || tamano * 1.15;
     var lineasEstimadas = Math.max(1, Math.round(nodo.height / lh));
 
     // lineHeight AUTO usa las métricas de la fuente, no un número: cuando la
@@ -171,12 +217,12 @@ async function nodoAIR(nodo, marco, salida) {
       x: c.x, y: c.y, ancho: c.ancho, alto: c.alto,
       opacidad: nodo.opacity < 1 ? nodo.opacity : undefined,
       mezcla: mezclaTexto.mezcla,
-      aviso: conAviso({ aviso: mezclaTexto.aviso || undefined }, avisoCaso) || undefined,
+      aviso: conAviso({ aviso: conAviso({ aviso: mezclaTexto.aviso || undefined }, avisoCaso) || undefined }, avisoMixto) || undefined,
       texto: {
         contenido: contenido,
-        familia: nodo.fontName.family,
-        peso: nodo.fontWeight,
-        tamano: nodo.fontSize,
+        familia: nombreFuente.family,
+        peso: peso,
+        tamano: tamano,
         interletrado: Math.abs(espaciado) > 0.01 ? Math.round(espaciado * 100) / 100 : undefined,
         interlineado: interlineado,
         lineasEstimadas: lineasEstimadas > 1 && contenido.indexOf("\n") < 0 ? lineasEstimadas : undefined,

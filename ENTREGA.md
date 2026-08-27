@@ -24,7 +24,9 @@ drag de capas EN el lienzo** (marquee arrastrando en el vacío — el pan
 del viewport queda en la rueda — y también sobre la placa de una pantalla
 NO seleccionada: seleccionás adentro del frame sin moverlo — la pantalla
 se mueve arrastrando la placa ya elegida — y la placa sólo entra al
-marquee si el rectángulo la encierra entera; shift+click acumula en lienzo y panel,
+marquee si el rectángulo la encierra entera; en el TIMELINE también hay
+marquee estilo AE: arrastrás por el fondo de las filas y el rectángulo
+elige esas capas, con shift+click en filas y gutter; shift+click acumula en lienzo y panel,
 drag de una seleccionada mueve todas juntas, Supr borra la selección
 entera; y la S sostenida hace que el playhead SIGA al mouse) (hit-test con rotación y escala, umbral 4px,
 Shift = eje dominante, ⌘ = sin snapping, capas bloqueadas seleccionables
@@ -48,7 +50,7 @@ con las métricas verdaderas; el anclaje vertical usa la TINTA renderizada de Fi
 del mismo texto medido acá, geometría contra geometría — con fallback al
 centrado en caja de línea si no hay tinta — y se re-ancla al cargar la
 tipografía real),
-**modos de mezcla** (multiply, screen, overlay… — viajan desde Figma, se pintan con globalCompositeOperation, editables en inspector y agente; LINEAR_BURN/DODGE se aproximan con aviso), **calidad de preview** (½ / 1× / Máx al estilo Half/Quarter de AE — menos píxeles de render mientras armás; el export SIEMPRE sale a resolución completa), **gestión de tipografías** (detección real de familias faltantes por medición — `document.fonts.check` miente —, panel que se abre solo tras un import con fuentes ajenas, carga desde Google Fonts con fallo detectable o subiendo el archivo .otf/.ttf/.woff2; sin sustitución silenciosa), **biblioteca de efectos**
+**modos de mezcla** (multiply, screen, overlay… — viajan desde Figma, se pintan con globalCompositeOperation, editables en inspector y agente; LINEAR_BURN/DODGE se aproximan con aviso), **calidad de preview** (½ / 1× / Máx al estilo Half/Quarter de AE — menos píxeles de render mientras armás; el export SIEMPRE sale a resolución completa), **gestión de tipografías** (detección real de familias faltantes por medición — `document.fonts.check` miente —, panel que se abre solo tras un import con fuentes ajenas, carga desde Google Fonts con fallo detectable o subiendo el archivo .otf/.ttf/.woff2; sin sustitución silenciosa; lo cargado queda RECORDADO en el navegador —IndexedDB: el archivo entero o la elección de Google— y se recarga solo al abrir, re-anclando los textos; el panel post-import primero prueba las recordadas y se abre sólo si sigue faltando algo), **biblioteca de efectos**
 (~37 presets en 8 categorías — máscaras y revelados, texto, desenfoque,
 rotación, tracking, impacto y rebote, logos y gráficas, trazos — sobre
 dos capacidades de motor nuevas: rotación POR UNIDAD (dRotacion) y
@@ -119,7 +121,16 @@ muestra las ops), y **export a MP4 frame-exacto** (WebCodecs + `mp4-muxer`, deci
 2026-08-26): la misma `pintar()` del preview frame a frame, H.264 con
 fallback a VP9-en-MP4 (Chromium sin codecs propietarios), **supersampling
 temporal 4×** para motion blur real (media móvil exacta sobre frames
-opacos), back-pressure del encoder y progreso en vivo.
+opacos), **supersampling ESPACIAL 2×** para antialiasing real (cada frame
+se pinta a doble resolución y baja con smoothing de alta calidad — los
+bordes diagonales de un display grande dejan de escalonar; los radios de
+`ctx.filter` se compensan porque van en px de dispositivo, verificado por
+MSE contra un ground truth 4×), back-pressure del encoder y progreso en
+vivo. El editor arranca PARADO en 0 (sin autoplay) y con la línea de
+tiempo alta (340px). El texto de Figma con ESTILOS MIXTOS (dos fuentes en
+un título, un color por palabra) ya no se rasteriza: el plugin lo parte
+con getStyledTextSegments y lo trae EDITABLE con el estilo dominante (el
+de más caracteres), avisando qué tramos pierden su dibujo.
 
 ## Qué NO hace (con motivo)
 

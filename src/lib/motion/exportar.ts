@@ -24,6 +24,9 @@ import { pintar, type Contexto2D, type FuentesDeMedia } from "@/lib/motion/pinta
 export type OpcionesExport = {
   /** sub-frames promediados por frame (1 = sin blur temporal) */
   muestrasBlur?: number;
+  /** supersampling ESPACIAL: pinta a N× y baja con smoothing de alta calidad
+      — antialiasing real en los bordes del texto (default 2, 1 = apagado) */
+  supermuestreo?: number;
   bitrate?: number;
   onProgreso?: (frame: number, total: number) => void;
 };
@@ -98,6 +101,27 @@ export async function exportarMp4(
   const ctxAcum = acumulador?.getContext("2d") ?? null;
   if (!ctx || (muestras > 1 && !ctxAcum)) throw new Error("No se pudo crear el canvas de render");
 
+  // Supersampling ESPACIAL: cada frame se pinta a S× y se baja al tamaño
+  // final con smoothing de alta calidad — el antialiasing que el canvas no
+  // le da solo a los bordes diagonales de un display grande. pintar() recibe
+  // la escala para compensar los ctx.filter (que van en px de dispositivo).
+  const S = Math.max(1, Math.min(4, Math.round(opciones.supermuestreo ?? 2)));
+  const superLienzo = S > 1 ? new OffscreenCanvas(ancho * S, alto * S) : null;
+  const ctxSuper = superLienzo?.getContext("2d") ?? null;
+  if (S > 1 && !ctxSuper) throw new Error("No se pudo crear el canvas de supersampling");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+
+  const pintarFrame = (t: number) => {
+    if (ctxSuper && superLienzo) {
+      ctxSuper.setTransform(S, 0, 0, S, 0, 0);
+      pintar(estadoEn(comp, t), ctxSuper as unknown as Contexto2D, media, S);
+      ctx.drawImage(superLienzo, 0, 0, ancho, alto);
+    } else {
+      pintar(estadoEn(comp, t), ctx as unknown as Contexto2D, media);
+    }
+  };
+
   for (let frame = 0; frame < totalFrames; frame++) {
     if (errorEncoder) throw errorEncoder;
     const t = frame * duracionFrameMs;
@@ -107,14 +131,14 @@ export async function exportarMp4(
       // obturación 180°: las muestras cubren la primera mitad del intervalo
       for (let i = 0; i < muestras; i++) {
         const tMuestra = Math.min(comp.duracion, t + (i / muestras) * (duracionFrameMs / 2));
-        pintar(estadoEn(comp, tMuestra), ctx as unknown as Contexto2D, media);
+        pintarFrame(tMuestra);
         ctxAcum.globalAlpha = 1 / (i + 1); // media móvil exacta sobre frames opacos
         ctxAcum.drawImage(lienzo, 0, 0);
       }
       ctxAcum.globalAlpha = 1;
       origen = acumulador;
     } else {
-      pintar(estadoEn(comp, t), ctx as unknown as Contexto2D, media);
+      pintarFrame(t);
     }
 
     const videoFrame = new VideoFrame(origen, {

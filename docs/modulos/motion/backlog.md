@@ -87,8 +87,9 @@
 - **Dónde:** de nuestro lado, con el catálogo tipado de diosa
 
 ### [P2] Persistir fuentes subidas en el catálogo de media
-- **Estado:** abierto
-- **Qué:** el archivo de fuente subido hoy vive en la sesión del browser; al
-  integrar, subirlo al catálogo (con su licencia declarada) y recargarlo por
-  FontFace al abrir la composición.
-- **Dónde:** `lib/motion/fuentes-puro.ts`, `consultas.ts`
+- **Estado:** parcial (2026-08-27) — persistencia LOCAL hecha: lo cargado
+  (archivo entero o elección de Google Fonts) queda en IndexedDB y se
+  recarga solo al abrir el editor, re-anclando textos; el panel post-import
+  prueba las recordadas antes de abrirse. Falta la parte diosa: subir al
+  catálogo con licencia declarada para que viaje entre máquinas.
+- **Dónde:** `lib/motion/fuentes-guardadas.ts`, `consultas.ts`

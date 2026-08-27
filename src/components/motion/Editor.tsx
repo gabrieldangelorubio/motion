@@ -51,6 +51,7 @@ import { PanelAgente } from "@/components/motion/PanelAgente";
 import { PanelFuentes } from "@/components/motion/PanelFuentes";
 import { Segmentado } from "@/components/ui/Segmentado";
 import { familiasDeComposicion, familiaDisponible } from "@/lib/motion/fuentes-puro";
+import { cargarFuentesRecordadas } from "@/lib/motion/fuentes-guardadas";
 import { suavizarGrabacion, type MuestraCamara } from "@/lib/motion/suavizar-puro";
 import { baselineAproximada, envolverEnLineas, sumarAlLienzo, type ResultadoImport } from "@/lib/motion/figma-puro";
 import type { FuentesDeMedia } from "@/lib/motion/pintar";
@@ -78,11 +79,14 @@ export function Editor({
   conAgente?: boolean;
 }) {
   const [composicion, setComposicion] = useState<Composicion>(() => deserializar(snapshotInicial));
-  const [reproduciendo, setReproduciendo] = useState(true);
+  // arranca PARADO en 0: apretás play (o Space) cuando querés ver la toma
+  const [reproduciendo, setReproduciendo] = useState(false);
   const [tiempoUI, setTiempoUI] = useState(0);
   const [seleccionId, setSeleccionId] = useState<string | null>(null);
   const [avisoGuardado, setAvisoGuardado] = useState<string | null>(null);
-  const [altoTimeline, setAltoTimeline] = useState(240);
+  // alto inicial generoso: con un par de pantallas importadas las filas ya
+  // no entran en 240 (la agarradera lo ajusta entre 160 y 600)
+  const [altoTimeline, setAltoTimeline] = useState(340);
   const [importarAbierto, setImportarAbierto] = useState(false);
   const [fuentesAbierto, setFuentesAbierto] = useState(false);
   // vista del lienzo: "mundo" = el canvas con el encuadre dibujado;
@@ -691,6 +695,22 @@ export function Editor({
     }
   }, [envolverCapaTexto, anclarTextos, registrar]);
 
+  // Fuentes recordadas (IndexedDB): lo que el usuario ya cargó alguna vez se
+  // levanta solo al abrir el editor — y los textos anclados con métricas del
+  // fallback se re-anclan. El tick fuerza el re-render que actualiza el
+  // contador de faltantes (se calcula por render).
+  const [, setTickFuentes] = useState(0);
+  const fuentesRecargadasRef = useRef(false);
+  useEffect(() => {
+    if (fuentesRecargadasRef.current) return;
+    fuentesRecargadasRef.current = true;
+    void cargarFuentesRecordadas().then((familias) => {
+      if (!familias.length) return;
+      reaplicarReajustes();
+      setTickFuentes((n) => n + 1);
+    });
+  }, [reaplicarReajustes]);
+
   // Borde derecho del contenido actual: ahí se suma la próxima pantalla.
   const bordeDerechoLienzo = useCallback((comp: Composicion): number => {
     const ctx = document.createElement("canvas").getContext("2d");
@@ -745,13 +765,23 @@ export function Editor({
             : null,
     );
     requestAnimationFrame(() => lienzoRef.current?.encuadrar());
-    // si la pantalla usa tipografías que este browser no tiene, abrir el
-    // panel de fuentes de una — nunca sustituir en silencio
+    // si la pantalla usa tipografías que este browser no tiene, primero se
+    // prueban las RECORDADAS (ya cargadas otra vez acá); el panel se abre
+    // sólo si sigue faltando algo — nunca sustituir en silencio
     const faltantes = familiasDeComposicion(final).some(({ familia, pesos }) =>
       pesos.some((peso) => !familiaDisponible(familia, peso)),
     );
-    if (faltantes) setFuentesAbierto(true);
-  }, [registrar, medirTrazos, reajustarTextos, anclarTextos, bordeDerechoLienzo]);
+    if (faltantes) {
+      void cargarFuentesRecordadas().then((cargadas) => {
+        if (cargadas.length) reaplicarReajustes();
+        const sigueFaltando = familiasDeComposicion(compRef.current).some(({ familia, pesos }) =>
+          pesos.some((peso) => !familiaDisponible(familia, peso)),
+        );
+        if (sigueFaltando) setFuentesAbierto(true);
+        else setTickFuentes((n) => n + 1);
+      });
+    }
+  }, [registrar, medirTrazos, reajustarTextos, anclarTextos, bordeDerechoLienzo, reaplicarReajustes]);
 
   const familiasFaltantes = familiasDeComposicion(composicion).filter(({ familia, pesos }) =>
     pesos.some((peso) => !familiaDisponible(familia, peso)),
@@ -1058,6 +1088,9 @@ export function Editor({
           tiempo={tiempoUI}
           reproduciendo={reproduciendo}
           seleccionId={seleccionId}
+          seleccionIds={seleccionIds}
+          onSeleccionarVarias={seleccionarVarias}
+          onAlternarSeleccion={alternarSeleccion}
           alto={altoTimeline}
           onAlto={setAltoTimeline}
           onScrub={escrub}

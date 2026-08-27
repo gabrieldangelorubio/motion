@@ -38,14 +38,16 @@ export type FuentesDeMedia = {
   imagenDe?: (mediaId: string) => CanvasImageSource | null;
 };
 
-function filtroDe(desenfoque: number, blurX: number, blurY: number): string {
+function filtroDe(desenfoque: number, blurX: number, blurY: number, escalaPx: number): string {
   // Canvas 2D no tiene blur direccional: se aproxima con el mayor de los ejes.
   // El blur direccional real queda para el render con supersampling temporal.
+  // ctx.filter trabaja en píxeles de DISPOSITIVO (la transform no lo escala):
+  // con supersampling espacial el radio se multiplica para verse igual.
   const total = Math.max(desenfoque, blurX, blurY);
-  return total > 0.3 ? `blur(${total.toFixed(2)}px)` : "none";
+  return total > 0.3 ? `blur(${(total * escalaPx).toFixed(2)}px)` : "none";
 }
 
-function pintarTexto(estado: EstadoCapa, ctx: Contexto2D): void {
+function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): void {
   const capa = estado.capa;
   if (capa.tipo !== "texto") return;
   const { familia, tamano, peso, interletrado = 0 } = capa.fuente;
@@ -63,7 +65,7 @@ function pintarTexto(estado: EstadoCapa, ctx: Contexto2D): void {
   const pintarUnidad = (texto: string, x: number, y: number, ancho: number, u: EstadoUnidad) => {
     ctx.save();
     ctx.globalAlpha *= u.opacidad;
-    ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY);
+    ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
     if (u.recorte) {
       // La máscara del revelado: la caja de REPOSO de la unidad (por eso el
       // rect va antes del translate por dx/dy). Generosa a los costados,
@@ -121,14 +123,14 @@ function pintarTexto(estado: EstadoCapa, ctx: Contexto2D): void {
   }
 }
 
-function pintarTrazo(estado: EstadoCapa, ctx: Contexto2D): void {
+function pintarTrazo(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): void {
   const capa = estado.capa;
   if (capa.tipo !== "trazo") return;
   const u = estado.unidades[0];
   if (u.trazoFin <= u.trazoInicio) return; // trim vacío: no hay nada que dibujar
   ctx.save();
   ctx.globalAlpha *= u.opacidad;
-  ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY);
+  ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
   ctx.translate(u.dx, u.dy);
   if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
   ctx.scale(1 + u.dEscala, 1 + u.dEscala);
@@ -150,13 +152,13 @@ function pintarTrazo(estado: EstadoCapa, ctx: Contexto2D): void {
   ctx.restore();
 }
 
-function pintarForma(estado: EstadoCapa, ctx: Contexto2D): void {
+function pintarForma(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): void {
   const capa = estado.capa;
   if (capa.tipo !== "forma") return;
   const u = estado.unidades[0];
   ctx.save();
   ctx.globalAlpha *= u.opacidad;
-  ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY);
+  ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
   ctx.translate(u.dx, u.dy);
   if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
   ctx.scale(1 + u.dEscala, 1 + u.dEscala);
@@ -179,13 +181,13 @@ function pintarForma(estado: EstadoCapa, ctx: Contexto2D): void {
   ctx.restore();
 }
 
-function pintarMedia(estado: EstadoCapa, ctx: Contexto2D, media: FuentesDeMedia): void {
+function pintarMedia(estado: EstadoCapa, ctx: Contexto2D, media: FuentesDeMedia, escalaPx: number): void {
   const capa = estado.capa;
   if (capa.tipo !== "media") return;
   const u = estado.unidades[0];
   ctx.save();
   ctx.globalAlpha *= u.opacidad;
-  ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY);
+  ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
   ctx.translate(u.dx, u.dy);
   if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
   ctx.scale(1 + u.dEscala, 1 + u.dEscala);
@@ -202,7 +204,7 @@ function pintarMedia(estado: EstadoCapa, ctx: Contexto2D, media: FuentesDeMedia)
   ctx.restore();
 }
 
-export function pintar(estado: EstadoComposicion, ctx: Contexto2D, media: FuentesDeMedia = {}): void {
+export function pintar(estado: EstadoComposicion, ctx: Contexto2D, media: FuentesDeMedia = {}, escalaPx = 1): void {
   ctx.save();
   ctx.fillStyle = estado.fondo;
   ctx.fillRect(0, 0, estado.ancho, estado.alto);
@@ -226,10 +228,10 @@ export function pintar(estado: EstadoComposicion, ctx: Contexto2D, media: Fuente
     ctx.translate(capa.x, capa.y);
     if (capa.rotacion) ctx.rotate((capa.rotacion * Math.PI) / 180);
     if (capa.escala !== 1) ctx.scale(capa.escala, capa.escala);
-    if (capa.capa.tipo === "texto") pintarTexto(capa, ctx);
-    else if (capa.capa.tipo === "forma") pintarForma(capa, ctx);
-    else if (capa.capa.tipo === "trazo") pintarTrazo(capa, ctx);
-    else pintarMedia(capa, ctx, media);
+    if (capa.capa.tipo === "texto") pintarTexto(capa, ctx, escalaPx);
+    else if (capa.capa.tipo === "forma") pintarForma(capa, ctx, escalaPx);
+    else if (capa.capa.tipo === "trazo") pintarTrazo(capa, ctx, escalaPx);
+    else pintarMedia(capa, ctx, media, escalaPx);
     ctx.restore();
   }
   ctx.restore();
