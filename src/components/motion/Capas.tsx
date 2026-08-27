@@ -95,6 +95,9 @@ export function Capas({
   // Drag vertical con listeners en window (§8.3): reordena EN VIVO contra la
   // fila bajo el puntero (mismo contenedor); un click seco selecciona.
   const iniciarFila = (e: React.PointerEvent, id: string, cont: string, selId: string) => {
+    // sin esto el browser arranca una SELECCIÓN DE TEXTO sobre los nombres
+    // mientras arrastrás la fila — el drag se vuelve un enchastre visual
+    e.preventDefault();
     const gesto = { id, cont, selId, y0: e.clientY, activo: false };
     gestoRef.current = gesto;
     const alMover = (ev: PointerEvent) => {
@@ -188,7 +191,7 @@ export function Capas({
   const seleccionada = composicion.capas.find((c) => c.id === seleccionId);
 
   return (
-    <aside className="flex h-full flex-col border-r border-(--glass-border) bg-(--chrome-bg)">
+    <aside className="flex h-full select-none flex-col border-r border-(--glass-border) bg-(--chrome-bg)">
       <div className="px-3 pt-3 pb-2 text-[11px] font-medium uppercase tracking-[0.02em] text-foreground/50">
         {t.plural(composicion.capas.length, "{n} capa", "{n} capas")}
       </div>

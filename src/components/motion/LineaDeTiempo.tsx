@@ -234,6 +234,7 @@ export function LineaDeTiempo({
   const alBajarFilas = (e: React.PointerEvent) => {
     const cont = filasRef.current;
     if (!cont || e.button !== 0) return;
+    e.preventDefault(); // que el marquee no arranque una selección de texto
     const rect = cont.getBoundingClientRect();
     const filaEl = (e.target as HTMLElement).closest?.("[data-fila-tl]") as HTMLElement | null;
     const capaId = filaEl?.dataset.filaTl ?? null;
@@ -271,7 +272,7 @@ export function LineaDeTiempo({
   };
 
   return (
-    <div className="flex flex-col border-t border-(--glass-border) bg-(--chrome-bg)" style={{ height: alto }}>
+    <div className="flex select-none flex-col border-t border-(--glass-border) bg-(--chrome-bg)" style={{ height: alto }}>
       <div
         role="separator"
         aria-label={t("Cambiar el alto de la línea de tiempo")}
