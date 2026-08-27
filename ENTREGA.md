@@ -126,7 +126,10 @@ TEMBLOR como expresión con la misma suma de senos del motor; los presets
 de entrada/salida y la división por unidades TODAVÍA no se traducen
 (tanda 2: text animators) y quedan anotados en el comentario de cada capa
 para que nada se pierda en silencio; el .jsx sale ASCII puro —encoding a
-prueba de AE— y el generador es determinista y testeado byte a byte),
+prueba de AE— y el generador es determinista y testeado byte a byte; el
+toggle «Solo el diseño, sin animación» exporta las capas en su estado
+BASE — sin keyframes, sin cámara, sin temblor, sin notas de presets —
+para armar la animación de cero en AE),
 **el paradigma canvas + cámara** (el lienzo es
 infinito: cada import de Figma se SUMA a la derecha de lo existente con su
 fondo como placa — ids únicos, anclas remapeadas — y el plugin exporta
@@ -298,7 +301,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **156
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **158
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -315,7 +318,8 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   fallaron exactamente los tres tests de la ventana (reposo sin recorte,
   salida recortando, clip en pintar). (6) conversión de opacidad del script
   de AE sin el ×100 → falló exactamente «opacidad va 0-1 → 0-100».
-  Restaurados, 156/156 verdes.
+  (7) gate de «solo diseño» de la cámara apagado → falló exactamente «sin
+  precomp de camara». Restaurados, 158/158 verdes.
 
 ## Qué necesita cablearse de su lado
 

@@ -64,6 +64,8 @@ export function ExportarVideo({
   const [desdeS, setDesdeS] = useState(0);
   const [hastaS, setHastaS] = useState(0);
   const [todas, setTodas] = useState(false);
+  // AE en modo «solo diseño»: capas en su estado base, sin keyframes/cámara
+  const [soloDiseno, setSoloDiseno] = useState(false);
   const [progreso, setProgreso] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   // La capacidad se chequea en el cliente (en SSR no hay VideoEncoder y el
@@ -89,6 +91,7 @@ export function ExportarVideo({
     setDesdeS(0);
     setHastaS(Math.round((obtenerComposicion().duracion / 1000) * 100) / 100);
     setTodas(false);
+    setSoloDiseno(false);
     setAbierto((a) => !a);
   };
 
@@ -125,7 +128,7 @@ export function ExportarVideo({
     try {
       const activa = obtenerComposicion();
       const escenas = todas && obtenerEscenas ? await obtenerEscenas() : [activa];
-      const script = generarScriptAE(escenas, activa.nombre);
+      const script = generarScriptAE(escenas, activa.nombre, { sinAnimacion: soloDiseno });
       await entregar(
         new Blob([script], { type: "text/javascript" }),
         `${activa.nombre.replace(/\s+/g, "-")}.jsx`,
@@ -202,6 +205,18 @@ export function ExportarVideo({
             className="mt-1.5 flex h-8 w-full items-center justify-center rounded-control px-2 text-[12px] text-foreground/80 shadow-control hover:bg-ink/[0.06]"
           >
             {t("After Effects (.jsx)")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSoloDiseno((v) => !v)}
+            aria-pressed={soloDiseno}
+            title={t("El .jsx lleva las capas en su estado base, sin keyframes ni cámara: para animar de cero en AE")}
+            className={[
+              "mt-1 flex h-7 w-full items-center justify-center rounded-control px-2 text-[11px]",
+              soloDiseno ? "bg-acento/15 text-acento" : "text-foreground/60 hover:bg-ink/[0.06]",
+            ].join(" ")}
+          >
+            {t("Solo el diseño, sin animación")}
           </button>
         </div>
       )}

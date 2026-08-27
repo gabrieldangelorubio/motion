@@ -202,6 +202,39 @@ test("determinismo: mismas escenas, mismo script byte a byte", () => {
   assert.equal(generarScriptAE([comp]), generarScriptAE([comp]));
 });
 
+test("solo diseño: sin keyframes, sin cámara, sin temblor — las capas en su estado base", () => {
+  const comp = base({
+    capas: [
+      titulo({
+        entrada: { preset: "revelar", en: 0, duracion: 500 },
+        pistas: { x: [{ t: 0, v: 100 }, { t: 1000, v: 500 }], opacidad: [{ t: 0, v: 0 }, { t: 500, v: 1 }] },
+      }),
+    ],
+    camara: {
+      pistas: { x: [{ t: 0, v: 960 }, { t: 2000, v: 1200 }] },
+      temblor: { preset: "handheld" },
+    },
+  });
+  const jsx = generarScriptAE([comp], undefined, { sinAnimacion: true });
+  assert.match(jsx, /modo: solo diseno/);
+  // la CABECERA define el helper __pista; lo que no puede haber es LLAMADAS
+  assert.ok(!/^__pista\(/m.test(jsx), "no tiene que emitir ni un keyframe");
+  assert.ok(!jsx.includes(".expression"), "sin temblor");
+  assert.ok(!jsx.includes(". contenido"), "sin precomp de camara");
+  assert.ok(!jsx.includes("entrada: revelar"), "sin notas de presets pendientes");
+  // la posición es la BASE de la capa (el reposo), no la pista
+  assert.match(jsx, /"ADBE Position"\)\.setValue\(\[960, 540\]\)/);
+});
+
+test("solo diseño apagado sigue emitiendo la animación completa (default intacto)", () => {
+  const comp = base({
+    capas: [titulo({ pistas: { x: [{ t: 0, v: 100 }, { t: 1000, v: 500 }] } })],
+  });
+  const jsx = generarScriptAE([comp]);
+  assert.ok(jsx.includes("__pista("));
+  assert.ok(!jsx.includes("modo: solo diseno"));
+});
+
 test("nombreDeArchivo translitera acentos: Chromium descarta el nombre entero si trae no-ASCII", () => {
   assert.equal(nombreDeArchivo("demo-del-módulo.jsx"), "demo-del-modulo.jsx");
   assert.equal(nombreDeArchivo("Animación ñoña.mp4"), "Animacion nona.mp4");

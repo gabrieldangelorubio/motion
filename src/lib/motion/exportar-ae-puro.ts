@@ -34,6 +34,7 @@ import type {
   Keyframe,
   MezclaCapa,
   NombreEasing,
+  Pistas,
   Segmento,
 } from "@/lib/motion/modelo";
 import { camaraEn } from "@/lib/motion/evaluar-puro";
@@ -216,14 +217,21 @@ function describirSegmento(clase: string, seg: Segmento): string {
   return partes.join(", ") + ")";
 }
 
+/** Modo del export: `sinAnimacion` manda SOLO el diseño — cada capa en su
+    estado BASE (el reposo al que los presets entran), sin keyframes, sin
+    cámara y sin temblor. Para armar la animación de cero en AE. */
+export type OpcionesAE = { sinAnimacion?: boolean };
+
 /** Comentario de capa con lo que TODAVÍA no se traduce, para que nada se
     pierda en silencio al abrir el proyecto en AE. */
-function comentarioPendientes(capa: Capa): string | null {
+function comentarioPendientes(capa: Capa, sinAnimacion: boolean): string | null {
   const pendientes: string[] = [];
-  if (capa.entrada) pendientes.push(describirSegmento("entrada", capa.entrada));
-  if (capa.salida) pendientes.push(describirSegmento("salida", capa.salida));
-  if (capa.tipo === "texto" && capa.division !== "ninguna") {
-    pendientes.push(`division: ${capa.division}`);
+  if (!sinAnimacion) {
+    if (capa.entrada) pendientes.push(describirSegmento("entrada", capa.entrada));
+    if (capa.salida) pendientes.push(describirSegmento("salida", capa.salida));
+    if (capa.tipo === "texto" && capa.division !== "ninguna") {
+      pendientes.push(`division: ${capa.division}`);
+    }
   }
   if (capa.tipo === "trazo") pendientes.push("path SVG real (aca va un rectangulo)");
   if (capa.tipo === "media") pendientes.push(`relinkear asset (${capa.mediaId.slice(0, 40)})`);
@@ -231,9 +239,10 @@ function comentarioPendientes(capa: Capa): string | null {
   return "motion, pendiente de traducir: " + pendientes.join(" | ");
 }
 
-/** Emite transformaciones (base + pistas) de una capa ya creada en `capa`. */
-function emitirTransform(L: string[], capa: Capa, desplazarY = 0): void {
-  const pistas = capa.pistas ?? {};
+/** Emite transformaciones (base + pistas) de una capa ya creada en `capa`.
+    Con `sinAnimacion` las pistas se ignoran: queda el estado base, quieto. */
+function emitirTransform(L: string[], capa: Capa, desplazarY = 0, sinAnimacion = false): void {
+  const pistas: Pistas = sinAnimacion ? {} : (capa.pistas ?? {});
   const mapY = (v: number) => redondear(v - desplazarY);
 
   if (pistas.x?.length || pistas.y?.length) {
@@ -281,17 +290,17 @@ function emitirTransform(L: string[], capa: Capa, desplazarY = 0): void {
   }
 }
 
-function emitirComunes(L: string[], capa: Capa): void {
+function emitirComunes(L: string[], capa: Capa, sinAnimacion: boolean): void {
   L.push(`capa.name = ${cadena(capa.nombre)};`);
   if (capa.oculta) L.push("capa.enabled = false;");
   if (capa.mezcla && MEZCLA_AE[capa.mezcla]) {
     L.push(`try { capa.blendingMode = BlendingMode.${MEZCLA_AE[capa.mezcla]}; } catch (e) {}`);
   }
-  const comentario = comentarioPendientes(capa);
+  const comentario = comentarioPendientes(capa, sinAnimacion);
   if (comentario) L.push(`capa.comment = ${cadena(comentario)};`);
 }
 
-function emitirCapa(L: string[], capa: Capa): void {
+function emitirCapa(L: string[], capa: Capa, sinAnimacion: boolean): void {
   if (capa.tipo === "texto") {
     const lineas = capa.texto.split("\n").length;
     const interlineado = capa.fuente.interlineado ?? capa.fuente.tamano * 1.15;
@@ -314,8 +323,8 @@ function emitirCapa(L: string[], capa: Capa): void {
     L.push(`doc.autoLeading = false;`);
     L.push(`doc.leading = ${num(interlineado)};`);
     L.push(`capa.property("ADBE Text Properties").property("ADBE Text Document").setValue(doc);`);
-    emitirComunes(L, capa);
-    emitirTransform(L, capa, desplazarY);
+    emitirComunes(L, capa, sinAnimacion);
+    emitirTransform(L, capa, desplazarY, sinAnimacion);
     return;
   }
 
@@ -331,8 +340,8 @@ function emitirCapa(L: string[], capa: Capa): void {
       if (capa.radio) L.push(`forma.property("ADBE Vector Rect Roundness").setValue(${num(capa.radio)});`);
     }
     L.push(`gr.property("ADBE Vectors Group").addProperty("ADBE Vector Graphic - Fill").property("ADBE Vector Fill Color").setValue(${colorLit(capa.color)});`);
-    emitirComunes(L, capa);
-    emitirTransform(L, capa);
+    emitirComunes(L, capa, sinAnimacion);
+    emitirTransform(L, capa, 0, sinAnimacion);
     return;
   }
 
@@ -348,7 +357,7 @@ function emitirCapa(L: string[], capa: Capa): void {
     L.push(`tr.property("ADBE Vector Stroke Color").setValue(${colorLit(capa.color)});`);
     L.push(`tr.property("ADBE Vector Stroke Width").setValue(${num(capa.grosor)});`);
     L.push(`tr = gr.property("ADBE Vectors Group").addProperty("ADBE Vector Filter - Trim");`);
-    const pistas = capa.pistas ?? {};
+    const pistas: Pistas = sinAnimacion ? {} : (capa.pistas ?? {});
     if (pistas.trazoInicio?.length) {
       L.push(`__pista(tr.property("ADBE Vector Trim Start"), ${clavesLit(
         clavesDe(pistas.trazoInicio, (v) => redondear(v * 100), (a, b) => (b - a) * 100),
@@ -363,15 +372,15 @@ function emitirCapa(L: string[], capa: Capa): void {
     } else if ((capa.trazoFin ?? 1) !== 1) {
       L.push(`tr.property("ADBE Vector Trim End").setValue(${num((capa.trazoFin ?? 1) * 100)});`);
     }
-    emitirComunes(L, capa);
-    emitirTransform(L, capa);
+    emitirComunes(L, capa, sinAnimacion);
+    emitirTransform(L, capa, 0, sinAnimacion);
     return;
   }
 
   // media: sólido placeholder del tamaño exacto — el asset se relinkea en AE
   L.push(`capa = comp.layers.addSolid([0.5, 0.5, 0.55], ${cadena(capa.nombre)}, ${num(capa.ancho)}, ${num(capa.alto)}, 1);`);
-  emitirComunes(L, capa);
-  emitirTransform(L, capa);
+  emitirComunes(L, capa, sinAnimacion);
+  emitirTransform(L, capa, 0, sinAnimacion);
 }
 
 /* ——— Cámara ——————————————————————————————————————————————————— */
@@ -495,12 +504,18 @@ function __pista(prop, claves, dims) {
  * Genera el script .jsx que reconstruye las escenas en After Effects.
  * Determinista: mismas escenas → mismo texto, byte a byte.
  */
-export function generarScriptAE(escenas: Composicion[], nombreProyecto?: string): string {
+export function generarScriptAE(
+  escenas: Composicion[],
+  nombreProyecto?: string,
+  opciones: OpcionesAE = {},
+): string {
   if (escenas.length === 0) throw new Error("No hay escenas para exportar");
+  const sinAnimacion = opciones.sinAnimacion ?? false;
   const proyecto = nombreProyecto ?? escenas[0].nombre;
   const L: string[] = [];
   L.push(`// Generado por motion (adios adios) -- correr en After Effects:`);
   L.push(`// Archivo > Scripts > Ejecutar archivo de script...`);
+  if (sinAnimacion) L.push(`// modo: solo diseno (capas en su estado base, sin keyframes ni camara)`);
   L.push(CABECERA);
   L.push(`app.beginUndoGroup(${cadena("motion: " + proyecto)});`);
   L.push(`var __carpeta = app.project.items.addFolder(${cadena(proyecto)});`);
@@ -513,7 +528,7 @@ export function generarScriptAE(escenas: Composicion[], nombreProyecto?: string)
     varsEscena.push(varEscena);
     const dur = num(escena.duracion / 1000);
     const dims = `${num(escena.ancho)}, ${num(escena.alto)}, 1, ${dur}, ${num(escena.fps)}`;
-    const conCamara = Boolean(escena.camara);
+    const conCamara = Boolean(escena.camara) && !sinAnimacion;
     totalCapas += escena.capas.length;
 
     L.push(``);
@@ -524,7 +539,7 @@ export function generarScriptAE(escenas: Composicion[], nombreProyecto?: string)
       L.push(`comp.bgColor = ${colorLit(escena.fondo)};`);
       L.push(`comp.parentFolder = __carpeta;`);
       L.push(`var ${varEscena}c = comp;`);
-      for (const capa of escena.capas) emitirCapa(L, capa);
+      for (const capa of escena.capas) emitirCapa(L, capa, sinAnimacion);
       L.push(`comp = app.project.items.addComp(${cadena(escena.nombre)}, ${dims});`);
       L.push(`comp.bgColor = ${colorLit(escena.fondo)};`);
       L.push(`comp.parentFolder = __carpeta;`);
@@ -536,7 +551,7 @@ export function generarScriptAE(escenas: Composicion[], nombreProyecto?: string)
       L.push(`comp.bgColor = ${colorLit(escena.fondo)};`);
       L.push(`comp.parentFolder = __carpeta;`);
       L.push(`var ${varEscena} = comp;`);
-      for (const capa of escena.capas) emitirCapa(L, capa);
+      for (const capa of escena.capas) emitirCapa(L, capa, sinAnimacion);
     }
   });
 
