@@ -184,7 +184,10 @@ con panel de RECORTE al importar
 —la onda completa con dos manijas: te quedás con el segmento que va
 (mínimo 0.5s) o «Usar todo»; la escena vacía toma el largo DEL SEGMENTO
 (+10%); preview, export y transcripción usan solo ese pedazo, y cambiar
-el recorte descarta la transcripción vieja; «Recortar» en la franja lo
+el recorte descarta la transcripción vieja; el panel tiene REPRODUCTOR:
+play/pausa y scrub sobre la onda (click fuera de las manijas = escuchar
+desde ahí, frena solo al fin del segmento) para cortar con la oreja, y
+la «×» sale sin tocar nada; «Recortar» en la franja lo
 reabre— y decodificado a una franja de FORMA DE ONDA arriba del timeline — el
 ritmo y las pausas de la locución a la vista, con los CORTES de escena
 encima sobre el eje global del proyecto (las escenas concatenadas, el
