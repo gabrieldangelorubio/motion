@@ -181,9 +181,23 @@ export type Capa = CapaTexto | CapaForma | CapaMedia | CapaTrazo;
 /** Cámara de la composición: el render ES lo que ella ve. Keyframes de centro
     (x, y en px del lienzo) y zoom (1 = el frame entero); `base` es el estado
     sin animar de cada canal — las pistas lo pisan, igual que en una capa. */
+/** Temblor procedural de cámara: movimiento CONSTANTE encima de los
+    keyframes, sin tocarlos — el wiggle de AE. Determinista (mismo t, mismo
+    encuadre): el export sigue siendo reproducible. */
+export type TemblorCamara = {
+  preset: "handheld" | "flotar" | "nervioso";
+  /** multiplicador de amplitud del preset (1 = tal cual, 0 = apagado) */
+  intensidad?: number;
+  /** multiplicador de velocidad del preset (1 = tal cual) */
+  velocidad?: number;
+  /** cambia la «toma»: otra semilla, otro recorrido */
+  semilla?: number;
+};
+
 export type Camara = {
   base?: { x?: number; y?: number; zoom?: number };
   pistas: { x?: Keyframe[]; y?: Keyframe[]; zoom?: Keyframe[] };
+  temblor?: TemblorCamara;
 };
 
 export type CanalCamara = "x" | "y" | "zoom";

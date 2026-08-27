@@ -11,11 +11,12 @@
    encuadre actual del viewport del editor.
 ----------------------------------------------------------------------------- */
 
-import type { CanalCamara, Composicion } from "@/lib/motion/modelo";
-import { estadoEn } from "@/lib/motion/evaluar-puro";
+import type { CanalCamara, Composicion, TemblorCamara } from "@/lib/motion/modelo";
+import { camaraEn } from "@/lib/motion/evaluar-puro";
 import { t } from "@/lib/i18n/stub";
 import { Etiqueta } from "@/components/ui/Etiqueta";
 import { CampoNumero } from "@/components/ui/CampoNumero";
+import { Desplegable } from "@/components/ui/Desplegable";
 
 export function InspectorCamara({
   composicion,
@@ -27,6 +28,7 @@ export function InspectorCamara({
   onGrabar,
   onQuitar,
   onCheckpoint,
+  onTemblor,
 }: {
   composicion: Composicion;
   tiempo: number;
@@ -38,8 +40,10 @@ export function InspectorCamara({
   onGrabar?: () => void;
   onQuitar: () => void;
   onCheckpoint: () => void;
+  /** pone/saca/ajusta el temblor procedural (constante, no toca keyframes) */
+  onTemblor?: (temblor: TemblorCamara | undefined) => void;
 }) {
-  const vista = estadoEn(composicion, tiempo).camara;
+  const vista = camaraEn(composicion, tiempo);
   const pistas = composicion.camara?.pistas ?? {};
   const conKeyframes = (["x", "y", "zoom"] as const).filter((c) => pistas[c]?.length);
   const total = conKeyframes.reduce((n, c) => n + (pistas[c]?.length ?? 0), 0);
@@ -92,6 +96,56 @@ export function InspectorCamara({
           </div>
         )}
       </section>
+
+      {onTemblor && (
+        <section className="border-t border-(--glass-border) px-3 py-3">
+          <Etiqueta className="mb-2">{t("Temblor")}</Etiqueta>
+          <div className="flex flex-col gap-2">
+            <Desplegable
+              etiqueta={t("Preset")}
+              valor={composicion.camara?.temblor?.preset ?? "ninguno"}
+              opciones={[
+                { valor: "ninguno", nombre: t("sin temblor") },
+                { valor: "handheld", nombre: t("handheld") },
+                { valor: "flotar", nombre: t("flotar (drift lento)") },
+                { valor: "nervioso", nombre: t("nervioso") },
+              ]}
+              onCambio={(v) => {
+                onCheckpoint();
+                if (v === "ninguno") onTemblor(undefined);
+                else onTemblor({ ...composicion.camara?.temblor, preset: v as TemblorCamara["preset"] });
+              }}
+            />
+            {composicion.camara?.temblor && (
+              <div className="grid grid-cols-2 gap-2">
+                <CampoNumero
+                  etiqueta={t("Intensidad")}
+                  valor={Math.round((composicion.camara.temblor.intensidad ?? 1) * 100)}
+                  min={0}
+                  max={300}
+                  paso={10}
+                  sufijo="%"
+                  onInicio={onCheckpoint}
+                  onCambio={(v) => onTemblor({ ...composicion.camara!.temblor!, intensidad: v / 100 })}
+                />
+                <CampoNumero
+                  etiqueta={t("Velocidad")}
+                  valor={Math.round((composicion.camara.temblor.velocidad ?? 1) * 100)}
+                  min={10}
+                  max={400}
+                  paso={10}
+                  sufijo="%"
+                  onInicio={onCheckpoint}
+                  onCambio={(v) => onTemblor({ ...composicion.camara!.temblor!, velocidad: v / 100 })}
+                />
+              </div>
+            )}
+            <div className="text-xs text-muted">
+              {t("Movimiento constante ENCIMA de los keyframes: no los toca ni los crea — como el wiggle de AE.")}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="border-t border-(--glass-border) px-3 py-3">
         <div className="flex flex-col gap-2">

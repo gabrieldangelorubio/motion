@@ -15,7 +15,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import type { Composicion } from "@/lib/motion/modelo";
-import { estadoEn } from "@/lib/motion/evaluar-puro";
+import { estadoEn, camaraEn } from "@/lib/motion/evaluar-puro";
 import { pintar, type Contexto2D, type FuentesDeMedia } from "@/lib/motion/pintar";
 import {
   camaraConZoom,
@@ -357,7 +357,7 @@ export const Lienzo = forwardRef<
       if (enInput()) return;
       const modoCamara = obtenerSeleccionId() === CAMARA_ID || (obtenerVista?.() ?? "mundo") === "camara";
       if (!modoCamara || !onMoverCamara) return;
-      const cam = estadoEn(obtenerComposicion(), obtenerTiempo?.() ?? 0).camara;
+      const cam = camaraEn(obtenerComposicion(), obtenerTiempo?.() ?? 0);
       sostenidaRef.current = { tecla: e.key, tiene: false, ultX: 0, ultY: 0, camX: cam.x, camY: cam.y, zoom: cam.zoom, activo: false };
       onTeclaCamara?.(e.key === "z" ? "zoom" : "posicion");
     };
@@ -426,7 +426,7 @@ export const Lienzo = forwardRef<
     // Auto-key arriba, como todo gesto.
     if ((obtenerVista?.() ?? "mundo") === "camara") {
       if (!onMoverCamara) return;
-      const vistaCam = estadoEn(comp, obtenerTiempo?.() ?? 0).camara;
+      const vistaCam = camaraEn(comp, obtenerTiempo?.() ?? 0);
       const gestoVista = { x0: e.clientX, y0: e.clientY, camX0: vistaCam.x, camY0: vistaCam.y, zoom0: vistaCam.zoom, activo: false };
       const alMoverVista = (ev: PointerEvent) => {
         const dxP = ev.clientX - gestoVista.x0;
@@ -452,7 +452,7 @@ export const Lienzo = forwardRef<
     // Con la cámara seleccionada, arrastrar mueve el ENCUADRE (con auto-key
     // arriba, en el Editor); un click seco vuelve a la selección normal.
     if (obtenerSeleccionId() === CAMARA_ID && onMoverCamara) {
-      const vistaCam = estadoEn(comp, obtenerTiempo?.() ?? 0).camara;
+      const vistaCam = camaraEn(comp, obtenerTiempo?.() ?? 0);
       const gestoCam = { x0: e.clientX, y0: e.clientY, camX0: vistaCam.x, camY0: vistaCam.y, zoom0: vistaCam.zoom, activo: false };
       const alMoverCam = (ev: PointerEvent) => {
         const dxP = ev.clientX - gestoCam.x0;

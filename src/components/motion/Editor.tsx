@@ -13,7 +13,7 @@
 ----------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CanalCamara, Capa, CapaTexto, Composicion, Keyframe, NombrePropiedad, Segmento } from "@/lib/motion/modelo";
+import type { CanalCamara, Capa, CapaTexto, Composicion, Keyframe, NombrePropiedad, Segmento, TemblorCamara } from "@/lib/motion/modelo";
 import { PRESETS, escalonadoSano } from "@/lib/motion/presets-puro";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
 import {
@@ -31,8 +31,9 @@ import {
   quitarCapa,
   quitarKeyframe,
   quitarPoseCamara,
+  definirTemblorCamara,
 } from "@/lib/motion/herramientas-puro";
-import { estadoEn } from "@/lib/motion/evaluar-puro";
+import { camaraEn } from "@/lib/motion/evaluar-puro";
 import { cajaMundoDeCapa } from "@/lib/motion/cajas-puro";
 import { guardarComposicionAction } from "@/app/(app)/(modulos)/motion/acciones";
 import { t } from "@/lib/i18n/stub";
@@ -420,9 +421,13 @@ export function Editor({
     setComposicion(agregarKeyframeCamara(compRef.current, alFrameActual(), { zoom }));
   }, [alFrameActual]);
 
+  const definirTemblor = useCallback((temblor: TemblorCamara | undefined) => {
+    setComposicion(definirTemblorCamara(compRef.current, temblor));
+  }, []);
+
   const keyframeCamaraAhora = useCallback(() => {
     registrar();
-    const vista = estadoEn(compRef.current, tiempoRef.current).camara;
+    const vista = camaraEn(compRef.current, tiempoRef.current);
     setComposicion(agregarKeyframeCamara(compRef.current, alFrameActual(), vista));
   }, [registrar, alFrameActual]);
 
@@ -1118,6 +1123,7 @@ export function Editor({
               onGrabar={alternarGrabacion}
               onQuitar={quitarCamara}
               onCheckpoint={registrar}
+              onTemblor={definirTemblor}
             />
           ) : (
             <Inspector

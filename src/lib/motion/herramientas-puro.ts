@@ -11,7 +11,7 @@
    es una secuencia de estas ops, nunca una regeneración total.
 ----------------------------------------------------------------------------- */
 
-import type { Camara, CanalCamara, Capa, Composicion, Keyframe, NombrePropiedad } from "@/lib/motion/modelo";
+import type { Camara, CanalCamara, Capa, Composicion, Keyframe, NombrePropiedad, TemblorCamara } from "@/lib/motion/modelo";
 import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
 import { nombresPresets } from "@/lib/motion/presets-puro";
 
@@ -212,6 +212,16 @@ export function fijarValorCamara(
   };
 }
 
+/** Pone (o saca, con undefined) el temblor procedural de la cámara: un
+    movimiento CONSTANTE encima de los keyframes, que nunca los toca. */
+export function definirTemblorCamara(
+  comp: Composicion,
+  temblor: TemblorCamara | undefined,
+): Composicion {
+  const camara: Camara = comp.camara ?? { pistas: {} };
+  return { ...comp, camara: { ...camara, temblor } };
+}
+
 /** Agrega (o pisa, si ya hay uno en t) un keyframe por cada canal provisto.
     Acepta número pelado o {v, easing} — el easing del tramo que SALE de ahí. */
 export function agregarKeyframeCamara(
@@ -314,6 +324,10 @@ export function describir(comp: Composicion): string {
     const base = comp.camara.base;
     if (base) {
       partes.push(`base (${base.x ?? "·"}, ${base.y ?? "·"}) zoom ${base.zoom ?? "·"}`);
+    }
+    if (comp.camara.temblor) {
+      const tb = comp.camara.temblor;
+      partes.push(`temblor ${tb.preset} ×${tb.intensidad ?? 1} vel ${tb.velocidad ?? 1} (constante, encima de los keyframes)`);
     }
     for (const canal of ["x", "y", "zoom"] as const) {
       const pista = comp.camara.pistas[canal];

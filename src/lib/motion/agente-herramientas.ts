@@ -12,7 +12,7 @@
    vuelven en el resultado — verificación semántica barata.
 ----------------------------------------------------------------------------- */
 
-import { MEZCLAS, type Camara, type Capa, type CapaForma, type CapaTexto, type CapaTrazo, type Composicion, type Keyframe, type MezclaCapa, type NombreEasing, type NombrePropiedad, type OrdenEscalonado, type Segmento } from "@/lib/motion/modelo";
+import { MEZCLAS, type Camara, type Capa, type CapaForma, type CapaTexto, type CapaTrazo, type Composicion, type Keyframe, type MezclaCapa, type NombreEasing, type NombrePropiedad, type OrdenEscalonado, type Segmento, type TemblorCamara } from "@/lib/motion/modelo";
 import { agregarCapa, editarCapa, quitarCapa, describir } from "@/lib/motion/herramientas-puro";
 import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
 import { CATEGORIAS, escalonadoSano, nombresPresets, PRESETS } from "@/lib/motion/presets-puro";
@@ -284,14 +284,30 @@ export function ejecutarHerramienta(
         if (b.y !== undefined) base.y = clamp(numero(b.y, comp.alto / 2), -comp.alto, comp.alto * 2);
         if (b.zoom !== undefined) base.zoom = clamp(numero(b.zoom, 1), 0.1, 10);
       }
-      if (!pistas.x && !pistas.y && !pistas.zoom && !base) {
-        return fallo(comp, "definí al menos un canal de cámara (x, y o zoom) o una base");
+      // temblor procedural: constante, ENCIMA de los keyframes, sin tocarlos
+      let temblor: TemblorCamara | undefined;
+      if (typeof input.temblor === "object" && input.temblor !== null) {
+        const tb = input.temblor as Record<string, unknown>;
+        const preset = tb.preset === "handheld" || tb.preset === "flotar" || tb.preset === "nervioso" ? tb.preset : null;
+        if (!preset) return fallo(comp, "temblor.preset tiene que ser handheld, flotar o nervioso");
+        temblor = {
+          preset,
+          intensidad: tb.intensidad === undefined ? undefined : clamp(numero(tb.intensidad, 1), 0, 3),
+          velocidad: tb.velocidad === undefined ? undefined : clamp(numero(tb.velocidad, 1), 0.1, 4),
+        };
+      } else if (input.temblor === "ninguno") {
+        temblor = undefined;
+      } else if (input.temblor === undefined) {
+        temblor = comp.camara?.temblor; // no vino: se conserva el que había
+      }
+      if (!pistas.x && !pistas.y && !pistas.zoom && !base && !temblor) {
+        return fallo(comp, "definí al menos un canal de cámara (x, y o zoom), una base o un temblor");
       }
       const resumen = `cámara: ${(["x", "y", "zoom"] as const)
         .filter((c) => pistas[c])
         .map((c) => `${c} ${pistas[c]!.length} kf`)
-        .join(", ") || "base fija"}`;
-      return exito({ ...comp, camara: { base, pistas } }, resumen);
+        .join(", ") || "base fija"}${temblor ? ` + temblor ${temblor.preset}` : ""}`;
+      return exito({ ...comp, camara: { base, pistas, temblor } }, resumen);
     }
 
     case "quitar_camara":
@@ -476,7 +492,7 @@ export const DEFINICIONES_HERRAMIENTAS = [
   },
   {
     name: "definir_camara",
-    description: "Define la cámara de la composición (reemplaza la anterior). El render ES lo que ve la cámara: keyframes de x/y (centro del encuadre, px del lienzo) y zoom (1 = el frame entero, 2 = acercado al doble); `base` es el encuadre sin animar de los canales sin keyframes. Para viajar entre pantallas del lienzo y para paneos/zooms cinematográficos; el easing va en el keyframe de salida del tramo.",
+    description: "Define la cámara de la composición (reemplaza la anterior). El render ES lo que ve la cámara: keyframes de x/y (centro del encuadre, px del lienzo) y zoom (1 = el frame entero, 2 = acercado al doble); `base` es el encuadre sin animar de los canales sin keyframes. Para viajar entre pantallas del lienzo y para paneos/zooms cinematográficos; el easing va en el keyframe de salida del tramo. `temblor` suma un handheld/drift procedural constante que NO toca los keyframes.",
     input_schema: {
       type: "object",
       properties: {
@@ -484,6 +500,22 @@ export const DEFINICIONES_HERRAMIENTAS = [
         y: { type: "array", items: { type: "object", properties: { t: { type: "number" }, v: { type: "number" }, easing: { type: "string" } }, additionalProperties: false, required: ["t", "v"] } },
         zoom: { type: "array", items: { type: "object", properties: { t: { type: "number" }, v: { type: "number" }, easing: { type: "string" } }, additionalProperties: false, required: ["t", "v"] } },
         base: { type: "object", properties: { x: { type: "number" }, y: { type: "number" }, zoom: { type: "number" } }, additionalProperties: false, required: [] },
+        temblor: {
+          description: "Movimiento CONSTANTE encima de los keyframes (wiggle/handheld), nunca los toca. Objeto {preset, intensidad?, velocidad?} o \"ninguno\" para sacarlo; omitido conserva el que había.",
+          anyOf: [
+            {
+              type: "object",
+              properties: {
+                preset: { type: "string", enum: ["handheld", "flotar", "nervioso"] },
+                intensidad: { type: "number", description: "multiplicador 0-3 (1 = el del preset)" },
+                velocidad: { type: "number", description: "multiplicador 0.1-4 (1 = la del preset)" },
+              },
+              additionalProperties: false,
+              required: ["preset"],
+            },
+            { type: "string", enum: ["ninguno"] },
+          ],
+        },
       },
       additionalProperties: false,
       required: [],

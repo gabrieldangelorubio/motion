@@ -13,7 +13,7 @@
    4. motion blur sintetizado desde la velocidad del easing del segmento
 ----------------------------------------------------------------------------- */
 
-import type { Capa, Composicion, Segmento } from "@/lib/motion/modelo";
+import type { Capa, Composicion, Segmento, TemblorCamara } from "@/lib/motion/modelo";
 import { easing, velocidadEn } from "@/lib/motion/easings-puro";
 import { interpolar, delaysEscalonado } from "@/lib/motion/keyframes-puro";
 import { compilarSegmento, type PresetCompilado, type PistaRelativa } from "@/lib/motion/presets-puro";
@@ -195,19 +195,62 @@ function estadoDeCapa(capa: Capa, t: number): EstadoCapa {
   return base;
 }
 
-export function estadoEn(comp: Composicion, t: number): EstadoComposicion {
+/** Encuadre resuelto SIN temblor: keyframes/base con defaults sanos. Es lo
+    que leen los gestos y el inspector — editar sobre el valor con temblor
+    hornearía el jitter adentro de los keyframes. */
+export function camaraEn(comp: Composicion, t: number): { x: number; y: number; zoom: number } {
   const cam = comp.camara?.pistas;
   const base = comp.camara?.base;
+  return {
+    x: cam?.x?.length ? interpolar(cam.x, t) : (base?.x ?? comp.ancho / 2),
+    y: cam?.y?.length ? interpolar(cam.y, t) : (base?.y ?? comp.alto / 2),
+    // zoom nunca ≤ 0: un keyframe roto degrada a casi-plano, no a un frame invertido
+    zoom: Math.max(0.05, cam?.zoom?.length ? interpolar(cam.zoom, t) : (base?.zoom ?? 1)),
+  };
+}
+
+// Presets de temblor: amplitud en px (a 1920 de ancho; escala con la comp)
+// y velocidad en ciclos por segundo del armónico base.
+const PRESETS_TEMBLOR: Record<string, { amplitud: number; velocidad: number }> = {
+  handheld: { amplitud: 7, velocidad: 0.45 },
+  flotar: { amplitud: 16, velocidad: 0.12 },
+  nervioso: { amplitud: 3.5, velocidad: 1.6 },
+};
+
+/**
+ * Desplazamiento del temblor en el tiempo t: suma de senos inconmensurables
+ * — suave, acotado, sin memoria y 100% determinista (nada de Math.random:
+ * dos renders del mismo frame son idénticos). x e y corren desfasados para
+ * que el recorrido sea orgánico, no una diagonal.
+ */
+export function desplazamientoTemblor(
+  temblor: TemblorCamara,
+  t: number,
+  ancho: number,
+): { dx: number; dy: number } {
+  const def = PRESETS_TEMBLOR[temblor.preset] ?? PRESETS_TEMBLOR.handheld;
+  const amp = def.amplitud * (temblor.intensidad ?? 1) * (ancho / 1920);
+  const vel = def.velocidad * (temblor.velocidad ?? 1);
+  const fase = (temblor.semilla ?? 1) * 7.31;
+  const ts = (t / 1000) * vel * Math.PI * 2;
+  const onda = (des: number) =>
+    Math.sin(ts + des) * 0.55 + Math.sin(ts * 2.17 + des * 1.7) * 0.3 + Math.sin(ts * 4.31 + des * 2.9) * 0.15;
+  return { dx: onda(fase) * amp, dy: onda(fase + 4.7) * amp * 0.85 };
+}
+
+export function estadoEn(comp: Composicion, t: number): EstadoComposicion {
+  const camara = camaraEn(comp, t);
+  const temblor = comp.camara?.temblor;
+  if (temblor && (temblor.intensidad ?? 1) > 0) {
+    const d = desplazamientoTemblor(temblor, t, comp.ancho);
+    camara.x += d.dx;
+    camara.y += d.dy;
+  }
   return {
     ancho: comp.ancho,
     alto: comp.alto,
     fondo: comp.fondo,
     capas: comp.capas.filter((c) => !c.oculta).map((c) => estadoDeCapa(c, t)),
-    camara: {
-      x: cam?.x?.length ? interpolar(cam.x, t) : (base?.x ?? comp.ancho / 2),
-      y: cam?.y?.length ? interpolar(cam.y, t) : (base?.y ?? comp.alto / 2),
-      // zoom nunca ≤ 0: un keyframe roto degrada a casi-plano, no a un frame invertido
-      zoom: Math.max(0.05, cam?.zoom?.length ? interpolar(cam.zoom, t) : (base?.zoom ?? 1)),
-    },
+    camara,
   };
 }

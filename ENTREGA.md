@@ -97,7 +97,13 @@ mantenés Z y mover el mouse en vertical la hace entrar (arriba) y salir
 (abajo); soltás la tecla y el gesto termina, y TODO movimiento deja
 keyframe en el playhead — te movés por la timeline, sostenés, y la
 animación queda sola (arrastrar el encuadre sin tecla sigue moviendo la
-posición); los keyframes de x/y/zoom que caen en el mismo
+posición); la cámara además tiene TEMBLOR procedural — presets handheld /
+flotar / nervioso con intensidad y velocidad en su inspector: movimiento
+constante ENCIMA de los keyframes que nunca los toca ni los crea (el
+wiggle de AE), determinista (mismo t, mismo encuadre: el export sigue
+siendo reproducible), y los gestos e inspector leen el encuadre LIMPIO
+(camaraEn) para no hornear el jitter en los keyframes — el agente lo
+maneja con temblor en definir_camara; los keyframes de x/y/zoom que caen en el mismo
 instante son UNA «pose» en la timeline: se selecciona, arrastra, copia
 (⌘C), pega en el playhead (⌘V) y borra (Supr) como unidad — y los
 keyframes de pistas de capas se seleccionan/copian/pegan/borran igual;

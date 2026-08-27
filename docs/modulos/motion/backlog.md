@@ -51,7 +51,9 @@
 - **Dónde:** `modelo.ts` (aditivo), `Editor.tsx`
 
 ### [P2] Capas de textura y cámara 2.5D del blueprint
-- **Estado:** parcial (2026-08-26) — la cámara 2D YA es el corazón del
+- **Estado:** parcial (2026-08-27) — nuevo: TEMBLOR procedural de cámara
+  (handheld/flotar/nervioso, determinista, encima de los keyframes).
+- **Estado previo:** parcial (2026-08-26) — la cámara 2D YA es el corazón del
   paradigma canvas: capa propia con base + pistas x/y/zoom, auto-key,
   drag del encuadre, modo grabación con suavizado, y el render es lo que
   ella ve. Falta: rotación de cámara, parallax 2.5D por capa (factor de

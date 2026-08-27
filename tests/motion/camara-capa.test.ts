@@ -278,3 +278,55 @@ test("definir_camara acepta una base sin keyframes (encuadre fijo) y la clampea"
   assert.equal(res.comp.camara?.base?.zoom, 10);
   assert.ok(ejecutarHerramienta(base(), "definir_camara", {}).esError, "sin canales ni base sigue siendo error");
 });
+
+test("temblor de cámara: constante, determinista y ENCIMA de los keyframes sin tocarlos", async () => {
+  const { crearComposicion, definirTemblorCamara, agregarKeyframeCamara } = await import("@/lib/motion/herramientas-puro");
+  const { estadoEn, camaraEn } = await import("@/lib/motion/evaluar-puro");
+  const base = crearComposicion({ nombre: "temblor" });
+  let comp = agregarKeyframeCamara(base, 0, { x: 960, y: 540, zoom: 1 });
+  comp = definirTemblorCamara(comp, { preset: "handheld" });
+
+  // los keyframes NO cambian: el temblor vive aparte
+  assert.equal(comp.camara!.pistas.x![0].v, 960);
+  // camaraEn (lo que leen los gestos y el inspector) queda LIMPIO
+  const limpia = camaraEn(comp, 700);
+  assert.equal(limpia.x, 960);
+  assert.equal(limpia.y, 540);
+  // el render (estadoEn) sí tiembla, y distinto en tiempos distintos
+  const a = estadoEn(comp, 700).camara;
+  const b = estadoEn(comp, 1400).camara;
+  assert.ok(Math.abs(a.x - 960) > 0.01 || Math.abs(a.y - 540) > 0.01, "el encuadre del render se mueve");
+  assert.ok(a.x !== b.x || a.y !== b.y, "el movimiento avanza con el tiempo");
+  // determinista: el mismo t da EXACTAMENTE el mismo encuadre (export reproducible)
+  assert.deepEqual(estadoEn(comp, 700).camara, a);
+  // el zoom no se toca
+  assert.equal(a.zoom, 1);
+  // intensidad 0 = apagado
+  const quieta = definirTemblorCamara(comp, { preset: "handheld", intensidad: 0 });
+  assert.deepEqual(estadoEn(quieta, 700).camara, { x: 960, y: 540, zoom: 1 });
+  // sacarlo vuelve al plano limpio
+  const sinTemblor = definirTemblorCamara(comp, undefined);
+  assert.deepEqual(estadoEn(sinTemblor, 700).camara, { x: 960, y: 540, zoom: 1 });
+});
+
+test("definir_camara del agente acepta temblor, lo conserva si no viene, y «ninguno» lo saca", async () => {
+  const { ejecutarHerramienta } = await import("@/lib/motion/agente-herramientas");
+  const { crearComposicion } = await import("@/lib/motion/herramientas-puro");
+  const base = crearComposicion({ nombre: "ag" });
+  const con = ejecutarHerramienta(base, "definir_camara", {
+    base: { zoom: 1.1 },
+    temblor: { preset: "flotar", intensidad: 9, velocidad: 0.01 },
+  });
+  assert.equal(con.comp.camara!.temblor!.preset, "flotar");
+  assert.equal(con.comp.camara!.temblor!.intensidad, 3, "intensidad clampeada a 3");
+  assert.equal(con.comp.camara!.temblor!.velocidad, 0.1, "velocidad clampeada a 0.1");
+  // redefinir la cámara SIN mencionar temblor lo conserva
+  const redef = ejecutarHerramienta(con.comp, "definir_camara", { base: { zoom: 2 } });
+  assert.equal(redef.comp.camara!.temblor!.preset, "flotar");
+  // «ninguno» lo saca
+  const sin = ejecutarHerramienta(con.comp, "definir_camara", { base: { zoom: 2 }, temblor: "ninguno" });
+  assert.equal(sin.comp.camara!.temblor, undefined);
+  // preset inválido falla legible
+  const malo = ejecutarHerramienta(base, "definir_camara", { temblor: { preset: "terremoto" } });
+  assert.ok(malo.esError);
+});
