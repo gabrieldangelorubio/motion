@@ -65,15 +65,17 @@
   cortes de escena arrastrables sobre el eje global, click-para-saltar entre
   escenas, `<audio>` esclavo del reloj del preview (tramo de la escena
   activa), registro de escenas con duración.
-- **Tanda 2 (falta):** MUXEAR el audio en el MP4 del export (AudioEncoder
-  AAC + pista de audio de mp4-muxer; el export multi-escena lleva el audio
-  global, el de rango lleva su tramo).
-- **Tanda 3 (falta):** TRANSCRIPCIÓN con timestamps por palabra/oración para
-  linkear la locución con las animaciones («en qué parte del audio caen las
-  oraciones»). Decisión de motor pendiente: whisper WASM local en el browser
-  (sin servicio, pesado) vs. servicio externo (la API de Anthropic no
-  transcribe audio). Con la transcripción: marcar oraciones sobre la franja
-  y sugerir cortes de escena en las pausas.
+- **Tanda 2:** HECHA (2026-08-27) — el MP4 lleva la pista (AAC, fallback
+  Opus, mudo si no hay AudioEncoder); de paso: secuencia PNG con alfa en
+  ZIP propio, y subir/reemplazar imágenes con ajuste real.
+- **Tanda 3 (en curso):** TRANSCRIPCIÓN con Whisper LOCAL en el browser
+  (decidido por Gabriel): oraciones con timestamps sobre la franja, y de
+  paso VOZ AL CHAT de diosa (apretar el mic, hablar el pedido, STT al
+  input). Sugerir cortes de escena en las pausas viene después.
+- **Video de referencia (nuevo, decidido):** los videos que entren al
+  lienzo son SOLO referencia de fondo — no salen en el export (que va por
+  PNG alfa o por el .jsx de AE); implementar capa video con flag
+  `referencia` excluida del render final.
 - **Dónde:** `audio-puro.ts`, `audio-guardado.ts`, `AudioDeProyecto.tsx`,
   `exportar.ts`
 

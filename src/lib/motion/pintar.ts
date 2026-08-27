@@ -263,9 +263,29 @@ function pintarMedia(estado: EstadoCapa, ctx: Contexto2D, media: FuentesDeMedia,
   ctx.scale(1 + u.dEscala, 1 + u.dEscala);
   const imagen = media.imagenDe?.(capa.mediaId) ?? null;
   if (imagen) {
-    (ctx as unknown as CanvasRenderingContext2D).drawImage(
-      imagen, -capa.ancho / 2, -capa.alto / 2, capa.ancho, capa.alto,
-    );
+    // ajuste dentro de la caja, como en Figma/CSS: «cubrir» llena la caja
+    // recortando centrado (clip), «contener» muestra la imagen entera con
+    // aire. Sin tamaño natural conocido (un test, un bitmap raro): estirar.
+    const natural = imagen as { naturalWidth?: number; naturalHeight?: number; width?: number; height?: number };
+    const natW = natural.naturalWidth || natural.width || 0;
+    const natH = natural.naturalHeight || natural.height || 0;
+    const real = ctx as unknown as CanvasRenderingContext2D;
+    if (natW > 0 && natH > 0) {
+      const factor =
+        capa.ajuste === "contener"
+          ? Math.min(capa.ancho / natW, capa.alto / natH)
+          : Math.max(capa.ancho / natW, capa.alto / natH);
+      const dw = natW * factor;
+      const dh = natH * factor;
+      if (capa.ajuste !== "contener" && (dw > capa.ancho || dh > capa.alto)) {
+        ctx.beginPath();
+        ctx.rect(-capa.ancho / 2, -capa.alto / 2, capa.ancho, capa.alto);
+        ctx.clip();
+      }
+      real.drawImage(imagen, -dw / 2, -dh / 2, dw, dh);
+    } else {
+      real.drawImage(imagen, -capa.ancho / 2, -capa.alto / 2, capa.ancho, capa.alto);
+    }
   } else {
     // Placeholder determinista mientras el asset carga (o en un test).
     ctx.fillStyle = "rgba(128, 128, 140, 0.25)";
@@ -276,8 +296,12 @@ function pintarMedia(estado: EstadoCapa, ctx: Contexto2D, media: FuentesDeMedia,
 
 export function pintar(estado: EstadoComposicion, ctx: Contexto2D, media: FuentesDeMedia = {}, escalaPx = 1): void {
   ctx.save();
-  ctx.fillStyle = estado.fondo;
-  ctx.fillRect(0, 0, estado.ancho, estado.alto);
+  // fondo vacío = LIENZO TRANSPARENTE (secuencia PNG con alfa: las gráficas
+  // solas, para montar encima de un video en AE/Premiere)
+  if (estado.fondo) {
+    ctx.fillStyle = estado.fondo;
+    ctx.fillRect(0, 0, estado.ancho, estado.alto);
+  }
 
   // La cámara es una transformación de MUNDO: se aplica antes de las capas y
   // por eso el export la hereda gratis. Identidad → ni una llamada de más.

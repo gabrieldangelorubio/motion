@@ -21,6 +21,15 @@ import type { Composicion } from "@/lib/motion/modelo";
 import { estadoEn } from "@/lib/motion/evaluar-puro";
 import { pintar, type Contexto2D, type FuentesDeMedia } from "@/lib/motion/pintar";
 import { problemaDeFormatos, rangoDeExport } from "@/lib/motion/escenas-puro";
+import { recorteDeAudio } from "@/lib/motion/audio-puro";
+
+/** Audio del proyecto listo para muxear: PCM por canal + desde dónde del
+    audio global arranca el video que se está exportando. */
+export type AudioExport = {
+  canales: Float32Array[];
+  sampleRate: number;
+  desdeMs: number;
+};
 
 export type OpcionesExport = {
   /** sub-frames promediados por frame (1 = sin blur temporal) */
@@ -33,6 +42,9 @@ export type OpcionesExport = {
   hastaMs?: number;
   bitrate?: number;
   onProgreso?: (frame: number, total: number) => void;
+  /** la voz en off / música del proyecto: se muxea como pista AAC; si el
+      browser no trae AudioEncoder, el MP4 sale mudo (degradar, no romper) */
+  audio?: AudioExport;
 };
 
 /**
@@ -101,9 +113,53 @@ export async function exportarMp4(
   }
   if (!codecElegido) throw new Error("Ningún codec de video disponible para estas dimensiones");
 
+  // ——— Pista de audio: la voz en off del proyecto, recortada al tramo del
+  // video. AAC vía AudioEncoder; sin soporte (o config rechazada) el MP4
+  // sale mudo con el video intacto — degradar, no romper.
+  const durVideoMs = (totalFrames / comp.fps) * 1000;
+  let audioListo:
+    | { audio: AudioExport; canales: number; desde: number; muestras: number; codec: string; muxerCodec: "aac" | "opus" }
+    | null = null;
+  if (opciones.audio && typeof AudioEncoder !== "undefined") {
+    const { desde, muestras } = recorteDeAudio(
+      opciones.audio.canales[0]?.length ?? 0,
+      opciones.audio.sampleRate,
+      opciones.audio.desdeMs,
+      durVideoMs,
+    );
+    if (muestras > 0) {
+      const canales = Math.min(2, opciones.audio.canales.length);
+      // AAC primero (compatibilidad universal, AE/Premiere incluidos);
+      // Chromium sin codecs propietarios no trae encoder AAC pero sí Opus.
+      const candidatos: { codec: string; muxerCodec: "aac" | "opus" }[] = [
+        { codec: "mp4a.40.2", muxerCodec: "aac" },
+        { codec: "opus", muxerCodec: "opus" },
+      ];
+      for (const candidato of candidatos) {
+        const soporte = await AudioEncoder.isConfigSupported({
+          codec: candidato.codec,
+          sampleRate: opciones.audio.sampleRate,
+          numberOfChannels: canales,
+          bitrate: 128_000,
+        }).catch(() => null);
+        if (soporte?.supported) {
+          audioListo = { audio: opciones.audio, canales, desde, muestras, ...candidato };
+          break;
+        }
+      }
+    }
+  }
+
   const muxer = new Muxer({
     target: new ArrayBufferTarget(),
     video: { codec: codecElegido.muxer, width: ancho, height: alto, frameRate: comp.fps },
+    audio: audioListo
+      ? {
+          codec: audioListo.muxerCodec,
+          sampleRate: audioListo.audio.sampleRate,
+          numberOfChannels: audioListo.canales,
+        }
+      : undefined,
     fastStart: "in-memory",
   });
 
@@ -115,6 +171,46 @@ export async function exportarMp4(
     },
   });
   encoder.configure({ codec: codecElegido.codec, width: ancho, height: alto, bitrate, framerate: comp.fps });
+
+  if (audioListo) {
+    const { audio, canales, desde, muestras } = audioListo;
+    let errorAudio: Error | null = null;
+    const audioEncoder = new AudioEncoder({
+      output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+      error: (e) => {
+        errorAudio = e instanceof Error ? e : new Error(String(e));
+      },
+    });
+    audioEncoder.configure({
+      codec: audioListo.codec,
+      sampleRate: audio.sampleRate,
+      numberOfChannels: canales,
+      bitrate: 128_000,
+    });
+    // bloques f32-planar: los planos de cada canal, concatenados
+    const BLOQUE = 4096;
+    for (let offset = 0; offset < muestras && !errorAudio; offset += BLOQUE) {
+      const n = Math.min(BLOQUE, muestras - offset);
+      const datos = new Float32Array(n * canales);
+      for (let c = 0; c < canales; c++) {
+        datos.set(audio.canales[c].subarray(desde + offset, desde + offset + n), c * n);
+      }
+      const trozo = new AudioData({
+        format: "f32-planar",
+        sampleRate: audio.sampleRate,
+        numberOfFrames: n,
+        numberOfChannels: canales,
+        timestamp: Math.round((offset / audio.sampleRate) * 1_000_000),
+        data: datos,
+      });
+      audioEncoder.encode(trozo);
+      trozo.close();
+      if (audioEncoder.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 1));
+    }
+    await audioEncoder.flush().catch(() => undefined);
+    audioEncoder.close();
+    if (errorAudio) throw errorAudio;
+  }
 
   const lienzo = new OffscreenCanvas(ancho, alto);
   const ctx = lienzo.getContext("2d");
@@ -188,6 +284,74 @@ export async function exportarMp4(
   if (errorEncoder) throw errorEncoder;
   muxer.finalize();
   return new Blob([(muxer.target as ArrayBufferTarget).buffer], { type: "video/mp4" });
+}
+
+/**
+ * Exporta una SECUENCIA PNG con canal alfa en un ZIP: las gráficas solas
+ * sobre fondo transparente, para montarlas ENCIMA del video real en
+ * AE/Premiere (el MP4 no lleva alfa; esta es la vía estándar de overlay).
+ * Mismo motor determinista: cada frame es pintar(estadoEn(comp, t)) con el
+ * fondo apagado. Con varias escenas, la numeración de frames es global.
+ */
+export async function exportarPngSecuencia(
+  entrada: Composicion | Composicion[],
+  media: FuentesDeMedia = {},
+  opciones: Pick<OpcionesExport, "supermuestreo" | "desdeMs" | "hastaMs" | "onProgreso"> = {},
+): Promise<Blob> {
+  if (typeof OffscreenCanvas === "undefined") {
+    throw new Error("Este navegador no soporta OffscreenCanvas");
+  }
+  const { crearZip } = await import("@/lib/motion/zip-puro");
+  const escenas = Array.isArray(entrada) ? entrada : [entrada];
+  const problema = problemaDeFormatos(escenas);
+  if (problema) throw new Error(problema);
+  const comp = escenas[0];
+  const tramos = escenas.map((esc) =>
+    escenas.length === 1
+      ? { comp: esc, ...rangoDeExport(esc.duracion, esc.fps, opciones.desdeMs, opciones.hastaMs) }
+      : { comp: esc, ...rangoDeExport(esc.duracion, esc.fps) },
+  );
+  const totalFrames = tramos.reduce((n, tr) => n + tr.frames, 0);
+  const duracionFrameMs = 1000 / comp.fps;
+
+  const lienzo = new OffscreenCanvas(comp.ancho, comp.alto);
+  const ctx = lienzo.getContext("2d");
+  if (!ctx) throw new Error("No se pudo crear el canvas de render");
+  const S = Math.max(1, Math.min(4, Math.round(opciones.supermuestreo ?? 2)));
+  const superLienzo = S > 1 ? new OffscreenCanvas(comp.ancho * S, comp.alto * S) : null;
+  const ctxSuper = superLienzo?.getContext("2d") ?? null;
+  if (S > 1 && !ctxSuper) throw new Error("No se pudo crear el canvas de supersampling");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+
+  const entradas: { nombre: string; datos: Uint8Array }[] = [];
+  let frameGlobal = 0;
+  for (const tramo of tramos) {
+    for (let frame = 0; frame < tramo.frames; frame++) {
+      const t = tramo.desde + frame * duracionFrameMs;
+      // fondo vacío → pintar deja el lienzo transparente
+      const estado = { ...estadoEn(tramo.comp, t), fondo: "" };
+      ctx.clearRect(0, 0, comp.ancho, comp.alto);
+      if (ctxSuper && superLienzo) {
+        ctxSuper.setTransform(1, 0, 0, 1, 0, 0);
+        ctxSuper.clearRect(0, 0, comp.ancho * S, comp.alto * S);
+        ctxSuper.setTransform(S, 0, 0, S, 0, 0);
+        pintar(estado, ctxSuper as unknown as Contexto2D, media, S);
+        ctx.drawImage(superLienzo, 0, 0, comp.ancho, comp.alto);
+      } else {
+        pintar(estado, ctx as unknown as Contexto2D, media);
+      }
+      const png = await lienzo.convertToBlob({ type: "image/png" });
+      entradas.push({
+        nombre: `frame-${String(frameGlobal).padStart(5, "0")}.png`,
+        datos: new Uint8Array(await png.arrayBuffer()),
+      });
+      frameGlobal++;
+      opciones.onProgreso?.(frameGlobal, totalFrames);
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+  }
+  return new Blob([crearZip(entradas) as BlobPart], { type: "application/zip" });
 }
 
 /** Entrega por defecto: descarga del browser. La demo web puede inyectar otra. */

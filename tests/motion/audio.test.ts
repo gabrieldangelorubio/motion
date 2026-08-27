@@ -6,7 +6,9 @@ import {
   escenaEnPunto,
   posicionGlobal,
   picosDe,
+  recorteDeAudio,
 } from "@/lib/motion/audio-puro";
+import { encajarMedia } from "@/lib/motion/media-puro";
 
 const escenas = [
   { id: "a", nombre: "Escena 1", duracion: 3000 },
@@ -58,4 +60,21 @@ test("picosDe con más baldes que muestras no deja huecos NaN", () => {
   const picos = picosDe([0.5, 1.0], 4);
   assert.equal(picos.length, 4);
   for (const p of picos) assert.ok(Number.isFinite(p));
+});
+
+test("recorteDeAudio: el tramo de video elige sus muestras, clampeado al largo real", () => {
+  // audio de 2s a 1000 Hz (2000 muestras)
+  assert.deepEqual(recorteDeAudio(2000, 1000, 0, 1000), { desde: 0, muestras: 1000 });
+  assert.deepEqual(recorteDeAudio(2000, 1000, 500, 1000), { desde: 500, muestras: 1000 });
+  // el video sigue después del final del audio: silencio, no error
+  assert.deepEqual(recorteDeAudio(2000, 1000, 1500, 1000), { desde: 1500, muestras: 500 });
+  // arranca DESPUÉS del final: mudo (0 muestras)
+  assert.deepEqual(recorteDeAudio(2000, 1000, 3000, 1000), { desde: 2000, muestras: 0 });
+});
+
+test("encajarMedia: entra al 70% del frame como máximo, sin agrandar nunca", () => {
+  // una foto 4000×3000 en un frame 1920×1080 → limita el ALTO (1080×0.7)
+  assert.deepEqual(encajarMedia(4000, 3000, 1920, 1080), { ancho: 1008, alto: 756 });
+  // una imagen chica queda en su tamaño natural (no inventar píxeles)
+  assert.deepEqual(encajarMedia(300, 200, 1920, 1080), { ancho: 300, alto: 200 });
 });

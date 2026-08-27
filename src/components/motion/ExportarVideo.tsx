@@ -14,7 +14,7 @@
 import { useEffect, useState } from "react";
 import type { Composicion } from "@/lib/motion/modelo";
 import type { FuentesDeMedia } from "@/lib/motion/pintar";
-import { exportarMp4, descargarBlob, exportSoportado } from "@/lib/motion/exportar";
+import { exportarMp4, exportarPngSecuencia, descargarBlob, exportSoportado, type AudioExport } from "@/lib/motion/exportar";
 import { generarScriptAE } from "@/lib/motion/exportar-ae-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
@@ -49,6 +49,7 @@ export function ExportarVideo({
   entregar = descargarBlob,
   contarEscenas,
   obtenerEscenas,
+  obtenerAudioExport,
 }: {
   obtenerComposicion: () => Composicion;
   obtenerMedia?: () => FuentesDeMedia;
@@ -59,6 +60,9 @@ export function ExportarVideo({
   contarEscenas?: () => number;
   /** todas las escenas del proyecto, en orden (la activa incluida, fresca) */
   obtenerEscenas?: () => Promise<Composicion[]>;
+  /** la voz en off del proyecto para muxear: recibe si el export es de
+      todas las escenas y desde qué ms local arranca (rango de una escena) */
+  obtenerAudioExport?: (todas: boolean, desdeMs: number) => Promise<AudioExport | null>;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [desdeS, setDesdeS] = useState(0);
@@ -105,13 +109,44 @@ export function ExportarVideo({
       const activa = obtenerComposicion();
       const escenas = todas && obtenerEscenas ? await obtenerEscenas() : [activa];
       await esperarMedia(escenas, media);
+      const audio =
+        (await obtenerAudioExport?.(escenas.length > 1, escenas.length > 1 ? 0 : desdeS * 1000)) ??
+        undefined;
       const blob = await exportarMp4(escenas.length > 1 ? escenas : escenas[0], media, {
         muestrasBlur: MUESTRAS_BLUR,
         desdeMs: escenas.length > 1 ? undefined : desdeS * 1000,
         hastaMs: escenas.length > 1 ? undefined : hastaS * 1000,
+        audio,
         onProgreso: (frame, total) => setProgreso(Math.round((frame / total) * 100)),
       });
       await entregar(blob, `${activa.nombre.replace(/\s+/g, "-")}.mp4`);
+      setAbierto(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("El export falló"));
+    } finally {
+      setProgreso(null);
+    }
+  };
+
+  // Secuencia PNG con ALFA en un zip: las gráficas solas sobre fondo
+  // transparente, para montar encima del video real en AE/Premiere. Respeta
+  // Desde/Hasta y el toggle «todas».
+  const exportarPngs = async () => {
+    if (progreso !== null) return;
+    setError(null);
+    onPausar();
+    setProgreso(0);
+    try {
+      const media = obtenerMedia?.() ?? {};
+      const activa = obtenerComposicion();
+      const escenas = todas && obtenerEscenas ? await obtenerEscenas() : [activa];
+      await esperarMedia(escenas, media);
+      const blob = await exportarPngSecuencia(escenas.length > 1 ? escenas : escenas[0], media, {
+        desdeMs: escenas.length > 1 ? undefined : desdeS * 1000,
+        hastaMs: escenas.length > 1 ? undefined : hastaS * 1000,
+        onProgreso: (frame, total) => setProgreso(Math.round((frame / total) * 100)),
+      });
+      await entregar(blob, `${activa.nombre.replace(/\s+/g, "-")}-png.zip`);
       setAbierto(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("El export falló"));
@@ -200,9 +235,17 @@ export function ExportarVideo({
           </button>
           <button
             type="button"
+            onClick={() => void exportarPngs()}
+            title={t("Las gráficas solas sobre fondo transparente, frame a frame en un zip — para montar encima del video")}
+            className="mt-1.5 flex h-8 w-full items-center justify-center rounded-control px-2 text-[12px] text-foreground/80 shadow-control hover:bg-ink/[0.06]"
+          >
+            {t("Secuencia PNG (alfa)")}
+          </button>
+          <button
+            type="button"
             onClick={() => void exportarAE()}
             title={t("Genera un script que reconstruye la comp en After Effects con capas editables")}
-            className="mt-1.5 flex h-8 w-full items-center justify-center rounded-control px-2 text-[12px] text-foreground/80 shadow-control hover:bg-ink/[0.06]"
+            className="mt-1 flex h-8 w-full items-center justify-center rounded-control px-2 text-[12px] text-foreground/80 shadow-control hover:bg-ink/[0.06]"
           >
             {t("After Effects (.jsx)")}
           </button>

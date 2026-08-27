@@ -13,11 +13,12 @@
 ----------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CanalCamara, Capa, CapaTexto, Composicion, Keyframe, NombrePropiedad, Segmento, TemblorCamara } from "@/lib/motion/modelo";
+import type { CanalCamara, Capa, CapaMedia, CapaTexto, Composicion, Keyframe, NombrePropiedad, Segmento, TemblorCamara } from "@/lib/motion/modelo";
 import { PRESETS, escalonadoSano } from "@/lib/motion/presets-puro";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
 import {
   CAMARA_ID,
+  agregarCapa,
   agregarKeyframeCamara,
   borrarGrupo,
   editarCapa,
@@ -64,6 +65,7 @@ import {
   type AudioDecodificado,
 } from "@/lib/motion/audio-guardado";
 import { cortesDeEscenas, escenaEnPunto } from "@/lib/motion/audio-puro";
+import { encajarMedia } from "@/lib/motion/media-puro";
 import { suavizarGrabacion, type MuestraCamara } from "@/lib/motion/suavizar-puro";
 import { baselineAproximada, envolverEnLineas, sumarAlLienzo, type ResultadoImport } from "@/lib/motion/figma-puro";
 import type { FuentesDeMedia } from "@/lib/motion/pintar";
@@ -530,6 +532,28 @@ export function Editor({
     });
   }, [composicionId]);
 
+  // El PCM para el export: se decodifica del registro EN el momento (la UI
+  // solo guarda picos). desdeMs global = inicio de la activa + rango local.
+  const obtenerAudioExport = useCallback(async (todas: boolean, desdeMsLocal: number) => {
+    const registro = await cargarAudioGuardado(composicionId);
+    if (!registro) return null;
+    try {
+      const ctx = new AudioContext();
+      const buffer = await ctx.decodeAudioData(registro.datos.slice(0));
+      void ctx.close().catch(() => undefined);
+      const canales = Array.from({ length: Math.min(2, buffer.numberOfChannels) }, (_, i) =>
+        buffer.getChannelData(i),
+      );
+      const inicioActiva = todas
+        ? 0
+        : (cortesRef.current.find((c) => c.id === escenaActivaRef.current)?.desdeMs ?? 0);
+      return { canales, sampleRate: buffer.sampleRate, desdeMs: inicioActiva + desdeMsLocal };
+    } catch {
+      return null; // audio indescifrable: el MP4 sale mudo, no roto
+    }
+  }, [composicionId]);
+
+
   // ——— Mutaciones ———
   // El checkpoint lo pone el CALLER al arrancar el gesto (drag que cruza el
   // umbral, foco de un campo): así un gesto entero es UN paso de undo y las
@@ -537,6 +561,64 @@ export function Editor({
   const editarEnVivo = useCallback((capaId: string, cambios: Partial<Capa>) => {
     const res = editarCapa(compRef.current, capaId, cambios);
     if (res.ok) setComposicion(res.valor);
+  }, []);
+
+  // ——— Media a mano: subir una imagen al lienzo, o REEMPLAZAR la de una
+  // capa existente (cambiar la foto manteniendo posición, tamaño y
+  // animación). Un solo input de archivo para los dos gestos: si hay una
+  // capa marcada para reemplazo, el archivo va ahí; si no, capa nueva
+  // centrada donde mira la cámara.
+  const entradaMediaRef = useRef<HTMLInputElement | null>(null);
+  const reemplazoMediaRef = useRef<string | null>(null);
+  const subirImagen = useCallback(async (archivo: File) => {
+    const capaId = reemplazoMediaRef.current;
+    reemplazoMediaRef.current = null;
+    const dataUri = await new Promise<string>((resolver, rechazar) => {
+      const lector = new FileReader();
+      lector.onload = () => resolver(lector.result as string);
+      lector.onerror = () => rechazar(lector.error);
+      lector.readAsDataURL(archivo);
+    });
+    const imagen = new Image();
+    const cargo = await new Promise<boolean>((resolver) => {
+      imagen.onload = () => resolver(true);
+      imagen.onerror = () => resolver(false);
+      imagen.src = dataUri;
+    });
+    if (!cargo) {
+      setAvisoGuardado(t("Ese archivo no se pudo leer como imagen"));
+      return;
+    }
+    registrar();
+    if (capaId) {
+      // reemplazo: la caja y la animación quedan; solo cambia la tinta
+      editarEnVivo(capaId, { mediaId: dataUri });
+      return;
+    }
+    const comp = compRef.current;
+    const { ancho, alto } = encajarMedia(imagen.naturalWidth, imagen.naturalHeight, comp.ancho, comp.alto);
+    const vista = camaraEn(comp, tiempoRef.current);
+    const capa: CapaMedia = {
+      id: `media-${Date.now().toString(36)}`,
+      nombre: archivo.name.replace(/\.[a-z0-9]+$/i, ""),
+      tipo: "media",
+      x: Math.round(vista.x),
+      y: Math.round(vista.y),
+      mediaId: dataUri,
+      ancho,
+      alto,
+      ajuste: "cubrir",
+    };
+    const res = agregarCapa(comp, capa);
+    if (res.ok) {
+      setComposicion(res.valor);
+      setSeleccionId(capa.id);
+      setSeleccionIds([capa.id]);
+    }
+  }, [registrar, editarEnVivo]);
+  const reemplazarMedia = useCallback((capaId: string) => {
+    reemplazoMediaRef.current = capaId;
+    entradaMediaRef.current?.click();
   }, []);
 
   const retimarSegmento = useCallback((capaId: string, clave: "entrada" | "salida", nuevoEn: number, nuevaDuracion?: number) => {
@@ -1335,6 +1417,29 @@ export function Editor({
                 <Icono nombre="subir" width={15} height={15} />
               </BotonIcono>
             </ConPista>
+            <ConPista pista={t("Subir una imagen al lienzo — cae como capa donde mira la cámara")}>
+              <BotonIcono
+                tam={32}
+                etiqueta={t("Subir imagen")}
+                onClick={() => {
+                  reemplazoMediaRef.current = null;
+                  entradaMediaRef.current?.click();
+                }}
+              >
+                <Icono nombre="biblioteca" width={15} height={15} />
+              </BotonIcono>
+            </ConPista>
+            <input
+              ref={entradaMediaRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const archivo = e.target.files?.[0];
+                if (archivo) void subirImagen(archivo);
+                e.target.value = "";
+              }}
+            />
             <div className="relative">
               <ConPista pista={familiasFaltantes > 0 ? t.plural(familiasFaltantes, "Tipografías ({n} faltante)", "Tipografías ({n} faltantes)") : t("Tipografías")}>
                 <BotonIcono tam={32} etiqueta={t("Tipografías")} onClick={() => setFuentesAbierto(true)}>
@@ -1389,6 +1494,7 @@ export function Editor({
               obtenerMedia={obtenerMedia}
               onPausar={() => setReproduciendo(false)}
               entregar={entregarExport}
+              obtenerAudioExport={obtenerAudioExport}
               contarEscenas={() => escenasRef.current.length}
               obtenerEscenas={async () => {
                 await guardarEscenaAhora();
@@ -1491,6 +1597,7 @@ export function Editor({
               onEditar={editarEnVivo}
               onBorrarPantalla={borrarPantalla}
               onCheckpoint={registrar}
+              onReemplazarMedia={reemplazarMedia}
             />
           )}
         </div>

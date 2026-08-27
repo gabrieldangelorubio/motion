@@ -144,9 +144,25 @@ documento y el registro aprende la duración), y el preview reproduce el
 TRAMO que le toca a la escena activa, esclavo del reloj —play
 resincroniza, pausa frena, el loop de la escena vuelve a su inicio—; el
 registro de escenas ahora guarda la duración de cada una para ubicar los
-cortes sin cargarlas; PENDIENTE de esta línea: transcripción con
-timestamps para linkear oraciones con animaciones (decisión de motor) y
-muxear el audio en el MP4 del export), **el proyecto arranca VACÍO**
+cortes sin cargarlas; y el EXPORT MP4 lleva la voz en off ADENTRO: el
+tramo global que corresponde al video exportado (rango de la activa o las
+escenas concatenadas) se muxea como pista AAC —Opus si el browser no trae
+encoder AAC; sin AudioEncoder el MP4 sale mudo, nunca roto—; PENDIENTE de
+esta línea: transcripción con timestamps para linkear oraciones con
+animaciones — decidido Whisper local),
+**media a mano: subir y reemplazar** (botón de subir imagen en la
+toolbar: la foto cae como capa nueva centrada donde mira la cámara, a lo
+sumo al 70% del frame y nunca agrandada; y en el inspector de una capa
+media, «Reemplazar el archivo…» cambia la imagen CONSERVANDO posición,
+tamaño y animación — actualizar la foto de un diseño sin rearmar nada;
+de paso el `ajuste` cubrir/contener ahora se PINTA de verdad —cubrir
+recorta centrado con clip, contener encaja entera— cuando antes estiraba),
+**secuencia PNG con alfa** (tercer camino de export, pensado para el
+flujo «los videos acá son solo referencia»: las gráficas solas sobre
+fondo TRANSPARENTE, frame a frame, en un ZIP —zip STORE propio,
+determinista, sin dependencias— que se monta ENCIMA del video real en
+AE/Premiere; respeta Desde/Hasta y «todas las escenas» con numeración
+global de frames; mismo motor determinista con supersampling 2×), **el proyecto arranca VACÍO**
 (lienzo limpio con el formato de la casa — la composición demo quedó en
 `lib/motion/demo.ts` para tests y harness),
 **el paradigma canvas + cámara** (el lienzo es
@@ -320,7 +336,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **164
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **169
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -339,8 +355,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   de AE sin el ×100 → falló exactamente «opacidad va 0-1 → 0-100».
   (7) gate de «solo diseño» de la cámara apagado → falló exactamente «sin
   precomp de camara». (8) límite de escenaEnPunto invertido (<=) → falló
-  exactamente «el límite exacto pertenece a la escena SIGUIENTE».
-  Restaurados, 164/164 verdes.
+  exactamente «el límite exacto pertenece a la escena SIGUIENTE». (9) xor
+  final del crc32 corrido en un bit → falló exactamente «crc32 da el valor
+  canónico de referencia». Restaurados, 169/169 verdes.
 
 ## Qué necesita cablearse de su lado
 

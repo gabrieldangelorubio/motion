@@ -75,6 +75,23 @@ export function posicionGlobal(cortes: CorteEscena[], id: string, localMs: numbe
 }
 
 /**
+ * Recorte del audio para el export: qué muestras del PCM cubren el tramo
+ * de video [desdeMs, desdeMs + duracionMs). Clampeado al largo real: un
+ * video más largo que el audio termina en silencio (el recorte se acaba),
+ * uno que arranca después del final devuelve 0 muestras — mudo, no error.
+ */
+export function recorteDeAudio(
+  largoMuestras: number,
+  sampleRate: number,
+  desdeMs: number,
+  duracionMs: number,
+): { desde: number; muestras: number } {
+  const desde = Math.min(largoMuestras, Math.max(0, Math.round((desdeMs / 1000) * sampleRate)));
+  const pedidas = Math.max(0, Math.round((duracionMs / 1000) * sampleRate));
+  return { desde, muestras: Math.min(pedidas, largoMuestras - desde) };
+}
+
+/**
  * Picos de la señal para la forma de onda: máximo absoluto por balde,
  * normalizado a 0–1 sobre el pico global (una locución baja igual se VE).
  * Señal muda o vacía → todos ceros.

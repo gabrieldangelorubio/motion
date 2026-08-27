@@ -113,6 +113,7 @@ export function Inspector({
   onEditar,
   onBorrarPantalla,
   onCheckpoint,
+  onReemplazarMedia,
 }: {
   capa: Capa | null;
   duracionComposicion: number;
@@ -121,6 +122,8 @@ export function Inspector({
   onEditar: (capaId: string, cambios: Partial<Capa>) => void;
   onBorrarPantalla?: (grupo: string) => void;
   onCheckpoint: () => void;
+  /** abre el selector de archivo para cambiar la imagen de esta capa */
+  onReemplazarMedia?: (capaId: string) => void;
 }) {
   if (!capa) {
     return (
@@ -313,6 +316,39 @@ export function Inspector({
               sufijo="%"
               onInicio={onCheckpoint}
               onCambio={(v) => editar({ trazoFin: v / 100 })}
+            />
+          </div>
+        </section>
+      )}
+
+      {capa.tipo === "media" && (
+        <section className="border-t border-(--glass-border) px-3 py-3">
+          <Etiqueta className="mb-2">{t("Imagen")}</Etiqueta>
+          <button
+            type="button"
+            onClick={() => {
+              onCheckpoint();
+              onReemplazarMedia?.(capa.id);
+            }}
+            className="flex h-8 w-full items-center justify-center rounded-control px-2 text-[12px] text-foreground/80 shadow-control hover:bg-ink/[0.06]"
+          >
+            {t("Reemplazar el archivo…")}
+          </button>
+          <p className="mt-1.5 text-[11px] leading-snug text-muted">
+            {t("La capa conserva posición, tamaño y animación: solo cambia la imagen.")}
+          </p>
+          <div className="mt-2">
+            <Desplegable
+              etiqueta={t("Ajuste")}
+              valor={capa.ajuste}
+              onCambio={(v) => {
+                onCheckpoint();
+                editar({ ajuste: v as "cubrir" | "contener" });
+              }}
+              opciones={[
+                { valor: "cubrir", nombre: t("Cubrir la caja") },
+                { valor: "contener", nombre: t("Contener (entera)") },
+              ]}
             />
           </div>
         </section>
