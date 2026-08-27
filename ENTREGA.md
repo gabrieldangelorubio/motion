@@ -41,11 +41,13 @@ Figma** (plugin propio en `figma-plugin/` → JSON por copy/paste →
 normalizador puro con degradación por-nodo y avisos visibles; texto real,
 formas nativas, lo demás rasterizado a data-uri que el editor resuelve; el
 `textCase` de Figma —UPPER/LOWER/TITLE— se aplica al contenido, y el wrap
-automático de la caja se reconstruye: la API no expone los cortes de línea,
-así que el plugin estima el conteo por geometría y el editor re-envuelve
-midiendo — el conteo de Figma manda sobre el ancho si las métricas
-difieren, y al cargar la tipografía real en el panel el wrap se recalcula
-con las métricas verdaderas; el anclaje vertical usa la TINTA renderizada de Figma
+automático de la caja se reconstruye con CORTES REALES: getRangeBounds da
+la caja de cada carácter y un salto del tope vertical marca la línea nueva
+— el contenido viaja con los \n exactos de Figma y el editor no re-envuelve
+nada; sin esa API degrada a la estimación por geometría (contando líneas
+también por el alto de la TINTA, que no miente cuando el texto desborda su
+caja) y el editor re-envuelve midiendo — el conteo de Figma manda sobre el
+ancho, y al cargar la tipografía real el wrap se recalcula; el anclaje vertical usa la TINTA renderizada de Figma
 (absoluteRenderBounds): baseline exacta = tope de tinta + ascenso de tinta
 del mismo texto medido acá, geometría contra geometría — con fallback al
 centrado en caja de línea si no hay tinta — y se re-ancla al cargar la
@@ -62,8 +64,8 @@ reposo; nunca un video grabado que envejece —; tocarla aplica el efecto a
 la capa seleccionada reemplazando su entrada o salida según la clase y
 CONSERVANDO el timing existente; los efectos de trazo avisan si la capa no
 es un trazo; el panel vive SIEMPRE abierto — sin botón de toggle ni de
-cerrar — y los controles de calidad y vista se mudaron abajo a la
-izquierda del lienzo, en fila con el botón del agente), **texto multilínea con revelado enmascarado** (`\n` real con interlineado
+cerrar — y los controles de calidad y vista viven abajo a la izquierda
+del lienzo), **texto multilínea con revelado enmascarado** (`\n` real con interlineado
 propio, división por caracteres/palabras/**líneas**, presets
 `revelar`/`ocultar`: cada unidad sube dentro de su renglón recortada a su
 caja de reposo — el clásico reveal de SplitText con máscara, sin crear
