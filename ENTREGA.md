@@ -127,7 +127,9 @@ bordes diagonales de un display grande dejan de escalonar; los radios de
 `ctx.filter` se compensan porque van en px de dispositivo, verificado por
 MSE contra un ground truth 4×), back-pressure del encoder y progreso en
 vivo. El editor arranca PARADO en 0 (sin autoplay) y con la línea de
-tiempo alta (340px). El texto de Figma con ESTILOS MIXTOS (dos fuentes en
+tiempo alta (340px). El chat del agente vive FIJO en la barra derecha,
+siempre abierto: el inspector (la config de la capa) ocupa el tercio de
+arriba con scroll y el chat los 2/3 de abajo — nada flota sobre el lienzo. El texto de Figma con ESTILOS MIXTOS (dos fuentes en
 un título, un color por palabra) ya no se rasteriza NI pierde estilos: es
 RICH TEXT real — el plugin exporta el estilo dominante como base más
 «tramos» (corridas de fuente/peso/tamaño/color indexadas por carácter NO

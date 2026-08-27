@@ -277,9 +277,19 @@ async function nodoAIR(nodo, marco, salida) {
     // líneas renderizadas por geometría y el editor re-envuelve al importar
     // (acá no hay medición de texto; allá sí).
     var lh = interlineado || tamano * 1.15;
-    var lineasEstimadas = cortesReales
-      ? contenido.split("\n").length
-      : Math.max(1, Math.round(nodo.height / lh));
+    var rbTexto = nodo.absoluteRenderBounds;
+    var lineasEstimadas;
+    if (cortesReales) {
+      lineasEstimadas = contenido.split("\n").length;
+    } else {
+      // La TINTA no miente: si la caja es fija y más chica que el texto (un
+      // display grande que desborda hacia abajo), el alto de la caja da un
+      // conteo corto — el alto de la tinta renderizada cuenta las líneas
+      // que Figma realmente pintó. Gana el mayor de los dos.
+      var porCaja = Math.max(1, Math.round(nodo.height / lh));
+      var porTinta = rbTexto && rbTexto.height > 0 ? Math.max(1, Math.round(rbTexto.height / lh)) : 1;
+      lineasEstimadas = Math.max(porCaja, porTinta);
+    }
 
     // lineHeight AUTO usa las métricas de la fuente, no un número: cuando la
     // caja abraza el contenido, alto ÷ líneas ES ese interlineado real — y de
@@ -287,7 +297,6 @@ async function nodoAIR(nodo, marco, salida) {
     // Con cortes reales el conteo es exacto, así que la misma fórmula vale
     // también para cajas fijas que la tinta llena casi por completo.
     var abrazaContenido = nodo.textAutoResize === "HEIGHT" || nodo.textAutoResize === "WIDTH_AND_HEIGHT";
-    var rbTexto = nodo.absoluteRenderBounds;
     var tintaLlena = cortesReales && lineasEstimadas > 1 && rbTexto && nodo.height > 0 &&
       rbTexto.height / nodo.height > 0.8;
     if (interlineado === undefined && nodo.height > 0 && (abrazaContenido || tintaLlena)) {

@@ -89,9 +89,6 @@ export function Editor({
   const [altoTimeline, setAltoTimeline] = useState(340);
   const [importarAbierto, setImportarAbierto] = useState(false);
   const [fuentesAbierto, setFuentesAbierto] = useState(false);
-  // el chat del agente vive FIJO en la columna izquierda (2/3 de abajo);
-  // abierto reemplaza al panel de efectos, cerrado vuelve capas ½ / efectos ½
-  const [agenteAbierto, setAgenteAbierto] = useState(false);
   // vista del lienzo: "mundo" = el canvas con el encuadre dibujado;
   // "camara" = lo que ve la cámara (arrastrar ENCUADRA, con auto-key);
   // "ambas" = el mundo con el outline moviéndose + PiP de la cámara.
@@ -911,7 +908,7 @@ export function Editor({
   return (
     <div className="grid h-dvh grid-cols-[240px_1fr_300px] overflow-hidden">
       <div className="flex min-h-0 flex-col">
-        <div className={[agenteAbierto ? "h-1/3" : "h-1/2", "min-h-0"].join(" ")}>
+        <div className="h-1/2 min-h-0">
           <Capas
             composicion={composicion}
             seleccionId={seleccionId}
@@ -925,21 +922,9 @@ export function Editor({
             onBorrarCapa={borrarCapa}
           />
         </div>
-        <div className={agenteAbierto ? "hidden" : "h-1/2 min-h-0 border-r border-(--glass-border)"}>
+        <div className="h-1/2 min-h-0 border-r border-(--glass-border)">
           <PanelBiblioteca onAplicar={aplicarEfecto} />
         </div>
-        {conAgente && (
-          <div className={agenteAbierto ? "h-2/3 min-h-0 border-r border-(--glass-border)" : "hidden"}>
-            <PanelAgente
-              obtenerSnapshot={() => serializar(compRef.current)}
-              composicionId={composicionId}
-              onAplicar={(snapshot) => {
-                registrar();
-                setComposicion(deserializar(snapshot));
-              }}
-            />
-          </div>
-        )}
       </div>
       <div className="flex min-h-0 flex-col">
         <div className="relative min-h-0 flex-1">
@@ -971,7 +956,7 @@ export function Editor({
                   : t("Cámara — mantené X y mové el mouse: posición · mantené Z y mové vertical: zoom · cada gesto deja keyframe en el playhead")}
             </div>
           )}
-          <div className={["absolute bottom-3 flex items-center gap-2", conAgente ? "left-14" : "left-3"].join(" ")}>
+          <div className="absolute bottom-3 left-3 flex items-center gap-2">
             <ConPista pista={t("Calidad del preview — el export siempre sale a resolución completa")}>
               <Segmentado
                 etiquetaAria={t("Calidad del preview")}
@@ -1079,20 +1064,6 @@ export function Editor({
             }}
             composicion={composicion}
           />
-          {conAgente && (
-            <div className="absolute bottom-3 left-3 z-20">
-              <ConPista pista={t("Dirigir con el agente — el chat se abre en la columna izquierda")}>
-                <BotonIcono
-                  tam={36}
-                  etiqueta={t("Dirigir con el agente")}
-                  activo={agenteAbierto}
-                  onClick={() => setAgenteAbierto((a) => !a)}
-                >
-                  <Icono nombre="ia" width={17} height={17} />
-                </BotonIcono>
-              </ConPista>
-            </div>
-          )}
           {avisoGuardado && (
             <div
               role="status"
@@ -1124,32 +1095,47 @@ export function Editor({
           onSeleccionarKf={setSeleccionKf}
         />
       </div>
-      <div className="min-h-0">
-        {seleccionId === CAMARA_ID ? (
-          <InspectorCamara
-            composicion={composicion}
-            tiempo={tiempoUI}
-            grabando={grabandoCamara}
-            onFijar={fijarCamara}
-            onKeyframe={keyframeCamaraAhora}
-            onTomarVista={tomarVistaCamara}
-            onGrabar={alternarGrabacion}
-            onQuitar={quitarCamara}
-            onCheckpoint={registrar}
-          />
-        ) : (
-          <Inspector
-            capa={capaSeleccionada}
-            duracionComposicion={composicion.duracion}
-            capasDelGrupo={
-              capaSeleccionada?.grupo
-                ? composicion.capas.filter((c) => c.grupo === capaSeleccionada.grupo).length
-                : 0
-            }
-            onEditar={editarEnVivo}
-            onBorrarPantalla={borrarPantalla}
-            onCheckpoint={registrar}
-          />
+      <div className="flex min-h-0 flex-col">
+        {/* arriba la config de la capa; abajo, FIJO, el chat de diosa (2/3) */}
+        <div className={[conAgente ? "h-1/3" : "flex-1", "min-h-0 overflow-y-auto"].join(" ")}>
+          {seleccionId === CAMARA_ID ? (
+            <InspectorCamara
+              composicion={composicion}
+              tiempo={tiempoUI}
+              grabando={grabandoCamara}
+              onFijar={fijarCamara}
+              onKeyframe={keyframeCamaraAhora}
+              onTomarVista={tomarVistaCamara}
+              onGrabar={alternarGrabacion}
+              onQuitar={quitarCamara}
+              onCheckpoint={registrar}
+            />
+          ) : (
+            <Inspector
+              capa={capaSeleccionada}
+              duracionComposicion={composicion.duracion}
+              capasDelGrupo={
+                capaSeleccionada?.grupo
+                  ? composicion.capas.filter((c) => c.grupo === capaSeleccionada.grupo).length
+                  : 0
+              }
+              onEditar={editarEnVivo}
+              onBorrarPantalla={borrarPantalla}
+              onCheckpoint={registrar}
+            />
+          )}
+        </div>
+        {conAgente && (
+          <div className="h-2/3 min-h-0">
+            <PanelAgente
+              obtenerSnapshot={() => serializar(compRef.current)}
+              composicionId={composicionId}
+              onAplicar={(snapshot) => {
+                registrar();
+                setComposicion(deserializar(snapshot));
+              }}
+            />
+          </div>
         )}
       </div>
     </div>
