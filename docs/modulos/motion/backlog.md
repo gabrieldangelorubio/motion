@@ -13,6 +13,38 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [P1] Rediseño de la franja de audio + transcripción por PALABRA (pedido 2026-08-28)
+- **Qué:** la franja del waveform está fuera de la estética del resto y se
+  lee poco (captura de Gabriel: onda gris chata, transcripción encimada en
+  la misma franja). Rediseñarla con el lenguaje visual de la casa y con la
+  TRANSCRIPCIÓN bien separada abajo, en su propio carril.
+- **Timestamps por PALABRA (superimportante):** hoy la transcripción son
+  oraciones con rangos; la gente necesita ver DÓNDE CAE CADA PALABRA sobre
+  el waveform para ubicar keyframes ahí. Viable: el pipeline ASR de
+  transformers.js acepta `return_timestamps: "word"` — pedir granularidad
+  palabra, guardarla en la transcripción persistida y pintarla en el
+  carril (palabra clickeable → saltar/snap del playhead; los keyframes y
+  los «en» de segmentos deberían poder SNAPEAR a esos tiempos).
+- **BUG idioma:** `stt.ts` fuerza `language: "spanish"` HARDCODEADO — la
+  voz en off casi siempre va a estar en INGLÉS y whisper la está
+  transcribiendo mal por eso. Fix: autodetección (no pasar language) o
+  selector es/en al transcribir.
+- **Dónde:** `AudioDeProyecto.tsx` (rediseño), `stt.ts` (idioma +
+  word timestamps), `stt-puro.ts` (palabras), `audio-guardado.ts`
+  (persistir palabras), timeline (snap a palabra).
+
+### [P2] Animaciones con toggle, guardadas como tab tipo «Cámara» (pedido 2026-08-28)
+- **Qué (refinar con Gabriel):** poder PRENDER/APAGAR las animaciones
+  aplicadas (toggle por capa o global, sin perderlas — como el ojo de una
+  capa pero para su animación) y que queden agrupadas/guardadas en un tab
+  propio del panel izquierdo, al estilo del tab «Cámara» (captura: la fila
+  Cámara arriba del panel de Efectos). Preguntas abiertas: ¿toggle por
+  capa, por escena o global? ¿el tab lista todas las animaciones activas
+  de la escena como filas apagables?
+- **Dónde:** panel izquierdo (`Capas.tsx` / nuevo tab), modelo (flag
+  `animacionApagada`?), `evaluar-puro` (ignorar segmentos apagados),
+  export (¿viajan apagadas o no viajan?).
+
 ### [HECHO] Escuela GSAP: catálogo completo + agente super especialista (2026-08-28)
 - **Qué:** decisión con Gabriel — NO se incluye el código de GSAP (motor
   propio determinista, ver research-ia-y-gsap.md); se ABSORBE su escuela:
