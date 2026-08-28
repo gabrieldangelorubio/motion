@@ -69,7 +69,7 @@ export async function loopGemini(opts: {
   primerUsuario: string;
   herramientas: DefHerramienta[];
   maxIteraciones: number;
-  ejecutar: (nombre: string, input: Record<string, unknown>) => { resultado: string; esError?: boolean };
+  ejecutar: (nombre: string, input: Record<string, unknown>) => { resultado: string; esError?: boolean; resumen?: string };
   onEvento?: (evento: EventoAgente) => void;
 }): Promise<{ ok: true; respuesta: string; uso: UsoTokens } | { ok: false; error: string }> {
   let usoTotal: UsoTokens = { entrada: 0, salida: 0 };
@@ -148,7 +148,7 @@ export async function loopGemini(opts: {
     const opsIteracion: string[] = [];
     for (const llamada of llamadas) {
       const res2 = opts.ejecutar(llamada.functionCall.name, llamada.functionCall.args ?? {});
-      opsIteracion.push(res2.esError ? `${llamada.functionCall.name} → ERROR` : llamada.functionCall.name);
+      opsIteracion.push(res2.esError ? `${llamada.functionCall.name} → ERROR` : (res2.resumen ?? llamada.functionCall.name));
       respuestas.push({
         functionResponse: {
           name: llamada.functionCall.name,

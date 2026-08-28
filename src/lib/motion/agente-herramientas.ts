@@ -151,6 +151,17 @@ export function ejecutarHerramienta(
       if (!textoNuevo) return fallo(comp, "falta el texto nuevo");
       const en = clamp(numero(input.en, 0), 0, comp.duracion);
       const dur = clamp(numero(input.duracion, 350), 100, 2000);
+      // si el original está TODO en mayúsculas, el nuevo también (un CTA
+      // no cambia de caja al transformarse)
+      const textoFinal =
+        /[A-ZÁÉÍÓÚÑ]/.test(capa.texto) && !/[a-záéíóúñ]/.test(capa.texto)
+          ? textoNuevo.toUpperCase()
+          : textoNuevo;
+      // un texto MÁS LARGO desborda la caja del botón: el tamaño del clon se
+      // achica por el cociente de caracteres visibles (nunca se agranda)
+      const largoDe = (t2: string) => t2.replace(/\s/g, "").length || 1;
+      const factorTamano = Math.min(1, largoDe(capa.texto) / largoDe(textoFinal));
+      const tamanoClon = Math.round(capa.fuente.tamano * factorTamano * 10) / 10;
       // el CLON hereda TODO el estilo (tipografía, tamaño, color, alineación,
       // división) — los tramos no viajan (indexan caracteres del texto viejo)
       let idClon = `${capa.id}-swap`;
@@ -160,8 +171,9 @@ export function ejecutarHerramienta(
       const clon: CapaTexto = {
         ...capa,
         id: idClon,
-        nombre: `${capa.nombre} → ${textoNuevo}`,
-        texto: textoNuevo,
+        nombre: `${capa.nombre} → ${textoFinal}`,
+        texto: textoFinal,
+        fuente: { ...capa.fuente, tamano: tamanoClon },
         tramos: undefined,
         pistas: undefined,
         v: undefined,
@@ -180,7 +192,9 @@ export function ejecutarHerramienta(
       sinClon.splice(idx + 1, 0, agregada.valor.capas.find((c) => c.id === idClon)!);
       return exito(
         { ...agregada.valor, capas: sinClon },
-        `«${capa.nombre}» se transforma en «${textoNuevo}» @${en}ms (estilo clonado, salida+entrada armadas)`,
+        `«${capa.nombre}» se transforma en «${textoFinal}» @${en}ms (estilo clonado${
+          factorTamano < 1 ? `, tamaño ${capa.fuente.tamano}→${tamanoClon}px para no desbordar` : ""
+        })`,
       );
     }
 

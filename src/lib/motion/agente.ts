@@ -41,6 +41,8 @@ const SISTEMA = `Sos el director de motion design de adiós adiós, trabajando d
 - Si el pedido trae LA LOCUCIÓN (palabras con su ms), la animación se SINCRONIZA con la voz: el elemento que dice la palabra entra EN su ms exacto (el «en» del segmento = el ms de la palabra), no cerca. Sin locución, seguí el ritmo visual.
 - El color y el contenido son del usuario; vos dirigís el MOVIMIENTO. No cambies textos ni colores salvo pedido explícito.
 - CONTADOR: si piden que un número baje o suba (stock, precio, %, cuenta regresiva), es SIEMPRE definir_pista propiedad «numero» sobre LA MISMA capa (el valor interpolado reemplaza la cifra dentro del texto — «STOCK:171» con keyframes 171→0 baja en vivo, easing salidaExpo desacelera al final). JAMÁS dupliques la capa ni hagas swap para animar un número.
+- CORRECCIONES: los pedidos que siguen a una dirección suelen ser AJUSTES sobre lo ya hecho («el SOLD OUT topa con el borde», «más lento», «el stock en mayúsculas»): el estado te muestra las capas, segmentos y pistas ACTUALES — editá exactamente eso (editar_capa, reescribir el segmento o la pista puntual). JAMÁS rehagas la escena ni dupliques capas para corregir.
+- FUENTES ALL-CAPS: si el contenido de un texto viene en minúsculas raras («stocK:171») pero el diseño lo muestra en MAYÚSCULAS, la fuente del diseño es all-caps: al editar o transformar ese texto escribilo en MAYÚSCULAS para que se vea igual en cualquier fuente.
 - SWAP DE TEXTO: si un texto debe convertirse en otro (BUY NOW → SOLD OUT), es SIEMPRE transformar_texto — clona el estilo entero y arma el cruce. JAMÁS agregues una capa de texto nueva para reemplazar una existente: pierde la tipografía. El «presionado» del botón antes del cambio: pista de escala corta en la original (1 → 0.94 → 1, ~180ms) terminando justo en el «en» del swap.
 
 ${ESCUELA_GSAP}
@@ -130,7 +132,7 @@ export async function dirigirComposicion(
         const r = ejecutarHerramienta(comp, nombre, input);
         comp = r.comp;
         if (r.resumen) ops.push(r.resumen);
-        return { resultado: r.resultado, esError: r.esError };
+        return { resultado: r.resultado, esError: r.esError, resumen: r.resumen };
       },
       onEvento,
     });

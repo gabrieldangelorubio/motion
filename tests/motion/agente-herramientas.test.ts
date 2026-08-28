@@ -175,8 +175,11 @@ test("transformar_texto clona el estilo entero, arma salida+entrada y ubica el c
   const original = res.comp.capas.find((c) => c.id === "cta") as CapaTexto;
   const clon = res.comp.capas.find((c) => c.id === "cta-swap") as CapaTexto;
   assert.ok(clon, "el clon existe");
-  // MISMO estilo: tipografía, tamaño, peso, color, posición
-  assert.deepEqual(clon.fuente, original.fuente);
+  // MISMO estilo: tipografía, peso, color, posición — el tamaño baja
+  // proporcional porque «SOLD OUT» (7 visibles) es más largo que «BUY NOW» (6)
+  assert.equal(clon.fuente.familia, original.fuente.familia);
+  assert.equal(clon.fuente.peso, original.fuente.peso);
+  assert.ok(Math.abs(clon.fuente.tamano - original.fuente.tamano * (6 / 7)) < 0.5);
   assert.equal(clon.color, original.color);
   assert.equal(clon.x, original.x);
   assert.equal(clon.texto, "SOLD OUT");
@@ -250,4 +253,21 @@ test("un modelo de Gemini retirado se reemplaza por el que sugiere el 404 (y el 
   assert.equal(modeloSugerido("not found", "gemini-x"), null);
   assert.equal(modeloSugerido("use models/gemini-x", "gemini-x"), null);
   assert.equal(modeloDirector({ GEMINI_API_KEY: "k" }), "gemini-3.6-flash");
+});
+
+test("transformar_texto achica el tamaño si el texto nuevo es más largo y conserva el ALL-CAPS", () => {
+  let comp = base();
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", {
+    id: "cta2", texto: "BUY NOW", tamano: 90,
+  }).comp;
+  const res = ejecutarHerramienta(comp, "transformar_texto", { capaId: "cta2", texto: "sold out forever", en: 1000 });
+  const clon = res.comp.capas.find((c) => c.id === "cta2-swap") as CapaTexto;
+  // el original es ALL-CAPS → el nuevo también
+  assert.equal(clon.texto, "SOLD OUT FOREVER");
+  // 6 chars visibles → 14: el tamaño baja proporcional (nunca agranda)
+  assert.ok(clon.fuente.tamano < 90 && Math.abs(clon.fuente.tamano - 90 * (6 / 14)) < 0.5, `dio ${clon.fuente.tamano}`);
+  // un texto MÁS CORTO no agranda
+  const res2 = ejecutarHerramienta(res.comp, "transformar_texto", { capaId: "cta2", texto: "OK", en: 2000 });
+  const clon2 = res2.comp.capas.find((c) => c.id === "cta2-swap2") as CapaTexto;
+  assert.equal(clon2.fuente.tamano, 90);
 });
