@@ -132,3 +132,14 @@ test("renombrarPalabraLista recorta espacios y un texto vacío no cambia nada", 
   assert.equal(renombrarPalabraLista(lista, 1, "   "), lista);
   assert.equal(renombrarPalabraLista(lista, 7, "x"), lista);
 });
+
+test("framesDeEncoder: frames del mel → frames del encoder (÷2, el bug del alineador)", async () => {
+  const { framesDeEncoder } = await import("@/lib/motion/stt-puro");
+  // 11s de audio = 1100 frames de mel → 550 frames de encoder: sin el ÷2
+  // el DTW ve el doble del audio y las palabras derivan hasta 2× (medido)
+  assert.equal(framesDeEncoder(1100), 550);
+  assert.equal(framesDeEncoder(3000), 1500);
+  assert.equal(framesDeEncoder(0), 0);
+  assert.equal(framesDeEncoder(null), null);
+  assert.equal(framesDeEncoder(undefined), null);
+});

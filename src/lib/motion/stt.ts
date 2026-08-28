@@ -18,6 +18,7 @@
 
 import {
   aMono,
+  framesDeEncoder,
   remuestrear,
   limpiarPalabras,
   oracionesDeTrozos,
@@ -59,8 +60,39 @@ function motor(onProgreso?: (fraccion: number) => void, modelo = MODELO_DEFAULT)
       // onnxruntime-node y sharp, y el bundler de Next (Turbopack) rompe la
       // selección de backend al empaquetarlo («Cannot convert undefined or
       // null to object»); el dist ya viene aplanado con onnxruntime-web
-      const { pipeline, env } = await import("@xenova/transformers/dist/transformers.min.js");
+      const mod = await import("@xenova/transformers/dist/transformers.min.js");
+      const { pipeline, env } = mod;
       env.allowLocalModels = false;
+      // ——— PARCHE del alineador de palabras (bug de transformers.js 2.17):
+      // al extraer los timestamps por palabra le pasa `num_frames` en frames
+      // del MEL, pero la máscara del DTW vive en frames del ENCODER (la
+      // mitad) — ver framesDeEncoder. Sin esto las palabras derivan hacia el
+      // final (hasta 2× la duración real) en todo audio < 30s. Se parchea el
+      // prototipo UNA vez, envolviendo el método original.
+      const Whisper = (mod as {
+        WhisperForConditionalGeneration?: { prototype: Record<string, unknown> };
+      }).WhisperForConditionalGeneration;
+      const proto = Whisper?.prototype as
+        | { _extract_token_timestamps?: (...args: unknown[]) => unknown; __parcheFramesDiosa?: boolean }
+        | undefined;
+      if (proto?._extract_token_timestamps && !proto.__parcheFramesDiosa) {
+        const original = proto._extract_token_timestamps;
+        proto._extract_token_timestamps = function (
+          salidas: unknown,
+          cabezas: unknown,
+          numFrames?: unknown,
+          precision?: unknown,
+        ) {
+          return original.call(
+            this,
+            salidas,
+            cabezas,
+            framesDeEncoder(typeof numFrames === "number" ? numFrames : null),
+            precision ?? 0.02,
+          );
+        };
+        proto.__parcheFramesDiosa = true;
+      }
       const progreso = (info: { status?: string; progress?: number }) => {
         if (info.status === "progress" && typeof info.progress === "number") {
           onProgreso?.(Math.min(1, info.progress / 100));

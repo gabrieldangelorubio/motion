@@ -245,7 +245,13 @@ idioma (antes forzaba "spanish" y destrozaba locución en inglés), usa
 whisper-SMALL (le gana lejos a base con voz sobre música; cascada de
 respaldo: small→base, con y sin cross-attentions) y pide
 timestamps POR PALABRA (export del modelo con cross-attentions, revision
-output_attentions; sin él degrada a oraciones por trozo); el DICTADO
+output_attentions; sin él degrada a oraciones por trozo) con el ALINEADOR
+PARCHEADO (bug de transformers.js 2.17: pasa `num_frames` en frames del
+mel donde la máscara del DTW vive en frames del encoder — la mitad;
+whisper oficial hace `num_frames // 2` y el port JS lo perdió, así que en
+audio < 30s las palabras derivaban hasta 2× la duración real; medido con
+jfk.wav y corregido envolviendo `_extract_token_timestamps` con
+`framesDeEncoder`); el DICTADO
 del chat (hablarle al director por el mic) FUERZA castellano — con un
 clip corto la autodetección a veces decía inglés y whisper devolvía el
 pedido traducido —; los LOOPS de
@@ -505,7 +511,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **211
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **212
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -558,7 +564,8 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   VERSION_PLUGIN de code.js al PLUGIN_ESPERADO del import: no divergen en
   silencio). (28) reorden de moverPalabraLista quitado (el fix del chip
   inagarrable) → falló exactamente «el array queda en orden temporal».
-  Restaurados, 211/211 verdes. La tanda de UX del timeline (teclado del modal de recorte,
+  (29) el ÷2 de framesDeEncoder quitado (el parche del alineador) → falló
+  exacto el test del bug medido. Restaurados, 212/212 verdes. La tanda de UX del timeline (teclado del modal de recorte,
   imán shift, Alt-dup, drag de palabra, Efectos plegable) se verificó por
   Playwright end-to-end (verificar32/33) — sus checks mostraron rojo
   GENUINO durante el desarrollo (el imán con alcance corto, el carril

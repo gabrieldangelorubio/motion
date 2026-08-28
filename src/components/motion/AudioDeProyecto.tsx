@@ -35,6 +35,7 @@ export function AudioDeProyecto({
   onRecortarAudio,
   onTranscribir,
   onEditarPalabras,
+  onMoverPalabra,
   transcribiendo = null,
 }: {
   audio: AudioDecodificado;
@@ -51,8 +52,11 @@ export function AudioDeProyecto({
   /** corre Whisper local sobre el audio del proyecto */
   onTranscribir?: () => void;
   /** abre el MODAL de palabras (mover, borrar, renombrar, agregar, con
-      undo): la edición vive ahí — el carril de acá es solo lectura */
+      undo): la edición completa vive ahí */
   onEditarPalabras?: () => void;
+  /** ajuste RÁPIDO sin abrir el modal: arrastrar una palabra en el carril
+      la corre entera (el caller reordena y persiste); click seco = saltar */
+  onMoverPalabra?: (indice: number, desdeMs: number) => void;
   /** estado del STT en curso (null = quieto) */
   transcribiendo?: string | null;
 }) {
@@ -226,6 +230,38 @@ export function AudioDeProyecto({
     [globalDeEvento, onSaltar],
   );
 
+  // drag RÁPIDO de una palabra en el carril (el ajuste fino y el resto de
+  // la edición viven en el modal «Palabras»): el ajuste vivo se pinta acá;
+  // al soltar, el caller reordena y persiste. Click seco = saltar ahí.
+  const [ajuste, setAjuste] = useState<{ indice: number; desdeMs: number } | null>(null);
+  const dragPalabraRef = useRef<{ indice: number; x0: number; desde0: number; movido: boolean } | null>(null);
+  const bajarEnPalabra = (e: React.PointerEvent, indice: number, u: { desdeMs: number }) => {
+    if (!esPalabras || !onMoverPalabra) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragPalabraRef.current = { indice, x0: e.clientX, desde0: u.desdeMs, movido: false };
+  };
+  const moverEnPalabra = (e: React.PointerEvent) => {
+    const drag = dragPalabraRef.current;
+    const caja = marcoRef.current?.getBoundingClientRect();
+    if (!drag || !caja) return;
+    const dx = e.clientX - drag.x0;
+    if (!drag.movido && Math.abs(dx) < 3) return;
+    drag.movido = true;
+    setAjuste({ indice: drag.indice, desdeMs: Math.max(0, drag.desde0 + dx * (total / caja.width)) });
+  };
+  const soltarEnPalabra = (u: { desdeMs: number }) => {
+    const drag = dragPalabraRef.current;
+    dragPalabraRef.current = null;
+    if (!drag) return;
+    const vivo = ajuste;
+    setAjuste(null);
+    if (drag.movido) {
+      if (vivo && vivo.indice === drag.indice) onMoverPalabra?.(drag.indice, Math.round(vivo.desdeMs));
+    } else {
+      onSaltar(u.desdeMs);
+    }
+  };
+
   return (
     <div className="border-b border-(--panel-border) bg-(--panel-bg)">
       <div className="flex items-stretch gap-3 px-3 pt-1.5">
@@ -258,24 +294,39 @@ export function AudioDeProyecto({
                 // cada palabra es un HITO de entrada (el «in» de la frase, sin
                 // caja de duración): el elemento se extiende hasta la próxima
                 // palabra solo para que el texto tenga dónde vivir sin pisarse.
-                // Solo lectura: click = saltar ahí; corregirlas vive en el
-                // modal de «Palabras» (con undo) — acá no se rompe nada.
+                // Click = saltar ahí; arrastrar = ajuste rápido (el caller
+                // reordena: cruzarla sobre otra no la deja inagarrable); lo
+                // demás (borrar, renombrar, agregar, undo) vive en «Palabras».
+                const enAjuste = ajuste?.indice === i;
+                const desdeVivo = enAjuste ? ajuste.desdeMs : u.desdeMs;
                 const siguienteDesde = i + 1 < unidades.length ? unidades[i + 1].desdeMs : total;
-                const sonando = globalPlayhead >= u.desdeMs && globalPlayhead < (esPalabras ? siguienteDesde : u.desdeMs + (u.hastaMs - u.desdeMs));
+                const sonando = globalPlayhead >= desdeVivo && globalPlayhead < (esPalabras ? siguienteDesde : desdeVivo + (u.hastaMs - u.desdeMs));
                 return (
                   <button
                     key={`${u.texto}-${i}`}
                     type="button"
-                    onClick={() => onSaltar(u.desdeMs)}
-                    title={`${u.texto} · ${(u.desdeMs / 1000).toFixed(2)}s`}
+                    onPointerDown={(e) => bajarEnPalabra(e, i, u)}
+                    onPointerMove={moverEnPalabra}
+                    onPointerUp={() => soltarEnPalabra(u)}
+                    onPointerCancel={() => {
+                      dragPalabraRef.current = null;
+                      setAjuste(null);
+                    }}
+                    onClick={esPalabras && onMoverPalabra ? undefined : () => onSaltar(u.desdeMs)}
+                    title={
+                      esPalabras && onMoverPalabra
+                        ? t("«{p}» · {s}s — click salta ahí; arrastrá para corregir dónde cae", { p: u.texto, s: (desdeVivo / 1000).toFixed(2) })
+                        : `${u.texto} · ${(u.desdeMs / 1000).toFixed(2)}s`
+                    }
                     style={{
-                      left: `${(u.desdeMs / total) * 100}%`,
-                      width: `${Math.max(0.2, ((esPalabras ? Math.max(siguienteDesde - u.desdeMs, 120) : u.hastaMs - u.desdeMs) / total) * 100)}%`,
+                      left: `${(desdeVivo / total) * 100}%`,
+                      width: `${Math.max(0.2, ((esPalabras ? Math.max(siguienteDesde - desdeVivo, 120) : u.hastaMs - u.desdeMs) / total) * 100)}%`,
                     }}
                     className={[
                       "absolute inset-y-0 overflow-hidden px-0.5 text-left text-[9px] leading-[17px] whitespace-nowrap",
                       esPalabras ? "border-l border-acento/40" : "border-l border-(--panel-border)",
-                      sonando ? "text-acento" : "text-foreground/55 hover:bg-ink/[0.06] hover:text-foreground",
+                      enAjuste ? "z-10 bg-acento/20 text-acento" : sonando ? "text-acento" : "text-foreground/55 hover:bg-ink/[0.06] hover:text-foreground",
+                      esPalabras && onMoverPalabra ? "cursor-grab active:cursor-grabbing" : "",
                     ].join(" ")}
                   >
                     {u.texto}

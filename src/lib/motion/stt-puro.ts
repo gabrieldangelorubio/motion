@@ -136,6 +136,18 @@ export function renombrarPalabraLista(palabras: Palabra[], indice: number, texto
   return palabras.map((x, i) => (i === indice ? { ...x, texto: limpio } : x));
 }
 
+/** transformers.js (≤2.17) pasa `num_frames` en frames del MEL (hop de
+    10ms) al alinear palabras, pero la máscara del DTW vive sobre la salida
+    del ENCODER, que va a la MITAD de resolución (conv stride 2, 20ms por
+    frame): whisper oficial (python) hace `num_frames // 2` y el port JS lo
+    perdió. Sin el ÷2, con audio < 30s el alineador VE EL DOBLE del audio
+    real (relleno de silencio incluido) y las palabras derivan hacia el
+    final — medido con jfk.wav (11s): timestamps hasta 21980ms ≈ 2× sin
+    corregir, 0 fuera del audio con la corrección. null pasa de largo. */
+export function framesDeEncoder(framesMel: number | null | undefined): number | null {
+  return framesMel == null ? null : Math.floor(framesMel / 2);
+}
+
 /** Agrupa palabras en ORACIONES legibles: cierra donde la palabra termina
     en puntuación final (. ! ? …) o donde el silencio hasta la próxima
     supera `pausaMs` — las pausas de la locución también son cortes. */

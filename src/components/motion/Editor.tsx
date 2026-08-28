@@ -70,7 +70,7 @@ import {
 } from "@/lib/motion/audio-guardado";
 import { RecorteAudio } from "@/components/motion/RecorteAudio";
 import { EditarPalabras } from "@/components/motion/EditarPalabras";
-import { oracionesDePalabras, type Palabra } from "@/lib/motion/stt-puro";
+import { moverPalabraLista, oracionesDePalabras, type Palabra } from "@/lib/motion/stt-puro";
 import { cortesDeEscenas, duracionDesdeAudio, escenaEnPunto } from "@/lib/motion/audio-puro";
 import { encajarMedia } from "@/lib/motion/media-puro";
 import { suavizarGrabacion, type MuestraCamara } from "@/lib/motion/suavizar-puro";
@@ -711,6 +711,20 @@ export function Editor({
   // palabras y TODO persiste junto al audio — los imanes del timeline y la
   // locución que ve el agente se actualizan solos.
   const [editandoPalabras, setEditandoPalabras] = useState(false);
+  // Ajuste RÁPIDO desde el carril (drag): mueve la palabra entera, REORDENA
+  // por tiempo (cruzarla sobre otra no la deja inagarrable) y persiste.
+  const moverPalabra = useCallback(
+    (indice: number, desdeMs: number) => {
+      setAudio((previo) => {
+        const palabras = previo?.transcripcion?.palabras;
+        if (!previo || !previo.transcripcion || !palabras?.[indice]) return previo;
+        const transcripcion = { ...previo.transcripcion, palabras: moverPalabraLista(palabras, indice, desdeMs) };
+        void guardarTranscripcion(composicionId, transcripcion);
+        return { ...previo, transcripcion };
+      });
+    },
+    [composicionId],
+  );
   const guardarPalabras = useCallback(
     (palabras: Palabra[]) => {
       setEditandoPalabras(false);
@@ -1886,6 +1900,7 @@ export function Editor({
             onRecortarAudio={() => setRecortando(true)}
             onTranscribir={() => void transcribirAudio()}
             onEditarPalabras={audio.transcripcion ? () => setEditandoPalabras(true) : undefined}
+            onMoverPalabra={moverPalabra}
             transcribiendo={transcribiendo}
           />
         )}

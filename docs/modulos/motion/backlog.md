@@ -13,6 +13,23 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Palabras BIEN puestas sobre la onda: bug del alineador (2026-08-28, tanda 9)
+- **Hecho:** encontrado y parcheado el bug de FONDO de «transcribe bien
+  pero no las coloca bien»: transformers.js 2.17 le pasa al alineador de
+  palabras (DTW sobre cross-attentions) `num_frames` en frames del MEL,
+  pero la máscara vive en frames del ENCODER (la mitad — whisper oficial
+  hace `num_frames // 2` y el port JS lo perdió). Sin el ÷2, en todo audio
+  < 30s el alineador ve EL DOBLE del audio (relleno de silencio incluido)
+  y las palabras derivan hacia el final. Medido con verdad conocida
+  (jfk.wav, 11s): sin parche la última palabra caía en 21980ms ≈ 2× la
+  duración (412 de 442 fuera del audio); con parche, 0 fuera. El parche
+  envuelve `_extract_token_timestamps` al cargar el motor
+  (`framesDeEncoder` puro, testeado + sabotaje). HAY QUE RE-TRANSCRIBIR
+  para que los tiempos nuevos apliquen. También: el drag rápido de una
+  palabra VOLVIÓ al carril de la franja (con el reorden bueno — cruzarla
+  sobre otra ya no la deja inagarrable); el modal «Palabras» queda para
+  borrar/renombrar/agregar/undo.
+
 ### [HECHO] Modal «Palabras»: corregir la transcripción sin miedo (2026-08-28, tanda 8)
 - **Hecho:** la edición de palabras se muda del carril chico a un MODAL
   propio («Palabras» en la franja, estilo recorte): onda del segmento con
