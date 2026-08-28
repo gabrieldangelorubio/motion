@@ -244,7 +244,10 @@ idioma (antes forzaba "spanish" y destrozaba locución en inglés), usa
 whisper-SMALL (le gana lejos a base con voz sobre música; cascada de
 respaldo: small→base, con y sin cross-attentions) y pide
 timestamps POR PALABRA (export del modelo con cross-attentions, revision
-output_attentions; sin él degrada a oraciones por trozo); los LOOPS de
+output_attentions; sin él degrada a oraciones por trozo); el DICTADO
+del chat (hablarle al director por el mic) FUERZA castellano — con un
+clip corto la autodetección a veces decía inglés y whisper devolvía el
+pedido traducido —; los LOOPS de
 decodificación de whisper (la misma palabra repetida decenas de veces,
 el «trabón») se PODAN en el post-proceso puro (limpiarPalabras: colapsa
 repeticiones consecutivas sin avance real y rachas de 4+, un «no, no,

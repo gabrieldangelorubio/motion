@@ -99,17 +99,20 @@ function motor(onProgreso?: (fraccion: number) => void, modelo = MODELO_DEFAULT)
 
 /**
  * Transcribe PCM (canales crudos con su sample rate) a texto con PALABRAS
- * y oraciones con timestamps. El idioma se AUTODETECTA (la voz en off puede
- * venir en inglés o castellano: forzar un idioma la destroza — visto con
- * "spanish" hardcodeado sobre locución en inglés). `onProgreso` cubre la
- * descarga del modelo la primera vez. Si el modelo no da timestamps por
- * palabra, degrada a oraciones por trozo — nunca a nada.
+ * y oraciones con timestamps. Sin `idioma` se AUTODETECTA (la voz en off
+ * puede venir en inglés o castellano: forzar un idioma la destroza — visto
+ * con "spanish" hardcodeado sobre locución en inglés); el DICTADO del chat
+ * en cambio SÍ fuerza "spanish" — con un clip corto la autodetección a
+ * veces dice inglés y whisper devuelve el pedido TRADUCIDO. `onProgreso`
+ * cubre la descarga del modelo la primera vez. Si el modelo no da
+ * timestamps por palabra, degrada a oraciones por trozo — nunca a nada.
  */
 export async function transcribir(
   canales: Float32Array[],
   sampleRate: number,
   onProgreso?: (fraccion: number) => void,
   modelo?: string,
+  idioma?: string,
 ): Promise<Transcripcion> {
   const asr = await motor(onProgreso, modelo).catch((e: unknown) => {
     // la causa REAL viaja en el mensaje: sin ella no se puede diagnosticar
@@ -120,7 +123,12 @@ export async function transcribir(
   const pcm = remuestrear(aMono(canales), sampleRate, HZ_WHISPER);
   const duracionMs = Math.round((pcm.length / HZ_WHISPER) * 1000);
   // sin `language`: Whisper detecta solo; task transcribe = jamás traducir
-  const base: OpcionesAsr = { task: "transcribe", chunk_length_s: 30, stride_length_s: 5 };
+  const base: OpcionesAsr = {
+    task: "transcribe",
+    chunk_length_s: 30,
+    stride_length_s: 5,
+    ...(idioma ? { language: idioma } : {}),
+  };
   try {
     const salida = await asr(pcm, { ...base, return_timestamps: "word" });
     // los LOOPS de whisper (la misma palabra repetida decenas de veces) se

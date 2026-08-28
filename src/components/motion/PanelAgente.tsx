@@ -66,10 +66,15 @@ export function PanelAgente({
           const buffer = await ctxAudio.decodeAudioData(datos);
           void ctxAudio.close().catch(() => undefined);
           const { transcribir } = await import("@/lib/motion/stt");
+          // el dictado del chat es EN CASTELLANO: forzarlo evita que la
+          // autodetección (pensada para la voz en off, que puede venir en
+          // inglés) traduzca el pedido — visto con un clip corto
           const res = await transcribir(
             Array.from({ length: buffer.numberOfChannels }, (_, i) => buffer.getChannelData(i)),
             buffer.sampleRate,
             (f) => setOyendo(t("Bajando el modelo de voz… {p}%", { p: Math.round(f * 100) })),
+            undefined,
+            "spanish",
           );
           if (res.texto) setTexto((previo) => (previo ? previo + " " : "") + res.texto);
         } catch (e) {
