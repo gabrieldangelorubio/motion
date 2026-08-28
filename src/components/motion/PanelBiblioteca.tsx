@@ -3,34 +3,52 @@
 /* -----------------------------------------------------------------------------
    Biblioteca de efectos — scrolleás, hacés hover y ves qué hace cada uno
 
-   Cada carta tiene un mini canvas donde corre el MOTOR REAL sobre la
-   plantilla del efecto (biblioteca-puro): en reposo muestra un frame quieto,
-   y con el mouse arriba (o foco de teclado) el bucle arranca. Tocarla aplica
-   el efecto a la capa seleccionada (reemplaza la entrada o la salida según
-   la clase del preset, conservando el timing existente — eso lo decide el
-   Editor). Un solo rAF por carta y sólo mientras está en hover: cien cartas
-   quietas no cuestan nada.
+   Organizada en FAMILIAS (pestañas): Textos, Gráficos y Trazos — cada demo
+   corre sobre la clase de capa que le toca (el título, la estrella
+   vectorial, la línea) con el MOTOR REAL: el preview es lo que el efecto
+   hace de verdad. Seleccionar una capa salta solo a su familia — se acabó
+   aplicar un efecto de texto a una gráfica «a ver si anda».
+
+   Cada tarjeta es un PAR in/out: al pie van TRES botones iconográficos —
+   entrada (→|), ambas (→|→) y salida (|→) — que aplican el preset que
+   corresponde a la capa seleccionada. Un solo rAF por carta y sólo en
+   hover: cien cartas quietas no cuestan nada.
 ----------------------------------------------------------------------------- */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  efectosPorCategoria,
-  plantillaDeEfecto,
-  reposoDeEfecto,
-  type EfectoBiblioteca,
+  FAMILIAS,
+  paresPorCategoria,
+  plantillaDePar,
+  reposoDePar,
+  type FamiliaEfecto,
+  type ParBiblioteca,
 } from "@/lib/motion/biblioteca-puro";
+import type { Capa } from "@/lib/motion/modelo";
 import { estadoEn } from "@/lib/motion/evaluar-puro";
 import { pintar, type Contexto2D } from "@/lib/motion/pintar";
 import { t } from "@/lib/i18n/stub";
 import { Etiqueta } from "@/components/ui/Etiqueta";
+import { Segmentado } from "@/components/ui/Segmentado";
 import { Icono } from "@/components/icons";
+import { BotonIcono } from "@/components/ui/BotonIcono";
 
-function Tarjeta({ efecto, onAplicar }: { efecto: EfectoBiblioteca; onAplicar: (nombre: string) => void }) {
+export type ModoAplicar = "entrada" | "salida" | "ambas";
+
+function Tarjeta({
+  par,
+  familia,
+  onAplicar,
+}: {
+  par: ParBiblioteca;
+  familia: FamiliaEfecto;
+  onAplicar: (par: ParBiblioteca, modo: ModoAplicar) => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
-  const plantillaRef = useRef<ReturnType<typeof plantillaDeEfecto> | null>(null);
-  if (plantillaRef.current == null) plantillaRef.current = plantillaDeEfecto(efecto.nombre);
-  const reposo = reposoDeEfecto(efecto.clase);
+  const plantillaRef = useRef<ReturnType<typeof plantillaDePar> | null>(null);
+  if (plantillaRef.current == null) plantillaRef.current = plantillaDePar(par, familia);
+  const reposo = reposoDePar(par);
 
   const pintarEn = (tiempo: number) => {
     const canvas = canvasRef.current;
@@ -53,7 +71,7 @@ function Tarjeta({ efecto, onAplicar }: { efecto: EfectoBiblioteca; onAplicar: (
     cancelAnimationFrame(rafRef.current);
     const t0 = performance.now();
     const paso = (ahora: number) => {
-      pintarEn((ahora - t0) % (plantillaRef.current?.duracion ?? 1900));
+      pintarEn((ahora - t0) % (plantillaRef.current?.duracion ?? 2600));
       rafRef.current = requestAnimationFrame(paso);
     };
     rafRef.current = requestAnimationFrame(paso);
@@ -64,48 +82,68 @@ function Tarjeta({ efecto, onAplicar }: { efecto: EfectoBiblioteca; onAplicar: (
     pintarEn(reposo);
   };
 
+  const botones: { modo: ModoAplicar; icono: "efectoIn" | "efectoAmbos" | "efectoOut"; etiqueta: string; habil: boolean }[] = [
+    { modo: "entrada", icono: "efectoIn", etiqueta: t("Ponerlo de ENTRADA a la capa seleccionada"), habil: Boolean(par.entrada) },
+    { modo: "ambas", icono: "efectoAmbos", etiqueta: t("Ponerle entrada Y salida a la capa seleccionada"), habil: Boolean(par.entrada && par.salida) },
+    { modo: "salida", icono: "efectoOut", etiqueta: t("Ponerlo de SALIDA a la capa seleccionada"), habil: Boolean(par.salida) },
+  ];
+
   return (
-    <button
-      type="button"
-      onClick={() => onAplicar(efecto.nombre)}
+    <div
       onPointerEnter={arrancar}
       onPointerLeave={frenar}
-      onFocus={arrancar}
-      onBlur={frenar}
-      aria-label={t("Aplicar el efecto «{nombre}» a la capa seleccionada", { nombre: efecto.nombre })}
-      className="boton group/carta mb-2 w-full rounded-control p-1.5 text-left shadow-control hover:bg-ink/[0.06]"
+      className="group/carta mb-2 w-full rounded-control p-1.5 shadow-control hover:bg-ink/[0.06]"
     >
       <canvas ref={canvasRef} width={240} height={135} className="block w-full rounded-[9px]" />
-      <div className="mt-1.5 flex items-center gap-1.5 px-1">
-        <span className="min-w-0 flex-1 truncate text-[13px] text-foreground/85">{efecto.nombre}</span>
-        {efecto.esDeTrazo && (
-          <span className="shrink-0 font-mono text-[10px] text-foreground/40" aria-hidden>〜</span>
-        )}
-        <span
-          className={[
-            "shrink-0 rounded-full px-1.5 font-mono text-[9px] uppercase leading-4",
-            efecto.clase === "entrada" ? "bg-acento/15 text-acento" : "bg-ink/[0.1] text-foreground/55",
-          ].join(" ")}
-        >
-          {efecto.clase === "entrada" ? t("in") : t("out")}
+      <div className="mt-1.5 flex items-center gap-1 px-0.5">
+        <span className="min-w-0 flex-1 truncate text-[13px] text-foreground/85" title={par.salida && par.entrada ? `${par.entrada} / ${par.salida}` : undefined}>
+          {par.id}
         </span>
+        {botones.map((b) => (
+          <span key={b.modo} className={b.habil ? "" : "pointer-events-none opacity-25"}>
+            <BotonIcono
+              tam={26}
+              etiqueta={b.habil ? b.etiqueta : t("Este efecto no tiene esa mitad")}
+              onClick={() => onAplicar(par, b.modo)}
+            >
+              <Icono nombre={b.icono} width={14} height={14} />
+            </BotonIcono>
+          </span>
+        ))}
       </div>
-    </button>
+    </div>
   );
 }
 
 export function PanelBiblioteca({
   onAplicar,
+  tipoSeleccion = null,
   abierto = true,
   onAlternar,
 }: {
-  onAplicar: (nombre: string) => void;
+  onAplicar: (par: ParBiblioteca, modo: ModoAplicar) => void;
+  /** tipo de la capa seleccionada en el editor: la biblioteca salta sola a
+      la familia que le corresponde (texto → Textos, trazo → Trazos, el
+      resto → Gráficos); null = no tocar */
+  tipoSeleccion?: Capa["tipo"] | null;
   /** plegado, la biblioteca es solo su fila-tab (como «Cámara»); el estado
       lo guarda el Editor para que sobreviva a recargar */
   abierto?: boolean;
   onAlternar?: () => void;
 }) {
-  const secciones = efectosPorCategoria();
+  const [familia, setFamilia] = useState<FamiliaEfecto>("texto");
+  // la selección del editor manda: elegir una gráfica abre «Gráficos», etc.
+  // (ajuste DURANTE el render con guard — el patrón de React para estado
+  // derivado de props, sin cascada de effects)
+  const [ultimoTipo, setUltimoTipo] = useState<Capa["tipo"] | null>(tipoSeleccion);
+  if (tipoSeleccion !== ultimoTipo) {
+    setUltimoTipo(tipoSeleccion);
+    if (tipoSeleccion) {
+      setFamilia(tipoSeleccion === "texto" ? "texto" : tipoSeleccion === "trazo" ? "trazo" : "grafica");
+    }
+  }
+
+  const secciones = paresPorCategoria(familia);
 
   return (
     <div className="flex h-full min-h-0 flex-col border-t border-(--glass-border) bg-(--chrome-bg)">
@@ -126,15 +164,23 @@ export function PanelBiblioteca({
       </button>
       {abierto && (
         <>
+          <div className="px-3 pb-1.5 pt-0.5">
+            <Segmentado
+              opciones={FAMILIAS.map((f) => ({ valor: f.id, nombre: t(f.nombre) }))}
+              valor={familia}
+              onCambio={(v) => setFamilia(v as FamiliaEfecto)}
+              etiquetaAria={t("Familia de efectos")}
+            />
+          </div>
           <div className="px-3 pb-2 text-xs text-muted">
-            {t("Hover para verlo; click se lo pone a la capa seleccionada.")}
+            {t("Hover para verlo · →| entrada · →|→ ambas · |→ salida, sobre la capa seleccionada.")}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-            {secciones.map(({ categoria, efectos }) => (
+            {secciones.map(({ categoria, pares }) => (
               <div key={categoria.id}>
                 <Etiqueta className="mb-1.5 mt-2 px-1">{t(categoria.nombre)}</Etiqueta>
-                {efectos.map((efecto) => (
-                  <Tarjeta key={efecto.nombre} efecto={efecto} onAplicar={onAplicar} />
+                {pares.map((par) => (
+                  <Tarjeta key={`${familia}-${par.id}`} par={par} familia={familia} onAplicar={onAplicar} />
                 ))}
               </div>
             ))}

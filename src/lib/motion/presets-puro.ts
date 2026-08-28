@@ -47,6 +47,11 @@ export const CATEGORIAS: { id: CategoriaPreset; nombre: string }[] = [
 type DefPreset = {
   clase: "entrada" | "salida";
   categoria: CategoriaPreset;
+  /** en ENTRADAS: el preset de salida que es su inverso natural — la
+      biblioteca los muestra como UNA animación con in y out (dos entradas
+      pueden compartir la misma salida); una salida sin entrada que la
+      apunte queda como tarjeta solo-out */
+  salidaPareja?: string;
   compilar: (params: Record<string, number>) => PresetCompilado;
 };
 
@@ -62,6 +67,7 @@ export const PRESETS: Record<string, DefPreset> = {
   /* ——— Máscaras y revelados: la unidad se mueve DENTRO de su caja de línea ——— */
   revelar: {
     clase: "entrada",
+    salidaPareja: "ocultar",
     categoria: "mascaras",
     compilar: (params) => ({
       pista: { dy: tramo(d(params, "distancia", 1.1), 0) },
@@ -73,6 +79,7 @@ export const PRESETS: Record<string, DefPreset> = {
   },
   revelarCaer: {
     clase: "entrada",
+    salidaPareja: "ocultarSubir",
     categoria: "mascaras",
     compilar: (params) => ({
       pista: { dy: tramo(-d(params, "distancia", 1.1), 0) },
@@ -108,11 +115,13 @@ export const PRESETS: Record<string, DefPreset> = {
   /* ——— Texto · básicos ——— */
   aparecer: {
     clase: "entrada",
+    salidaPareja: "desvanecer",
     categoria: "texto",
     compilar: () => ({ pista: { dOpacidad: APARECE }, eje: null, distancia: 0 }),
   },
   subir: {
     clase: "entrada",
+    salidaPareja: "hundir",
     categoria: "texto",
     compilar: (params) => {
       const dist = d(params, "distancia", 90);
@@ -121,6 +130,7 @@ export const PRESETS: Record<string, DefPreset> = {
   },
   caer: {
     clase: "entrada",
+    salidaPareja: "elevar",
     categoria: "texto",
     compilar: (params) => {
       const dist = d(params, "distancia", 90);
@@ -129,6 +139,7 @@ export const PRESETS: Record<string, DefPreset> = {
   },
   deslizarIzquierda: {
     clase: "entrada",
+    salidaPareja: "deslizarFuera",
     categoria: "texto",
     compilar: (params) => {
       const dist = d(params, "distancia", 120);
@@ -137,6 +148,7 @@ export const PRESETS: Record<string, DefPreset> = {
   },
   deslizarDerecha: {
     clase: "entrada",
+    salidaPareja: "deslizarFueraDerecha",
     categoria: "texto",
     compilar: (params) => {
       const dist = d(params, "distancia", 120);
@@ -145,6 +157,7 @@ export const PRESETS: Record<string, DefPreset> = {
   },
   escalar: {
     clase: "entrada",
+    salidaPareja: "reducir",
     categoria: "texto",
     compilar: (params) => ({
       pista: { dEscala: tramo(d(params, "desde", 0.6) - 1, 0), dOpacidad: APARECE },
@@ -173,6 +186,23 @@ export const PRESETS: Record<string, DefPreset> = {
       return { pista: { dy: tramo(0, -dist), dOpacidad: DESAPARECE }, eje: "y", distancia: dist };
     },
   },
+  deslizarFueraDerecha: {
+    clase: "salida",
+    categoria: "texto",
+    compilar: (params) => {
+      const dist = d(params, "distancia", 120);
+      return { pista: { dx: tramo(0, dist), dOpacidad: DESAPARECE }, eje: "x", distancia: dist };
+    },
+  },
+  reducir: {
+    clase: "salida",
+    categoria: "texto",
+    compilar: (params) => ({
+      pista: { dEscala: tramo(0, d(params, "hasta", 0.6) - 1), dOpacidad: DESAPARECE },
+      eje: null,
+      distancia: 40,
+    }),
+  },
   deslizarFuera: {
     clase: "salida",
     categoria: "texto",
@@ -185,6 +215,7 @@ export const PRESETS: Record<string, DefPreset> = {
   /* ——— Desenfoque ——— */
   subirDesenfocado: {
     clase: "entrada",
+    salidaPareja: "elevarDesenfocado",
     categoria: "desenfoque",
     compilar: (params) => {
       const dist = d(params, "distancia", 70);
@@ -202,6 +233,7 @@ export const PRESETS: Record<string, DefPreset> = {
   },
   desenfocarEntrada: {
     clase: "entrada",
+    salidaPareja: "desenfocarSalida",
     categoria: "desenfoque",
     compilar: (params) => ({
       pista: { desenfoque: tramo(d(params, "desenfoque", 24), 0), dOpacidad: APARECE },
@@ -212,6 +244,7 @@ export const PRESETS: Record<string, DefPreset> = {
   },
   acercarDesenfocado: {
     clase: "entrada",
+    salidaPareja: "alejarFondo",
     categoria: "desenfoque",
     compilar: (params) => ({
       pista: {
@@ -255,6 +288,7 @@ export const PRESETS: Record<string, DefPreset> = {
   /* ——— Rotación (por unidad, alrededor de su centro) ——— */
   girarEntrada: {
     clase: "entrada",
+    salidaPareja: "girarSalida",
     categoria: "rotacion",
     compilar: (params) => {
       const dist = d(params, "distancia", 40);
@@ -271,6 +305,7 @@ export const PRESETS: Record<string, DefPreset> = {
   },
   voltear: {
     clase: "entrada",
+    salidaPareja: "voltearCaer",
     categoria: "rotacion",
     compilar: (params) => ({
       pista: {
@@ -284,6 +319,7 @@ export const PRESETS: Record<string, DefPreset> = {
   },
   remolino: {
     clase: "entrada",
+    salidaPareja: "remolinoSalida",
     categoria: "rotacion",
     compilar: (params) => ({
       pista: {
@@ -311,6 +347,20 @@ export const PRESETS: Record<string, DefPreset> = {
       };
     },
   },
+  remolinoSalida: {
+    clase: "salida",
+    categoria: "rotacion",
+    // el inverso del remolino: gira mientras se achica y desaparece
+    compilar: (params) => ({
+      pista: {
+        dRotacion: tramo(0, d(params, "angulo", 180)),
+        dEscala: tramo(0, -0.7),
+        dOpacidad: DESAPARECE,
+      },
+      eje: null,
+      distancia: 30,
+    }),
+  },
   voltearCaer: {
     clase: "salida",
     categoria: "rotacion",
@@ -328,6 +378,7 @@ export const PRESETS: Record<string, DefPreset> = {
   /* ——— Tracking: las unidades convergen/divergen desde el centro ——— */
   trackingCerrar: {
     clase: "entrada",
+    salidaPareja: "trackingFuga",
     categoria: "tracking",
     compilar: (params) => ({
       pista: { dx: tramo(d(params, "apertura", 34), 0), dOpacidad: APARECE },
@@ -338,9 +389,21 @@ export const PRESETS: Record<string, DefPreset> = {
   },
   trackingAbrir: {
     clase: "entrada",
+    salidaPareja: "trackingApretar",
     categoria: "tracking",
     compilar: (params) => ({
       pista: { dx: tramo(-d(params, "apertura", 22), 0), dOpacidad: APARECE },
+      eje: "x",
+      distancia: 0,
+      tracking: true,
+    }),
+  },
+  trackingApretar: {
+    clase: "salida",
+    categoria: "tracking",
+    // las letras se APRIETAN hacia el centro y se van (inverso de abrir)
+    compilar: (params) => ({
+      pista: { dx: tramo(0, -d(params, "apertura", 26)), dOpacidad: DESAPARECE },
       eje: "x",
       distancia: 0,
       tracking: true,
@@ -360,6 +423,7 @@ export const PRESETS: Record<string, DefPreset> = {
   /* ——— Impacto y rebote: el overshoot vive EN la pista, no en el easing ——— */
   pop: {
     clase: "entrada",
+    salidaPareja: "contraer",
     categoria: "energia",
     compilar: () => ({
       pista: {
@@ -372,6 +436,7 @@ export const PRESETS: Record<string, DefPreset> = {
   },
   rebotar: {
     clase: "entrada",
+    salidaPareja: "expulsar",
     categoria: "energia",
     compilar: (params) => {
       const dist = d(params, "distancia", 130);
@@ -387,6 +452,7 @@ export const PRESETS: Record<string, DefPreset> = {
   },
   golpe: {
     clase: "entrada",
+    salidaPareja: "acercarCamara",
     categoria: "energia",
     compilar: (params) => ({
       pista: {
@@ -424,6 +490,7 @@ export const PRESETS: Record<string, DefPreset> = {
   /* ——— Logos y gráficas ——— */
   acercarProfundo: {
     clase: "entrada",
+    salidaPareja: "alejarFondo",
     categoria: "grafica",
     compilar: (params) => ({
       pista: {
@@ -438,6 +505,7 @@ export const PRESETS: Record<string, DefPreset> = {
   },
   atravesar: {
     clase: "entrada",
+    salidaPareja: "acercarCamara",
     categoria: "grafica",
     compilar: (params) => ({
       pista: {
@@ -452,6 +520,7 @@ export const PRESETS: Record<string, DefPreset> = {
   },
   aparecerGirando: {
     clase: "entrada",
+    salidaPareja: "girarSalida",
     categoria: "grafica",
     compilar: (params) => ({
       pista: {
@@ -495,11 +564,13 @@ export const PRESETS: Record<string, DefPreset> = {
   /* ——— Trazos (trim estilo AE) ——— */
   trazar: {
     clase: "entrada",
+    salidaPareja: "retraer",
     categoria: "trazos",
     compilar: () => ({ pista: { dTrazoFin: tramo(-1, 0) }, eje: null, distancia: 0 }),
   },
   trazarCentro: {
     clase: "entrada",
+    salidaPareja: "recogerCentro",
     categoria: "trazos",
     // la línea nace desde el medio hacia las dos puntas
     compilar: () => ({

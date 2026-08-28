@@ -523,7 +523,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **226
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **231
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -579,7 +579,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   (29) el ÷2 de framesDeEncoder quitado (el parche del alineador) → falló
   exacto el test del bug medido. (30) tangentes de ruta-puro dejadas
   ABSOLUTAS (sin restar el vértice) → cayeron exactos los tests del parser
-  Y el end-to-end del export del trazo. Restaurados, 226/226 verdes. La tanda de UX del timeline (teclado del modal de recorte,
+  Y el end-to-end del export del trazo. (31) filtro de familia de
+  paresPorCategoria apagado (tracking ofrecido para gráficas) → falló
+  exacto el test del filtrado. Restaurados, 231/231 verdes. La tanda de UX del timeline (teclado del modal de recorte,
   imán shift, Alt-dup, drag de palabra, Efectos plegable) se verificó por
   Playwright end-to-end (verificar32/33) — sus checks mostraron rojo
   GENUINO durante el desarrollo (el imán con alcance corto, el carril

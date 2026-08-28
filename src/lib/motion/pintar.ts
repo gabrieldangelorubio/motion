@@ -48,6 +48,16 @@ function filtroDe(desenfoque: number, blurX: number, blurY: number, escalaPx: nu
   return total > 0.3 ? `blur(${(total * escalaPx).toFixed(2)}px)` : "none";
 }
 
+/** La máscara del revelado para capas NO-texto: la caja de REPOSO de la
+    capa (por eso va antes del translate por dx/dy) — la gráfica entra y
+    sale «por detrás» de su propio marco, como un track matte del bbox. El
+    margen cubre el grosor del borde (el stroke centrado sobresale). */
+function recortarACaja(ctx: Contexto2D, ancho: number, alto: number, margen = 0): void {
+  ctx.beginPath();
+  ctx.rect(-ancho / 2 - margen, -alto / 2 - margen, ancho + margen * 2, alto + margen * 2);
+  ctx.clip();
+}
+
 function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): void {
   const capa = estado.capa;
   if (capa.tipo !== "texto") return;
@@ -201,6 +211,7 @@ function pintarTrazo(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
   ctx.save();
   ctx.globalAlpha *= u.opacidad;
   ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
+  if (u.recorte) recortarACaja(ctx, capa.ancho, capa.alto, capa.grosor / 2);
   ctx.translate(u.dx, u.dy);
   if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
   ctx.scale(1 + u.dEscala, 1 + u.dEscala);
@@ -229,6 +240,7 @@ function pintarVector(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): vo
   ctx.save();
   ctx.globalAlpha *= u.opacidad;
   ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
+  if (u.recorte) recortarACaja(ctx, capa.ancho, capa.alto, (capa.trazoGrosor ?? 0) / 2);
   ctx.translate(u.dx, u.dy);
   if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
   ctx.scale(1 + u.dEscala, 1 + u.dEscala);
@@ -261,6 +273,7 @@ function pintarForma(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
   ctx.save();
   ctx.globalAlpha *= u.opacidad;
   ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
+  if (u.recorte) recortarACaja(ctx, capa.ancho, capa.alto);
   ctx.translate(u.dx, u.dy);
   if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
   ctx.scale(1 + u.dEscala, 1 + u.dEscala);
@@ -290,6 +303,7 @@ function pintarMedia(estado: EstadoCapa, ctx: Contexto2D, media: FuentesDeMedia,
   ctx.save();
   ctx.globalAlpha *= u.opacidad;
   ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
+  if (u.recorte) recortarACaja(ctx, capa.ancho, capa.alto);
   ctx.translate(u.dx, u.dy);
   if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
   ctx.scale(1 + u.dEscala, 1 + u.dEscala);

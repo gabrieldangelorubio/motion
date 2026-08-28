@@ -37,6 +37,28 @@ const ICONOS = {
       <path d="M8.5 5.5v13M15.5 5.5v13" strokeWidth={2.2} />
     </svg>
   ),
+  // aplicar un efecto como ENTRADA: la flecha llega a la barra (el in)
+  efectoIn: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M3 12h10M9 7.5l4.5 4.5L9 16.5" />
+      <path d="M19.5 5v14" strokeWidth={2.2} />
+    </svg>
+  ),
+  // aplicar como SALIDA: la flecha sale de la barra (el out)
+  efectoOut: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M4.5 5v14" strokeWidth={2.2} />
+      <path d="M9 12h10M14.5 7.5L19 12l-4.5 4.5" />
+    </svg>
+  ),
+  // aplicar AMBAS: la flecha atraviesa la barra — entra y sale
+  efectoAmbos: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M12 4.5v15" strokeWidth={2.2} />
+      <path d="M1.5 12H8M5.5 9l3 3-3 3" />
+      <path d="M15 12h6.5M18.5 9l3 3-3 3" />
+    </svg>
+  ),
   loop: (p: IconoProps) => (
     <svg {...base(p)} aria-hidden>
       <path d="M4.5 12a7.5 7.5 0 0 1 12.9-5.2l2.1 2" />

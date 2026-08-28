@@ -924,37 +924,66 @@ export function Editor({
   // Aplicar un efecto de la biblioteca a la capa seleccionada: reemplaza la
   // entrada o la salida (según la clase del preset) CONSERVANDO el timing del
   // segmento existente — recambiás el efecto, no la coreografía.
-  const aplicarEfecto = useCallback((preset: string) => {
-    const def = PRESETS[preset];
+  // Aplica un PAR de la biblioteca según el modo de sus tres botones:
+  // «entrada» pone el in, «salida» el out, «ambas» los dos de una (con UN
+  // paso de undo). Cada mitad conserva el timing existente de esa clase.
+  const aplicarPar = useCallback((par: { entrada?: string; salida?: string }, modo: "entrada" | "salida" | "ambas") => {
     const id = seleccionRef.current;
-    if (!def) return;
+    const nombreCorto = par.entrada ?? par.salida ?? "";
     if (!id || id === CAMARA_ID) {
-      setAvisoGuardado(t("Seleccioná una capa para ponerle «{preset}»", { preset }));
+      setAvisoGuardado(t("Seleccioná una capa para ponerle «{preset}»", { preset: nombreCorto }));
       return;
     }
     const comp = compRef.current;
     const capa = comp.capas.find((c) => c.id === id);
     if (!capa) return;
-    const compilado = def.compilar({});
-    if ((compilado.pista.dTrazoInicio || compilado.pista.dTrazoFin) && capa.tipo !== "trazo") {
-      setAvisoGuardado(t("«{preset}» es un efecto de trazos: «{nombre}» es {tipo}", { preset, nombre: capa.nombre, tipo: capa.tipo }));
-      return;
+
+    const armarSegmento = (preset: string): Segmento | string => {
+      const def = PRESETS[preset];
+      if (!def) return t("no existe el preset «{preset}»", { preset });
+      const compilado = def.compilar({});
+      if ((compilado.pista.dTrazoInicio || compilado.pista.dTrazoFin) && capa.tipo !== "trazo") {
+        return t("«{preset}» es un efecto de trazos: «{nombre}» es {tipo}", { preset, nombre: capa.nombre, tipo: capa.tipo });
+      }
+      if (compilado.tracking && capa.tipo !== "texto") {
+        return t("«{preset}» es de tracking (letras): en una capa {tipo} no hace nada", { preset, tipo: capa.tipo });
+      }
+      const clase = def.clase;
+      const previo = capa[clase];
+      const seg: Segmento = previo
+        ? { ...previo, preset }
+        : clase === "entrada"
+          ? { preset, en: 0, duracion: 700, easing: "salidaExpo", escalonado: capa.tipo === "texto" ? 40 : undefined }
+          : { preset, en: Math.max(0, comp.duracion - 900), duracion: 600, easing: "entradaCubic", escalonado: capa.tipo === "texto" ? 25 : undefined };
+      // una capa dividida sin escalonado se anima como bloque entero: si el
+      // timing heredado no traía, le va el default sano de su división
+      if (capa.tipo === "texto" && capa.division !== "ninguna" && !seg.escalonado) {
+        seg.escalonado = escalonadoSano(capa.division);
+      }
+      return seg;
+    };
+
+    const presetes: { preset: string; clase: "entrada" | "salida" }[] = [];
+    if ((modo === "entrada" || modo === "ambas") && par.entrada) presetes.push({ preset: par.entrada, clase: "entrada" });
+    if ((modo === "salida" || modo === "ambas") && par.salida) presetes.push({ preset: par.salida, clase: "salida" });
+    if (presetes.length === 0) return;
+
+    const cambios: Partial<Record<"entrada" | "salida", Segmento>> = {};
+    for (const { preset, clase } of presetes) {
+      const seg = armarSegmento(preset);
+      if (typeof seg === "string") {
+        setAvisoGuardado(seg);
+        return;
+      }
+      cambios[clase] = seg;
     }
     registrar();
-    const clase = def.clase;
-    const previo = capa[clase];
-    const seg: Segmento = previo
-      ? { ...previo, preset }
-      : clase === "entrada"
-        ? { preset, en: 0, duracion: 700, easing: "salidaExpo", escalonado: capa.tipo === "texto" ? 40 : undefined }
-        : { preset, en: Math.max(0, comp.duracion - 900), duracion: 600, easing: "entradaCubic", escalonado: capa.tipo === "texto" ? 25 : undefined };
-    // una capa dividida sin escalonado se anima como bloque entero: si el
-    // timing heredado no traía, le va el default sano de su división
-    if (capa.tipo === "texto" && capa.division !== "ninguna" && !seg.escalonado) {
-      seg.escalonado = escalonadoSano(capa.division);
-    }
-    editarEnVivo(id, { [clase]: seg });
-    setAvisoGuardado(t("«{preset}» puesto como {clase} de «{nombre}»", { preset, clase, nombre: capa.nombre }));
+    editarEnVivo(id, cambios);
+    setAvisoGuardado(
+      modo === "ambas"
+        ? t("«{nombre}» tiene entrada «{ein}» y salida «{eout}»", { nombre: capa.nombre, ein: par.entrada ?? "", eout: par.salida ?? "" })
+        : t("«{preset}» puesto como {clase} de «{nombre}»", { preset: presetes[0].preset, clase: presetes[0].clase, nombre: capa.nombre }),
+    );
   }, [registrar, editarEnVivo]);
 
   // reorden del z-order desde el panel de capas, en vivo durante el drag
@@ -1559,7 +1588,12 @@ export function Editor({
           />
         </div>
         <div className={`${efectosAbiertos ? "h-1/2 min-h-0" : "shrink-0"} border-r border-(--glass-border)`}>
-          <PanelBiblioteca onAplicar={aplicarEfecto} abierto={efectosAbiertos} onAlternar={alternarEfectos} />
+          <PanelBiblioteca
+            onAplicar={aplicarPar}
+            tipoSeleccion={composicion.capas.find((c) => c.id === seleccionId)?.tipo ?? null}
+            abierto={efectosAbiertos}
+            onAlternar={alternarEfectos}
+          />
         </div>
       </div>
       <div className="flex min-h-0 flex-col">

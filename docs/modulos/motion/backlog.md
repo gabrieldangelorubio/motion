@@ -13,6 +13,24 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Biblioteca por FAMILIAS con pares in/out (2026-08-28, tanda 12)
+- **Hecho:** (1) la biblioteca de efectos se reorganiza en PESTAÑAS por
+  familia — Textos, Gráficos, Trazos — y cada demo corre sobre la capa que
+  le toca (el título dividido, una ESTRELLA vectorial entera, la línea
+  zigzag): seleccionar una capa salta solo a su familia, y el tracking ya
+  no se ofrece para gráficas (en una capa entera no hace nada — con aviso
+  si igual se intenta por el agente). (2) cada tarjeta es un PAR in/out:
+  toda entrada declara su `salidaPareja` (test lo exige) y la tarjeta trae
+  TRES botones iconográficos — →| entrada · →|→ ambas · |→ salida — que
+  aplican al toque (ambas = un solo undo); el preview del par muestra
+  entrada, reposo y salida en el mismo bucle. Presets nuevos para
+  completar parejas: deslizarFueraDerecha, reducir, remolinoSalida,
+  trackingApretar. (3) la MÁSCARA (recorte) ahora funciona en capas NO
+  texto: forma/vector/media/trazo recortan al bbox de reposo de la capa
+  (con margen por el grosor del borde) — el revelado de una gráfica
+  vectorial por fin «entra bien» (era el reclamo: el clip solo existía en
+  texto). Verificado píxel a píxel (verificar40, 12/12).
+
 ### [HECHO] Feedback de la prueba en vivo (2026-08-28, tanda 11)
 - **Hecho:** (1) whisper corre en un WEB WORKER (`stt-worker.ts` +
   `transcribirConWorker`; el worker va PRECOMPILADO en public/stt-worker.js
