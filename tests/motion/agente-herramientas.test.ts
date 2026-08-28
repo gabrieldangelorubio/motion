@@ -217,7 +217,7 @@ test("definir_pista «numero» solo va en textos con una cifra", () => {
 test("modeloDirector: MOTION_AGENTE_MODELO manda; sin él, la key de Gemini elige flash", async () => {
   const { modeloDirector } = await import("@/lib/motion/agente");
   assert.equal(modeloDirector({}), "claude-opus-5");
-  assert.equal(modeloDirector({ GEMINI_API_KEY: "x" }), "gemini-2.5-flash");
+  assert.equal(modeloDirector({ GEMINI_API_KEY: "x" }), "gemini-3.6-flash");
   assert.equal(modeloDirector({ GEMINI_API_KEY: "x", MOTION_AGENTE_MODELO: "claude-sonnet-5" }), "claude-sonnet-5");
   assert.equal(modeloDirector({ MOTION_AGENTE_MODELO: "gemini-2.5-pro" }), "gemini-2.5-pro");
 });
@@ -227,7 +227,7 @@ test("herramientasParaGemini convierte TODAS las herramientas al formato functio
   const tools = herramientasParaGemini(DEFINICIONES_HERRAMIENTAS as never);
   assert.equal(tools.length, 1);
   const defs = tools[0].functionDeclarations;
-  assert.equal(defs.length, (DEFINICIONES_HERRAMIENTAS as { name: string }[]).length);
+  assert.equal(defs.length, (DEFINICIONES_HERRAMIENTAS as unknown as { name: string }[]).length);
   for (const d of defs) {
     assert.ok(d.name && d.description, `${d.name} sin descripción`);
     assert.ok(d.parameters && typeof d.parameters === "object", `${d.name} sin parameters`);
@@ -239,4 +239,15 @@ test("herramientasParaGemini convierte TODAS las herramientas al formato functio
   for (const clave of ["transformar_texto", "definir_pista", "definir_camara", "definir_entrada"]) {
     assert.ok(nombres.includes(clave), `falta ${clave}`);
   }
+});
+
+test("un modelo de Gemini retirado se reemplaza por el que sugiere el 404 (y el default está al día)", async () => {
+  const { modeloSugerido } = await import("@/lib/motion/agente-gemini");
+  const { modeloDirector } = await import("@/lib/motion/agente");
+  const cuerpo404 = '{ "error": { "code": 404, "message": "This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash for the latest features." } }';
+  assert.equal(modeloSugerido(cuerpo404, "gemini-2.5-flash"), "gemini-3.6-flash");
+  // sin sugerencia (o la misma) no hay reintento
+  assert.equal(modeloSugerido("not found", "gemini-x"), null);
+  assert.equal(modeloSugerido("use models/gemini-x", "gemini-x"), null);
+  assert.equal(modeloDirector({ GEMINI_API_KEY: "k" }), "gemini-3.6-flash");
 });

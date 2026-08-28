@@ -47,6 +47,15 @@ export function herramientasParaGemini(defs: DefHerramienta[]): { functionDeclar
   }];
 }
 
+/** Cuando Gemini retira un modelo devuelve 404 con el reemplazo adentro
+    («Please update your code to use models/gemini-X»): se extrae para
+    reintentar solo — el director no se cae por un rename de Google. */
+export function modeloSugerido(mensaje404: string, modeloActual: string): string | null {
+  const m = /use models\/([a-zA-Z0-9._-]+)/.exec(mensaje404);
+  if (!m || m[1] === modeloActual) return null;
+  return m[1];
+}
+
 /** El loop agéntico contra Gemini. `ejecutar` cierra sobre la composición
     del caller (agente.ts): acá solo se orquesta la conversación. */
 export async function loopGemini(opts: {
@@ -62,7 +71,8 @@ export async function loopGemini(opts: {
   ejecutar: (nombre: string, input: Record<string, unknown>) => { resultado: string; esError?: boolean };
   onEvento?: (evento: EventoAgente) => void;
 }): Promise<{ ok: true; respuesta: string } | { ok: false; error: string }> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(opts.modelo)}:generateContent`;
+  let modeloVivo = opts.modelo;
+  let reintentoModelo = false;
   const tools = herramientasParaGemini(opts.herramientas);
 
   const contents: ContenidoGemini[] = [
@@ -75,6 +85,7 @@ export async function loopGemini(opts: {
 
   for (let iteracion = 0; iteracion < opts.maxIteraciones; iteracion++) {
     const t0 = Date.now();
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modeloVivo)}:generateContent`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json", "x-goog-api-key": opts.apiKey },
@@ -86,6 +97,14 @@ export async function loopGemini(opts: {
     });
     if (!res.ok) {
       const detalle = await res.text().catch(() => "");
+      // modelo retirado: Google manda el reemplazo en el 404 — UN reintento
+      const sugerido = res.status === 404 && !reintentoModelo ? modeloSugerido(detalle, modeloVivo) : null;
+      if (sugerido) {
+        reintentoModelo = true;
+        modeloVivo = sugerido;
+        iteracion--;
+        continue;
+      }
       return { ok: false, error: `Gemini respondió ${res.status}: ${detalle.slice(0, 300)}` };
     }
     const datos = (await res.json()) as {

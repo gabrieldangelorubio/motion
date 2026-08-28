@@ -28,7 +28,7 @@ import { loopGemini, type DefHerramienta } from "@/lib/motion/agente-gemini";
     barato por pedido) y si no, opus. Pura: testeable. */
 export function modeloDirector(env: { MOTION_AGENTE_MODELO?: string; GEMINI_API_KEY?: string }): string {
   if (env.MOTION_AGENTE_MODELO) return env.MOTION_AGENTE_MODELO;
-  return env.GEMINI_API_KEY ? "gemini-2.5-flash" : "claude-opus-5";
+  return env.GEMINI_API_KEY ? "gemini-3.6-flash" : "claude-opus-5";
 }
 const MAX_ITERACIONES = 24;
 
