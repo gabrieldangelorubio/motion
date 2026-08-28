@@ -19,6 +19,7 @@
 import {
   aMono,
   remuestrear,
+  limpiarPalabras,
   oracionesDeTrozos,
   oracionesDePalabras,
   palabrasDeTrozos,
@@ -27,7 +28,10 @@ import {
 
 export type { Transcripcion, Oracion, Palabra } from "@/lib/motion/stt-puro";
 
-const MODELO_DEFAULT = "Xenova/whisper-base";
+// small le gana LEJOS a base con voz sobre música (el caso real: la locución
+// de un case study); si su descarga falla, base sigue siendo el paracaídas.
+const MODELO_DEFAULT = "Xenova/whisper-small";
+const MODELO_RESPALDO = "Xenova/whisper-base";
 const HZ_WHISPER = 16000;
 
 type TrozoCrudo = { text: string; timestamp: [number, number | null] };
@@ -62,20 +66,28 @@ function motor(onProgreso?: (fraccion: number) => void, modelo = MODELO_DEFAULT)
           onProgreso?.(Math.min(1, info.progress / 100));
         }
       };
-      try {
-        const asr = await pipeline("automatic-speech-recognition", modelo, {
-          quantized: true,
-          progress_callback: progreso,
-          revision: "output_attentions",
-        });
-        return asr as unknown as Asr;
-      } catch {
-        const asr = await pipeline("automatic-speech-recognition", modelo, {
-          quantized: true,
-          progress_callback: progreso,
-        });
-        return asr as unknown as Asr;
+      // en orden de preferencia: el modelo pedido con cross-attentions
+      // (timestamps por palabra), sin ellas, y el respaldo chico igual
+      const candidatos: { m: string; revision?: string }[] = [
+        { m: modelo, revision: "output_attentions" },
+        { m: modelo },
+        { m: MODELO_RESPALDO, revision: "output_attentions" },
+        { m: MODELO_RESPALDO },
+      ];
+      let ultimoError: unknown = null;
+      for (const c of candidatos) {
+        try {
+          const asr = await pipeline("automatic-speech-recognition", c.m, {
+            quantized: true,
+            progress_callback: progreso,
+            ...(c.revision ? { revision: c.revision } : {}),
+          });
+          return asr as unknown as Asr;
+        } catch (e) {
+          ultimoError = e;
+        }
       }
+      throw ultimoError instanceof Error ? ultimoError : new Error(String(ultimoError));
     })();
     // un fallo de descarga no envenena el próximo intento
     motorPromesa.catch(() => {
@@ -111,7 +123,9 @@ export async function transcribir(
   const base: OpcionesAsr = { task: "transcribe", chunk_length_s: 30, stride_length_s: 5 };
   try {
     const salida = await asr(pcm, { ...base, return_timestamps: "word" });
-    const palabras = palabrasDeTrozos(salida.chunks ?? [], duracionMs);
+    // los LOOPS de whisper (la misma palabra repetida decenas de veces) se
+    // podan acá: mejor perder una repetición real que entregar el trabón
+    const palabras = limpiarPalabras(palabrasDeTrozos(salida.chunks ?? [], duracionMs));
     if (palabras.length === 0) throw new Error("el modelo no dio palabras");
     return {
       texto: salida.text.trim(),

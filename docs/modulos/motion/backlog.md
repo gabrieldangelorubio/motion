@@ -13,6 +13,13 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Whisper que no se traba (pedido 2026-08-28, tanda 4)
+- **Hecho:** (1) los LOOPS de decodificación (la misma palabra mil veces)
+  se podan en post-proceso puro (`limpiarPalabras`, testeada). (2) el
+  modelo default sube a whisper-SMALL (mucho mejor con voz sobre música,
+  ~250MB la primera vez) con cascada de respaldo small→base. Re-transcribir
+  para aprovecharlo.
+
 ### [HECHO] UX del preview y del carril (pedidos 2026-08-28, tanda 3)
 - **Hecho:** (1) el preview PARA al final por defecto (play desde el final
   rebobina); toggle ⟳ de loop en el transport, y al loopear el audio se

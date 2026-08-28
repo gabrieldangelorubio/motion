@@ -75,6 +75,41 @@ export function palabrasDeTrozos(
   return oracionesDeTrozos(trozos, duracionMs);
 }
 
+/** Limpia los LOOPS de decodificación de Whisper: cuando se traba, mete la
+    misma palabra decenas de veces seguidas (con avances de tiempo casi
+    nulos). Se colapsa una repetición consecutiva idéntica cuando casi no
+    avanza (< `avanceMs` entre inicios) y toda racha idéntica de 4 o más se
+    reduce a una sola — un «no, no, no» legítimo (3 veces, con tiempos
+    reales) sobrevive. */
+export function limpiarPalabras(palabras: Palabra[], avanceMs = 60): Palabra[] {
+  const limpias: Palabra[] = [];
+  let racha = 0;
+  for (const palabra of palabras) {
+    const previa = limpias[limpias.length - 1];
+    const igual = previa !== undefined && previa.texto.toLowerCase() === palabra.texto.toLowerCase();
+    if (igual) {
+      racha++;
+      // casi sin avance = el loop clásico; racha larga = loop aunque avance
+      if (palabra.desdeMs - previa.desdeMs < avanceMs || racha >= 3) {
+        // la racha ya era sospechosa: si venía acumulando, podar a UNA
+        if (racha >= 3) {
+          while (
+            limpias.length >= 2 &&
+            limpias[limpias.length - 2].texto.toLowerCase() === palabra.texto.toLowerCase()
+          ) {
+            limpias.pop();
+          }
+        }
+        continue;
+      }
+    } else {
+      racha = 0;
+    }
+    limpias.push(palabra);
+  }
+  return limpias;
+}
+
 /** Agrupa palabras en ORACIONES legibles: cierra donde la palabra termina
     en puntuación final (. ! ? …) o donde el silencio hasta la próxima
     supera `pausaMs` — las pausas de la locución también son cortes. */

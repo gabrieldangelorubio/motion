@@ -77,3 +77,24 @@ test("oracionesDePalabras agrupa por puntuación final y por PAUSA larga", async
   const conComillas = oracionesDePalabras([p('done!"', 0, 200), p("More", 300, 500)]);
   assert.equal(conComillas.length, 2);
 });
+
+test("limpiarPalabras poda los LOOPS de whisper y perdona la repetición legítima", async () => {
+  const { limpiarPalabras } = await import("@/lib/motion/stt-puro");
+  const p = (texto: string, desdeMs: number) => ({ texto, desdeMs, hastaMs: desdeMs + 200 });
+  // el trabón clásico: la misma palabra decenas de veces casi sin avanzar
+  const loop = limpiarPalabras([
+    p("And", 0),
+    ...Array.from({ length: 25 }, (_, i) => p("works", 1000 + i * 10)),
+    p("fine", 2000),
+  ]);
+  assert.deepEqual(loop.map((x) => x.texto), ["And", "works", "fine"]);
+  // un «no, no, no» legítimo (tres, con tiempos reales) sobrevive
+  const legit = limpiarPalabras([p("no", 0), p("no", 400), p("no", 800), p("way", 1300)]);
+  assert.deepEqual(legit.map((x) => x.texto), ["no", "no", "no", "way"]);
+  // cuatro o más idénticas seguidas = patológico aunque los tiempos avancen
+  const racha = limpiarPalabras([p("go", 0), p("go", 400), p("go", 800), p("go", 1200), p("on", 1700)]);
+  assert.deepEqual(racha.map((x) => x.texto), ["go", "on"]);
+  // mayúsculas no salvan al loop
+  const caso = limpiarPalabras([p("The", 0), p("the", 20), p("cat", 500)]);
+  assert.deepEqual(caso.map((x) => x.texto), ["The", "cat"]);
+});

@@ -240,9 +240,15 @@ sobre el eje global del proyecto (las escenas concatenadas, el orden del
 export), y un CARRIL DE TRANSCRIPCIÓN separado abajo: cada PALABRA
 posicionada donde cae en el tiempo, clickeable (click = saltar ahí, la
 que suena se resalta); la transcripción Whisper ahora AUTODETECTA el
-idioma (antes forzaba "spanish" y destrozaba locución en inglés) y pide
+idioma (antes forzaba "spanish" y destrozaba locución en inglés), usa
+whisper-SMALL (le gana lejos a base con voz sobre música; cascada de
+respaldo: small→base, con y sin cross-attentions) y pide
 timestamps POR PALABRA (export del modelo con cross-attentions, revision
-output_attentions; sin él degrada a oraciones por trozo), las oraciones
+output_attentions; sin él degrada a oraciones por trozo); los LOOPS de
+decodificación de whisper (la misma palabra repetida decenas de veces,
+el «trabón») se PODAN en el post-proceso puro (limpiarPalabras: colapsa
+repeticiones consecutivas sin avance real y rachas de 4+, un «no, no,
+no» legítimo sobrevive), las oraciones
 se agrupan por puntuación y pausas (oracionesDePalabras), y los INICIOS
 de palabra se vuelven IMANES del timeline: al arrastrar spans y
 keyframes, dentro de ~8px de una palabra gana la palabra (los imanes se
@@ -483,7 +489,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **206
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **207
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -530,8 +536,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   escalones quitados de EASINGS_NO_RALOS (saliendo como keyframes ralos a
   AE) → falló exacto el test de horneado denso. (24) corte por pausa de
   oracionesDePalabras quitado y (25) puntuación de cierre sin comillas →
-  cayó exacto el test del agrupador en ambos. Restaurados, 206/206
-  verdes. La tanda de UX del timeline (teclado del modal de recorte,
+  cayó exacto el test del agrupador en ambos. (26) poda de limpiarPalabras
+  apagada → falló exactamente «poda los LOOPS de whisper». Restaurados,
+  207/207 verdes. La tanda de UX del timeline (teclado del modal de recorte,
   imán shift, Alt-dup, drag de palabra, Efectos plegable) se verificó por
   Playwright end-to-end (verificar32/33) — sus checks mostraron rojo
   GENUINO durante el desarrollo (el imán con alcance corto, el carril
