@@ -229,8 +229,9 @@ con panel de RECORTE al importar
 el recorte descarta la transcripción vieja; el panel tiene REPRODUCTOR
 con TECLADO PROPIO (mientras el modal está abierto el editor de atrás no
 recibe teclas — antes espacio le daba play al timeline de abajo): ESPACIO
-reproduce SIEMPRE desde el in (preview del segmento, como en un editor de
-video), I / O fijan in/out en el cursor de escucha, Escape sale; click o
+reproduce desde el CURSOR de escucha (fuera del segmento cae al in —
+probado con Gabriel: seguir el playhead le ganó al «siempre desde el
+in»), I / O fijan in/out en el cursor, Escape sale; click o
 arrastre fuera de las manijas = escuchar desde ahí, frena solo al fin del
 segmento; la «×» sale sin tocar nada; «Recortar» en la franja lo
 reabre— y decodificado a una franja de FORMA DE ONDA arriba del timeline
