@@ -26,6 +26,8 @@ export async function POST(pedido: Request): Promise<Response> {
       snapshot?: string;
       mensaje?: string;
       historial?: TurnoAgente[];
+      /** la locución de la escena: «palabra @ms» por línea (opcional) */
+      contextoAudio?: string;
     };
     if (!cuerpo.snapshot || !cuerpo.mensaje) {
       return Response.json({ error: "Faltan snapshot o mensaje" }, { status: 400 });
@@ -38,7 +40,12 @@ export async function POST(pedido: Request): Promise<Response> {
     }
 
     const composicion = deserializar(cuerpo.snapshot);
-    const res = await dirigirComposicion(composicion, cuerpo.mensaje, cuerpo.historial ?? []);
+    const res = await dirigirComposicion(
+      composicion,
+      cuerpo.mensaje,
+      cuerpo.historial ?? [],
+      typeof cuerpo.contextoAudio === "string" && cuerpo.contextoAudio ? cuerpo.contextoAudio.slice(0, 8000) : undefined,
+    );
     if (!res.ok) {
       return Response.json({ error: res.error }, { status: 503 });
     }

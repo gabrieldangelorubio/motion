@@ -13,6 +13,14 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] El director VE la locución (pedido 2026-08-28, tanda 5)
+- **Hecho:** el chat del agente manda `contextoAudio` («palabra @ ms» en
+  tiempo local de la escena activa) junto al snapshot, y el prompt tiene
+  la regla de sincronizar: el «en» del segmento = el ms de la palabra.
+  Antes el director coreografiaba a ciegas respecto de la voz. Verificado
+  interceptando el POST (verificar35). También: el plugin anota el aviso
+  «los efectos del grupo no viajan» al abrir un grupo con efectos.
+
 ### [HECHO] Whisper que no se traba (pedido 2026-08-28, tanda 4)
 - **Hecho:** (1) los LOOPS de decodificación (la misma palabra mil veces)
   se podan en post-proceso puro (`limpiarPalabras`, testeada). (2) el

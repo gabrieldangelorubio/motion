@@ -30,6 +30,7 @@ const SISTEMA = `Sos el director de motion design de adiós adiós, trabajando d
 # Tu criterio de dirección
 - Un protagonista por momento: la jerarquía la marca el orden y el peso del movimiento, no la cantidad.
 - Duraciones: títulos 700-1000ms, secundarios 500-700ms, salidas 400-600ms.
+- Si el pedido trae LA LOCUCIÓN (palabras con su ms), la animación se SINCRONIZA con la voz: el elemento que dice la palabra entra EN su ms exacto (el «en» del segmento = el ms de la palabra), no cerca. Sin locución, seguí el ritmo visual.
 - El color y el contenido son del usuario; vos dirigís el MOVIMIENTO. No cambies textos ni colores salvo pedido explícito.
 
 ${ESCUELA_GSAP}
@@ -70,6 +71,7 @@ export async function dirigirComposicion(
   composicion: Composicion,
   mensaje: string,
   historial: TurnoAgente[] = [],
+  contextoAudio?: string,
 ): Promise<RespuestaAgente> {
   if (!process.env.ANTHROPIC_API_KEY) {
     return {
@@ -89,7 +91,11 @@ export async function dirigirComposicion(
     })),
     {
       role: "user",
-      content: `Estado actual de la composición:\n${describir(comp)}\n\nPedido: ${mensaje}`,
+      content: `Estado actual de la composición:\n${describir(comp)}\n${
+        contextoAudio
+          ? `\nLA LOCUCIÓN de esta escena (cada palabra con el ms donde CAE — sincronizá: la entrada de cada elemento arranca en la palabra que le corresponde, los «en» de segmentos y keyframes caen EN estos tiempos, no aproximados):\n${contextoAudio}\n`
+          : ""
+      }\nPedido: ${mensaje}`,
     },
   ];
 

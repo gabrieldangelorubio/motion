@@ -362,7 +362,10 @@ reproducís y encuadrás a mano con pan/zoom del lienzo; al terminar,
 `suavizarGrabacion` convierte la toma cruda en pocos keyframes editables:
 media móvil de 350 ms contra el temblor + reducción RDP por canal, extremos
 crudos para que el encuadre inicial y final queden exactos), **el agente
-director de motion** (ruta `/api/motion/agente`: loop agéntico
+director de motion** (ruta `/api/motion/agente`: loop agéntico —
+que además recibe LA LOCUCIÓN de la escena («palabra @ ms» en tiempo
+local, armada desde la transcripción) y tiene la regla de SINCRONIZAR:
+el elemento que dice la palabra entra EN su ms exacto —
 con la API de Claude sobre 13 herramientas incrementales validadas y
 clampeadas — incluye `definir_camara`/`quitar_camara` y los trims — panel
 de chat que aplica cada respuesta como UN paso de undo y

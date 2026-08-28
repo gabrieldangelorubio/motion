@@ -456,6 +456,11 @@ async function nodoAIR(nodo, marco, salida) {
     for (var s = desdeSubgrupo; s < salida.length; s++) {
       salida[s].subgrupo = nodo.name;
     }
+    if (conEfectos && salida.length > desdeSubgrupo) {
+      var primera = salida[desdeSubgrupo];
+      primera.aviso = (primera.aviso ? primera.aviso + " | " : "") +
+        "los efectos del grupo «" + nodo.name + "» no viajan: se importó por partes para poder animarlas";
+    }
     return;
   }
 

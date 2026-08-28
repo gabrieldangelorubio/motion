@@ -25,10 +25,14 @@ type Mensaje = TurnoAgente & { ops?: string[] };
 
 export function PanelAgente({
   obtenerSnapshot,
+  obtenerContextoAudio,
   composicionId,
   onAplicar,
 }: {
   obtenerSnapshot: () => string;
+  /** la locución de la escena (palabra@ms por línea) para que el director
+      SINCRONICE la animación con la voz; undefined = sin transcripción */
+  obtenerContextoAudio?: () => string | undefined;
   composicionId: string;
   /** aplica la composición devuelta (el caller registra el undo) */
   onAplicar: (snapshot: string, ops: string[]) => void;
@@ -103,7 +107,13 @@ export function PanelAgente({
       const res = await fetch("/api/motion/agente", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ composicionId, snapshot: obtenerSnapshot(), mensaje: pedido, historial }),
+        body: JSON.stringify({
+          composicionId,
+          snapshot: obtenerSnapshot(),
+          mensaje: pedido,
+          historial,
+          contextoAudio: obtenerContextoAudio?.(),
+        }),
       });
       const datos = (await res.json()) as { respuesta?: string; snapshot?: string; ops?: string[]; error?: string };
       if (!res.ok || !datos.respuesta || !datos.snapshot) {

@@ -1966,6 +1966,18 @@ export function Editor({
             <div className="min-h-0 shrink-0" style={{ height: altoChat }}>
               <PanelAgente
                 obtenerSnapshot={() => serializar(compRef.current)}
+                obtenerContextoAudio={() => {
+                  // la locución en tiempo LOCAL de la escena activa: el
+                  // director sincroniza la animación con las palabras
+                  const palabras = audio?.transcripcion?.palabras ?? [];
+                  if (palabras.length === 0) return undefined;
+                  const desde = cortesRef.current.find((c) => c.id === escenaActiva)?.desdeMs ?? 0;
+                  const locales = palabras
+                    .map((p) => ({ texto: p.texto, ms: Math.round(p.desdeMs - desde) }))
+                    .filter((p) => p.ms >= 0 && p.ms <= compRef.current.duracion);
+                  if (locales.length === 0) return undefined;
+                  return locales.map((p) => `«${p.texto}» @ ${p.ms}ms`).join("\n");
+                }}
                 composicionId={escenaActiva}
                 onAplicar={(snapshot) => {
                   registrar();
