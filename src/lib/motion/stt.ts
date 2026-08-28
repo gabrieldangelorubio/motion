@@ -181,3 +181,73 @@ export async function transcribir(
     };
   }
 }
+
+/* ——— La versión que NO congela la página ————————————————————————
+   El WASM de whisper mastica segundos enteros: en el hilo principal eso es
+   «Page Unresponsive». Acá el trabajo va a un WEB WORKER (uno solo, vivo
+   entre transcripciones: el pipeline queda calentito) y el hilo de la UI
+   sigue respirando. Si el worker no arranca o revienta, DEGRADA al hilo
+   principal — más lento y congelado, pero nunca roto. */
+
+type MensajeWorker =
+  | { id: number; tipo: "progreso"; fraccion: number }
+  | { id: number; tipo: "listo"; transcripcion: Transcripcion }
+  | { id: number; tipo: "error"; mensaje: string };
+
+let workerStt: Worker | null = null;
+let idPedido = 0;
+
+export function transcribirConWorker(
+  canales: Float32Array[],
+  sampleRate: number,
+  onProgreso?: (fraccion: number) => void,
+  modelo?: string,
+  idioma?: string,
+): Promise<Transcripcion> {
+  const directo = () => transcribir(canales, sampleRate, onProgreso, modelo, idioma);
+  if (typeof Worker === "undefined") return directo();
+  return new Promise((resolver, rechazar) => {
+    try {
+      // el worker viaja PRECOMPILADO en public/ (npm run build:worker →
+      // esbuild empaqueta stt-worker.ts con el dist de transformers): el
+      // patrón new Worker(new URL(...)) colgaba el build de Turbopack al
+      // intentar armar el grafo del worker. Si stt.ts o stt-puro.ts
+      // cambian, re-correr build:worker (queda commiteado).
+      workerStt ??= new Worker("/stt-worker.js");
+    } catch {
+      directo().then(resolver, rechazar);
+      return;
+    }
+    const worker = workerStt;
+    const id = ++idPedido;
+    let terminado = false;
+    const alMensaje = (e: MessageEvent<MensajeWorker>) => {
+      const m = e.data;
+      if (!m || m.id !== id) return;
+      if (m.tipo === "progreso") {
+        onProgreso?.(m.fraccion);
+        return;
+      }
+      terminado = true;
+      worker.removeEventListener("message", alMensaje);
+      worker.removeEventListener("error", alError);
+      if (m.tipo === "listo") resolver(m.transcripcion);
+      else rechazar(new Error(m.mensaje));
+    };
+    const alError = () => {
+      if (terminado) return;
+      terminado = true;
+      worker.removeEventListener("message", alMensaje);
+      worker.removeEventListener("error", alError);
+      // el worker murió (bundle, WASM, memoria): un solo intento degradado
+      // en el hilo principal — los canales NO se transfirieron, siguen vivos
+      workerStt?.terminate();
+      workerStt = null;
+      directo().then(resolver, rechazar);
+    };
+    worker.addEventListener("message", alMensaje);
+    worker.addEventListener("error", alError);
+    // clonar (sin transferir): si el worker falla, el fallback necesita el PCM
+    worker.postMessage({ id, canales, sampleRate, modelo, idioma });
+  });
+}

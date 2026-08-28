@@ -686,13 +686,17 @@ export function Editor({
       const ctxAudio = new AudioContext();
       const buffer = await ctxAudio.decodeAudioData(registro.datos.slice(0));
       void ctxAudio.close().catch(() => undefined);
-      const { transcribir } = await import("@/lib/motion/stt");
+      // en WORKER: whisper masticando en el hilo principal congelaba la
+      // página entera («Page Unresponsive») durante la transcripción
+      const { transcribirConWorker } = await import("@/lib/motion/stt");
       setTranscribiendo(t("Transcribiendo…"));
       const recT = registro.recorte;
       const t0 = recT ? Math.max(0, Math.round((recT.desdeMs / 1000) * buffer.sampleRate)) : 0;
       const t1 = recT ? Math.min(buffer.length, Math.round((recT.hastaMs / 1000) * buffer.sampleRate)) : buffer.length;
-      const transcripcion = await transcribir(
-        Array.from({ length: buffer.numberOfChannels }, (_, i) => buffer.getChannelData(i).subarray(t0, Math.max(t0 + 1, t1))),
+      // slice (no subarray): al worker viaja SOLO el segmento copiado — un
+      // subarray clonaría el buffer entero del archivo por cada canal
+      const transcripcion = await transcribirConWorker(
+        Array.from({ length: buffer.numberOfChannels }, (_, i) => buffer.getChannelData(i).slice(t0, Math.max(t0 + 1, t1))),
         buffer.sampleRate,
         (f) => setTranscribiendo(t("Bajando el modelo… {p}%", { p: Math.round(f * 100) })),
       );

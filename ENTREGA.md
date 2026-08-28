@@ -253,7 +253,11 @@ idioma (antes forzaba "spanish" y destrozaba locución en inglés), usa
 whisper-SMALL (le gana lejos a base con voz sobre música; cascada de
 respaldo: small→base, con y sin cross-attentions) y pide
 timestamps POR PALABRA (export del modelo con cross-attentions, revision
-output_attentions; sin él degrada a oraciones por trozo) con el ALINEADOR
+output_attentions; sin él degrada a oraciones por trozo), corre en un WEB
+WORKER precompilado (public/stt-worker.js via `npm run build:worker`; el
+hilo de la UI late a 60fps mientras el WASM mastica — antes «Page
+Unresponsive» — y si el worker no arranca degrada al hilo principal) y
+lleva el ALINEADOR
 PARCHEADO (bug de transformers.js 2.17: pasa `num_frames` en frames del
 mel donde la máscara del DTW vive en frames del encoder — la mitad;
 whisper oficial hace `num_frames // 2` y el port JS lo perdió, así que en

@@ -13,6 +13,22 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Feedback de la prueba en vivo (2026-08-28, tanda 11)
+- **Hecho:** (1) whisper corre en un WEB WORKER (`stt-worker.ts` +
+  `transcribirConWorker`; el worker va PRECOMPILADO en public/stt-worker.js
+  — `npm run build:worker`, esbuild devDep — porque `new Worker(new URL())`
+  COLGABA el build de Turbopack; un worker vivo entre transcripciones y si
+  no arranca degrada al hilo principal):
+  se acabó el «Page Unresponsive» durante la transcripción — la UI late a
+  60fps mientras el WASM mastica. El segmento viaja COPIADO con slice (un
+  subarray clonaba el buffer entero del archivo por canal). (2) el GUTTER
+  del timeline pliega los subgrupos IGUAL que las pistas: antes el gutter
+  listaba las capas planas y con un grupo plegado («Group 59 · 9») los
+  nombres quedaban corridos de sus barras — ahora misma fila plegada
+  («▽ nombre · N», click selecciona el grupo) y al desplegar se abren los
+  dos lados juntos. (3) el toggle de loop del preview usa un ícono SVG del
+  registro (antes un glifo ⟳ chiquito y descentrado).
+
 ### [HECHO] VECTORES DE VERDAD: Figma → motor → AE sin rasterizar (2026-08-28, tanda 10)
 - **Hecho (recetario AEUX, Apache 2.0, reescrito de cero):** capa nueva
   `vector` (path SVG + relleno + regla even-odd + borde). El plugin (v7) ya

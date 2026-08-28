@@ -37,6 +37,14 @@ const ICONOS = {
       <path d="M8.5 5.5v13M15.5 5.5v13" strokeWidth={2.2} />
     </svg>
   ),
+  loop: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M4.5 12a7.5 7.5 0 0 1 12.9-5.2l2.1 2" />
+      <path d="M19.5 4.2V9h-4.8" />
+      <path d="M19.5 12a7.5 7.5 0 0 1-12.9 5.2l-2.1-2" />
+      <path d="M4.5 19.8V15h4.8" />
+    </svg>
+  ),
   cuadroAtras: (p: IconoProps) => (
     <svg {...base(p)} aria-hidden>
       <path d="M18 6l-7 6 7 6zM7 6v12" />

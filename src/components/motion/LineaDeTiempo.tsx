@@ -578,7 +578,7 @@ export function LineaDeTiempo({
         {onLoop && (
           <ConPista pista={loop ? t("Loop puesto: al terminar vuelve a empezar (con sonido)") : t("Sin loop: la escena se para en el último frame")}>
             <BotonIcono tam={28} etiqueta={t("Loop del preview")} activo={loop} onClick={onLoop}>
-              <span aria-hidden className="text-[13px] leading-none">⟳</span>
+              <Icono nombre="loop" width={14} height={14} />
             </BotonIcono>
           </ConPista>
         )}
@@ -649,24 +649,52 @@ export function LineaDeTiempo({
       {/* nombres en un gutter propio: un span nunca puede pisar el nombre */}
       <div className="mx-3 mb-3 flex min-h-0 flex-1 overflow-y-auto">
         <div className="w-36 shrink-0 pr-2">
-          {composicion.capas.map((capa) => {
-            const activa = seleccionId === capa.id || seleccionIds.includes(capa.id);
-            return (
-              <button
-                key={capa.id}
-                type="button"
-                onClick={(e) =>
-                  e.shiftKey && onAlternarSeleccion ? onAlternarSeleccion(capa.id) : onSeleccionar(capa.id)
-                }
-                className={[
-                  "relative mb-1 flex h-9 w-full items-center rounded-control pl-2.5 text-left",
-                  activa ? "bg-ink/[0.08]" : "hover:bg-ink/[0.04]",
-                ].join(" ")}
-              >
-                <span className={["absolute inset-y-1 left-0 w-0.5 rounded-full", activa ? "bg-acento" : "bg-transparent"].join(" ")} />
-                <span className="min-w-0 truncate text-xs text-foreground/70">{capa.nombre}</span>
-              </button>
-            );
+          {/* MISMAS filas que las pistas de la derecha (subgrupos plegados
+              incluidos): si acá hubiera una fila por capa plana, con un
+              grupo plegado los nombres quedarían corridos de sus barras */}
+          {filasDeCapas(composicion.capas).flatMap((fila) => {
+            const nombreDeCapa = (capa: (typeof composicion.capas)[number], anidada: boolean) => {
+              const activa = seleccionId === capa.id || seleccionIds.includes(capa.id);
+              return (
+                <button
+                  key={capa.id}
+                  type="button"
+                  onClick={(e) =>
+                    e.shiftKey && onAlternarSeleccion ? onAlternarSeleccion(capa.id) : onSeleccionar(capa.id)
+                  }
+                  className={[
+                    "relative mb-1 flex h-9 w-full items-center rounded-control text-left",
+                    anidada ? "pl-5" : "pl-2.5",
+                    activa ? "bg-ink/[0.08]" : "hover:bg-ink/[0.04]",
+                  ].join(" ")}
+                >
+                  <span className={["absolute inset-y-1 left-0 w-0.5 rounded-full", activa ? "bg-acento" : "bg-transparent"].join(" ")} />
+                  <span className="min-w-0 truncate text-xs text-foreground/70">{capa.nombre}</span>
+                </button>
+              );
+            };
+            if (fila.tipo === "grupo") {
+              const ids = fila.capas.map((c) => c.id);
+              const abierto = gruposAbiertos.includes(fila.id);
+              const algunaActiva = ids.some((id) => id === seleccionId || seleccionIds.includes(id));
+              const filaGrupo = (
+                <button
+                  key={`gutter-${fila.id}`}
+                  type="button"
+                  onClick={() => onSeleccionarVarias?.(ids)}
+                  title={t("Grupo «{nombre}»: click selecciona sus {n} capas; se despliega con la flechita de su barra", { nombre: fila.nombre, n: fila.capas.length })}
+                  className={[
+                    "relative mb-1 flex h-9 w-full items-center rounded-control pl-2.5 text-left",
+                    algunaActiva ? "bg-ink/[0.08]" : "hover:bg-ink/[0.04]",
+                  ].join(" ")}
+                >
+                  <span className={["absolute inset-y-1 left-0 w-0.5 rounded-full", algunaActiva ? "bg-acento" : "bg-transparent"].join(" ")} />
+                  <span className="min-w-0 truncate text-xs text-foreground/50">▽ {fila.nombre} · {fila.capas.length}</span>
+                </button>
+              );
+              return [filaGrupo, ...(abierto ? fila.capas.map((c) => nombreDeCapa(c, true)) : [])];
+            }
+            return [nombreDeCapa(fila.capa, false)];
           })}
           <button
             type="button"
