@@ -110,6 +110,32 @@ export function limpiarPalabras(palabras: Palabra[], avanceMs = 60): Palabra[] {
   return limpias;
 }
 
+/** Mueve la palabra `indice` a `desdeMs` (misma duración) y devuelve la
+    lista ORDENADA por tiempo — el orden del array siempre es el orden
+    temporal: sin esto, una palabra corrida detrás de otra rompe los anchos
+    del carril y queda inagarrable. */
+export function moverPalabraLista(palabras: Palabra[], indice: number, desdeMs: number): Palabra[] {
+  const p = palabras[indice];
+  if (!p) return palabras;
+  const dur = p.hastaMs - p.desdeMs;
+  const desde = Math.max(0, desdeMs);
+  const nuevas = palabras.map((x, i) => (i === indice ? { ...x, desdeMs: desde, hastaMs: desde + dur } : x));
+  return nuevas.sort((a, b) => a.desdeMs - b.desdeMs);
+}
+
+/** Inserta una palabra nueva EN ORDEN temporal (whisper se la olvidó, o el
+    corrector la quiere a mano). */
+export function agregarPalabraLista(palabras: Palabra[], palabra: Palabra): Palabra[] {
+  return [...palabras, palabra].sort((a, b) => a.desdeMs - b.desdeMs);
+}
+
+/** Renombra la palabra `indice`; un texto vacío la deja como estaba. */
+export function renombrarPalabraLista(palabras: Palabra[], indice: number, texto: string): Palabra[] {
+  const limpio = texto.trim();
+  if (!limpio || !palabras[indice]) return palabras;
+  return palabras.map((x, i) => (i === indice ? { ...x, texto: limpio } : x));
+}
+
 /** Agrupa palabras en ORACIONES legibles: cierra donde la palabra termina
     en puntuación final (. ! ? …) o donde el silencio hasta la próxima
     supera `pausaMs` — las pausas de la locución también son cortes. */

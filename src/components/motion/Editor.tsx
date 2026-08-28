@@ -69,6 +69,8 @@ import {
   type RecorteAudio as RecorteAudioTipo,
 } from "@/lib/motion/audio-guardado";
 import { RecorteAudio } from "@/components/motion/RecorteAudio";
+import { EditarPalabras } from "@/components/motion/EditarPalabras";
+import { oracionesDePalabras, type Palabra } from "@/lib/motion/stt-puro";
 import { cortesDeEscenas, duracionDesdeAudio, escenaEnPunto } from "@/lib/motion/audio-puro";
 import { encajarMedia } from "@/lib/motion/media-puro";
 import { suavizarGrabacion, type MuestraCamara } from "@/lib/motion/suavizar-puro";
@@ -703,32 +705,23 @@ export function Editor({
     }
   }, [composicionId]);
 
-  // Corregir a mano DÓNDE cae una palabra de la transcripción (whisper a
-  // veces la corre): se mueve entera (misma duración) y PERSISTE junto al
-  // audio — los imanes del timeline se actualizan solos.
-  const moverPalabra = useCallback(
-    (indice: number, desdeMs: number) => {
+  // Corregir la transcripción se hace en el MODAL de palabras («Palabras» en
+  // la franja): mover, borrar, renombrar y agregar con undo local. Al guardar,
+  // la lista llega acá ya ordenada; las oraciones se recalculan de las
+  // palabras y TODO persiste junto al audio — los imanes del timeline y la
+  // locución que ve el agente se actualizan solos.
+  const [editandoPalabras, setEditandoPalabras] = useState(false);
+  const guardarPalabras = useCallback(
+    (palabras: Palabra[]) => {
+      setEditandoPalabras(false);
       setAudio((previo) => {
-        const palabras = previo?.transcripcion?.palabras;
-        if (!previo || !previo.transcripcion || !palabras?.[indice]) return previo;
-        const p = palabras[indice];
-        const dur = p.hastaMs - p.desdeMs;
-        const nuevas = palabras.map((x, i) => (i === indice ? { ...x, desdeMs, hastaMs: desdeMs + dur } : x));
-        const transcripcion = { ...previo.transcripcion, palabras: nuevas };
-        void guardarTranscripcion(composicionId, transcripcion);
-        return { ...previo, transcripcion };
-      });
-    },
-    [composicionId],
-  );
-
-  // Borrar una palabra que whisper inventó (la × del carril): persiste.
-  const borrarPalabra = useCallback(
-    (indice: number) => {
-      setAudio((previo) => {
-        const palabras = previo?.transcripcion?.palabras;
-        if (!previo || !previo.transcripcion || !palabras?.[indice]) return previo;
-        const transcripcion = { ...previo.transcripcion, palabras: palabras.filter((_, i) => i !== indice) };
+        if (!previo) return previo;
+        const oraciones = oracionesDePalabras(palabras);
+        const transcripcion = {
+          texto: oraciones.map((o) => o.texto).join(" "),
+          oraciones,
+          palabras,
+        };
         void guardarTranscripcion(composicionId, transcripcion);
         return { ...previo, transcripcion };
       });
@@ -1892,8 +1885,7 @@ export function Editor({
             onQuitar={quitarAudio}
             onRecortarAudio={() => setRecortando(true)}
             onTranscribir={() => void transcribirAudio()}
-            onMoverPalabra={moverPalabra}
-            onBorrarPalabra={borrarPalabra}
+            onEditarPalabras={audio.transcripcion ? () => setEditandoPalabras(true) : undefined}
             transcribiendo={transcribiendo}
           />
         )}
@@ -1903,6 +1895,13 @@ export function Editor({
             onConfirmar={(desdeMs, hastaMs) => void aplicarRecorte({ desdeMs, hastaMs })}
             onUsarTodo={() => void aplicarRecorte(undefined)}
             onCerrar={() => setRecortando(false)}
+          />
+        )}
+        {audio && editandoPalabras && (
+          <EditarPalabras
+            audio={audio}
+            onGuardar={guardarPalabras}
+            onCerrar={() => setEditandoPalabras(false)}
           />
         )}
         <LineaDeTiempo

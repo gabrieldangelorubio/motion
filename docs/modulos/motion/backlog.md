@@ -13,6 +13,20 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Modal «Palabras»: corregir la transcripción sin miedo (2026-08-28, tanda 8)
+- **Hecho:** la edición de palabras se muda del carril chico a un MODAL
+  propio («Palabras» en la franja, estilo recorte): onda del segmento con
+  ticks de cada «in», chips grandes en dos filas — arrastrar corrige dónde
+  cae (la lista se REORDENA por tiempo: se acabaron las palabras
+  inagarrables al cruzarlas), doble click renombra, × o Supr borra, doble
+  click en la onda (o «+ Palabra en el cursor») agrega la que whisper se
+  olvidó, y Ctrl/Cmd+Z DESHACE todo dentro del modal — nada se pierde para
+  siempre ni persiste hasta «Guardar» (que además recalcula las oraciones
+  desde las palabras). Teclado con captura: espacio escucha desde el cursor
+  sin tocar el editor de atrás. El carril de la franja queda SOLO lectura
+  (click = saltar). Helpers puros `moverPalabraLista` / `agregarPalabraLista`
+  / `renombrarPalabraLista` con tests + sabotaje (verificar36: 16/16).
+
 ### [HECHO] Diagnóstico del import a la vista (2026-08-28, tanda 7)
 - **Hecho:** el toast «Importado con N avisos» ahora DESPLIEGA la lista
   completa (qué capa se rasterizó y por qué, con × para cerrar): el

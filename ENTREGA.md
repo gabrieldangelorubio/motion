@@ -263,11 +263,20 @@ donde está la animación, y ALT/OPTION arrastrando un keyframe o una pose
 de cámara DUPLICA (nace una copia con el mismo valor/easing/hold y el
 gesto la arrastra; el original no se toca; un paso de undo);
 «Re-transcribir» rehace una transcripción vieja (sin palabras o con el
-idioma forzado); las palabras se CORRIGEN A MANO: cada una es un
-HITO de entrada (el «in» de la frase, un tick sin caja de duración) que
-se ARRASTRA para corregir dónde cae y se BORRA con la × del hover si
-whisper la inventó — ambos ajustes PERSISTEN junto al audio — y el
-carril comparte columna y ancho con la onda, así cada palabra cae
+idioma forzado); las palabras se CORRIGEN en el MODAL «Palabras» (estilo
+recorte, con la onda del segmento y ticks de cada «in»): cada palabra es
+un HITO de entrada (el «in» de la frase, un tick sin caja de duración) y
+en el modal los chips grandes en dos filas se ARRASTRAN para corregir
+dónde caen (la lista se REORDENA por tiempo: cruzar una palabra sobre
+otra ya no la deja inagarrable), doble click RENOMBRA, × o Supr BORRA,
+doble click en la onda (o «+ Palabra en el cursor») AGREGA la que
+whisper se olvidó, y Ctrl/Cmd+Z DESHACE dentro del modal — nada se
+pierde para siempre ni persiste hasta «Guardar», que reordena, recalcula
+las oraciones desde las palabras y guarda todo junto al audio (Cancelar
+o Escape no tocan nada; espacio escucha desde el cursor con teclado de
+captura, sin darle play al editor de atrás); el carril de la franja
+queda SOLO lectura (click = saltar a la palabra) y comparte columna y
+ancho con la onda, así cada palabra cae
 exactamente debajo de su lugar (antes el carril era más ancho que la
 onda y todo quedaba corrido); click en la franja salta a ese punto —cambiando de
 escena si hace falta—, arrastrar un corte ajusta la duración de la
@@ -496,7 +505,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **208
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **211
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -547,11 +556,16 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   apagada → falló exactamente «poda los LOOPS de whisper». (27) chequeo
   del sello del plugin sin efecto → falló exacto (y el mismo test ata el
   VERSION_PLUGIN de code.js al PLUGIN_ESPERADO del import: no divergen en
-  silencio). Restaurados, 208/208 verdes. La tanda de UX del timeline (teclado del modal de recorte,
+  silencio). (28) reorden de moverPalabraLista quitado (el fix del chip
+  inagarrable) → falló exactamente «el array queda en orden temporal».
+  Restaurados, 211/211 verdes. La tanda de UX del timeline (teclado del modal de recorte,
   imán shift, Alt-dup, drag de palabra, Efectos plegable) se verificó por
   Playwright end-to-end (verificar32/33) — sus checks mostraron rojo
   GENUINO durante el desarrollo (el imán con alcance corto, el carril
-  desalineado de la onda) antes de quedar verdes: discriminan.
+  desalineado de la onda) antes de quedar verdes: discriminan; el modal
+  «Palabras» cerró con verificar36 (16/16: mover con reorden y re-mover,
+  renombrar, agregar, Supr+Ctrl-Z, Guardar persiste tras recarga, Escape
+  no persiste).
 
 ## Qué necesita cablearse de su lado
 

@@ -98,3 +98,37 @@ test("limpiarPalabras poda los LOOPS de whisper y perdona la repetición legíti
   const caso = limpiarPalabras([p("The", 0), p("the", 20), p("cat", 500)]);
   assert.deepEqual(caso.map((x) => x.texto), ["The", "cat"]);
 });
+
+/* ——— Edición manual de la lista de palabras (el modal «Palabras») ———— */
+
+test("moverPalabraLista corre la palabra ENTERA y reordena: el array queda en orden temporal", async () => {
+  const { moverPalabraLista } = await import("@/lib/motion/stt-puro");
+  const p = (texto: string, desdeMs: number) => ({ texto, desdeMs, hastaMs: desdeMs + 200 });
+  const lista = [p("one", 0), p("two", 1000), p("three", 2000)];
+  // «three» se va ANTES de «two»: sin reorden quedaría inagarrable en el carril
+  const movida = moverPalabraLista(lista, 2, 500);
+  assert.deepEqual(movida.map((x) => x.texto), ["one", "three", "two"]);
+  assert.deepEqual(movida[1], { texto: "three", desdeMs: 500, hastaMs: 700 }); // misma duración
+  // no clava tiempos negativos
+  assert.equal(moverPalabraLista(lista, 0, -300)[0].desdeMs, 0);
+  // índice inexistente = intacta
+  assert.equal(moverPalabraLista(lista, 9, 500), lista);
+  // la original no se toca (pura)
+  assert.equal(lista[2].desdeMs, 2000);
+});
+
+test("agregarPalabraLista inserta EN ORDEN temporal", async () => {
+  const { agregarPalabraLista } = await import("@/lib/motion/stt-puro");
+  const p = (texto: string, desdeMs: number) => ({ texto, desdeMs, hastaMs: desdeMs + 200 });
+  const lista = agregarPalabraLista([p("one", 0), p("three", 2000)], p("two", 1000));
+  assert.deepEqual(lista.map((x) => x.texto), ["one", "two", "three"]);
+});
+
+test("renombrarPalabraLista recorta espacios y un texto vacío no cambia nada", async () => {
+  const { renombrarPalabraLista } = await import("@/lib/motion/stt-puro");
+  const p = (texto: string, desdeMs: number) => ({ texto, desdeMs, hastaMs: desdeMs + 200 });
+  const lista = [p("one", 0), p("dos", 1000)];
+  assert.equal(renombrarPalabraLista(lista, 1, "  two ")[1].texto, "two");
+  assert.equal(renombrarPalabraLista(lista, 1, "   "), lista);
+  assert.equal(renombrarPalabraLista(lista, 7, "x"), lista);
+});
