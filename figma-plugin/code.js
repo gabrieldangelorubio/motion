@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 3;
+var VERSION_PLUGIN = 4;
 
 function aHex(color) {
   var c = function (v) {

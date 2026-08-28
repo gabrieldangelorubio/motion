@@ -13,6 +13,13 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Sello de versión del plugin (2026-08-28, tanda 6)
+- **Hecho:** el JSON del plugin lleva `plugin: 4` y el import AVISA con
+  instrucciones cuando el JSON salió de un code.js viejo (la causa clásica
+  de «el fix del plugin no anda» — las estrellas seguían llegando
+  aplanadas). Un test ata `VERSION_PLUGIN` del code.js con
+  `PLUGIN_ESPERADO` del import: no pueden divergir en silencio.
+
 ### [HECHO] El director VE la locución (pedido 2026-08-28, tanda 5)
 - **Hecho:** el chat del agente manda `contextoAudio` («palabra @ ms» en
   tiempo local de la escena activa) junto al snapshot, y el prompt tiene

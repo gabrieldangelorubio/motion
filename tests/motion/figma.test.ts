@@ -239,3 +239,19 @@ test("normalizarFigma pide reajuste cuando Figma renderizó MÁS líneas que las
   const explicito = normalizarFigma({ ...base, nodos: [nodoTexto("ARGENTINA\nFOOTBALL\nCULTURE", undefined)] });
   assert.equal(explicito.reajustes.length, 0);
 });
+
+test("avisoDePluginViejo: el sello delata un code.js desactualizado en Figma", async () => {
+  const { avisoDePluginViejo, PLUGIN_ESPERADO } = await import("@/lib/motion/figma-puro");
+  // sin sello (JSON de un plugin anterior al sello) → aviso con instrucciones
+  const sinSello = avisoDePluginViejo({ origen: "figma", version: 1, pantallas: [] });
+  assert.ok(sinSello && /plugin VIEJO/.test(sinSello) && /manifest/.test(sinSello));
+  // sello menor → aviso; sello al día → silencio
+  assert.ok(avisoDePluginViejo({ plugin: PLUGIN_ESPERADO - 1 }));
+  assert.equal(avisoDePluginViejo({ plugin: PLUGIN_ESPERADO }), null);
+  assert.equal(avisoDePluginViejo({ plugin: PLUGIN_ESPERADO + 1 }), null);
+  // y el code.js del repo lleva EXACTAMENTE el sello esperado
+  const fs = await import("node:fs");
+  const codigo = fs.readFileSync("figma-plugin/code.js", "utf8");
+  const m = /var VERSION_PLUGIN = (\d+);/.exec(codigo);
+  assert.equal(Number(m?.[1]), PLUGIN_ESPERADO, "code.js y PLUGIN_ESPERADO van juntos");
+});

@@ -172,6 +172,20 @@ export function validarImportFigma(datos: unknown): datos is ImportFigma {
   );
 }
 
+/** La versión del plugin que este build espera: el JSON exportado lleva el
+    sello `plugin: N` y un sello menor delata un plugin desactualizado en
+    Figma (la causa clásica de «el fix no anda»: el code.js viejo). */
+export const PLUGIN_ESPERADO = 4;
+
+/** El aviso de plugin viejo, o null si el sello está al día. */
+export function avisoDePluginViejo(datos: unknown): string | null {
+  const d = datos as { plugin?: unknown };
+  if (typeof d !== "object" || d === null) return null;
+  const sello = typeof d.plugin === "number" ? d.plugin : 0;
+  if (sello >= PLUGIN_ESPERADO) return null;
+  return `este JSON salió de un plugin VIEJO (v${sello || "sin sello"}, se espera v${PLUGIN_ESPERADO}): en Figma re-importá figma-plugin/manifest.json (Plugins → Development → Import plugin from manifest…) y volvé a exportar el frame`;
+}
+
 /** Normaliza pegar UNA pantalla o un LOTE a la misma lista de pantallas. */
 export function pantallasDeImport(datos: unknown): ImportFigma[] | null {
   if (validarImportFigma(datos)) return [datos];

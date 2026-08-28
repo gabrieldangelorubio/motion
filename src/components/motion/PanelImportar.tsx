@@ -12,7 +12,7 @@
 
 import { useState } from "react";
 import type { ImportFigma, ResultadoImport } from "@/lib/motion/figma-puro";
-import { normalizarFigma, offsetsDeLote, pantallasDeImport } from "@/lib/motion/figma-puro";
+import { normalizarFigma, offsetsDeLote, pantallasDeImport, avisoDePluginViejo } from "@/lib/motion/figma-puro";
 import { t } from "@/lib/i18n/stub";
 import { Etiqueta } from "@/components/ui/Etiqueta";
 
@@ -47,7 +47,12 @@ export function PanelImportar({
         return;
       }
       const offsets = offsetsDeLote(pantallas);
-      setPrevia(pantallas.map((p, i) => ({ resultado: normalizarFigma(p), ...offsets[i] })));
+      const nueva = pantallas.map((p, i) => ({ resultado: normalizarFigma(p), ...offsets[i] }));
+      // el sello del plugin: un JSON exportado con code.js viejo lo dice ACÁ
+      // (la causa clásica de «el fix del plugin no anda»)
+      const viejo = avisoDePluginViejo(datos);
+      if (viejo && nueva.length > 0) nueva[0].resultado.avisos.unshift(viejo);
+      setPrevia(nueva);
     } catch {
       setError(t("El texto pegado no es un JSON válido"));
     }

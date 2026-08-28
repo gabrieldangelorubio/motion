@@ -495,7 +495,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **207
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **208
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -543,8 +543,10 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   AE) → falló exacto el test de horneado denso. (24) corte por pausa de
   oracionesDePalabras quitado y (25) puntuación de cierre sin comillas →
   cayó exacto el test del agrupador en ambos. (26) poda de limpiarPalabras
-  apagada → falló exactamente «poda los LOOPS de whisper». Restaurados,
-  207/207 verdes. La tanda de UX del timeline (teclado del modal de recorte,
+  apagada → falló exactamente «poda los LOOPS de whisper». (27) chequeo
+  del sello del plugin sin efecto → falló exacto (y el mismo test ata el
+  VERSION_PLUGIN de code.js al PLUGIN_ESPERADO del import: no divergen en
+  silencio). Restaurados, 208/208 verdes. La tanda de UX del timeline (teclado del modal de recorte,
   imán shift, Alt-dup, drag de palabra, Efectos plegable) se verificó por
   Playwright end-to-end (verificar32/33) — sus checks mostraron rojo
   GENUINO durante el desarrollo (el imán con alcance corto, el carril
