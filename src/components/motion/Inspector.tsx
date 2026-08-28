@@ -330,6 +330,23 @@ export function Inspector({
         </section>
       )}
 
+      {capa.tipo === "vector" && capa.trazoColor && (
+        <section className="border-t border-(--glass-border) px-3 py-3">
+          <Etiqueta className="mb-2">{t("Borde del vector")}</Etiqueta>
+          <div className="grid grid-cols-2 gap-2">
+            <CampoNumero
+              etiqueta={t("Grosor")}
+              valor={capa.trazoGrosor ?? 1}
+              min={0.5}
+              paso={0.5}
+              sufijo="px"
+              onInicio={onCheckpoint}
+              onCambio={(trazoGrosor) => editar({ trazoGrosor })}
+            />
+          </div>
+        </section>
+      )}
+
       {capa.tipo === "media" && (
         <section className="border-t border-(--glass-border) px-3 py-3">
           <Etiqueta className="mb-2">{t("Imagen")}</Etiqueta>

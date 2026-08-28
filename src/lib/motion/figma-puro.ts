@@ -16,7 +16,7 @@
 import { MEZCLAS, type Capa, type Composicion, type MezclaCapa } from "@/lib/motion/modelo";
 
 export type NodoFigma = {
-  tipo: "texto" | "rect" | "elipse" | "imagen" | "trazo";
+  tipo: "texto" | "rect" | "elipse" | "imagen" | "trazo" | "vector";
   nombre: string;
   /** top-left en px del frame */
   x: number;
@@ -51,6 +51,16 @@ export type NodoFigma = {
   imagen?: { dataUri: string };
   /** vector con stroke y sin fill: candidato a animarse con trim (trazar/retraer) */
   trazo?: { path: string; color: string; grosor: number; remate?: "redondo" | "recto" };
+  /** vector REAL (estrella, polígono, path, boolean combinada): el path SVG
+      viaja tal cual — el motor lo pinta con Path2D y AE lo recibe editable */
+  vector?: {
+    path: string;
+    relleno?: string;
+    reglaRelleno?: "nonzero" | "evenodd";
+    trazoColor?: string;
+    trazoGrosor?: number;
+    remate?: "redondo" | "recto";
+  };
   /** nombre del grupo de Figma que contenía este nodo (el más externo
       debajo del frame): el editor lo pliega y AE lo precompone */
   subgrupo?: string;
@@ -175,7 +185,7 @@ export function validarImportFigma(datos: unknown): datos is ImportFigma {
 /** La versión del plugin que este build espera: el JSON exportado lleva el
     sello `plugin: N` y un sello menor delata un plugin desactualizado en
     Figma (la causa clásica de «el fix no anda»: el code.js viejo). */
-export const PLUGIN_ESPERADO = 6;
+export const PLUGIN_ESPERADO = 7;
 
 /** El aviso de plugin viejo, o null si el sello está al día. */
 export function avisoDePluginViejo(datos: unknown): string | null {
@@ -371,6 +381,24 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
         // el largo real lo mide el editor al importar (necesita el DOM de SVG);
         // 0 = «sin medir»: pintar degrada a trazo completo, nunca rompe
         largo: 0,
+        x: nodo.x + nodo.ancho / 2,
+        y: nodo.y + nodo.alto / 2,
+      });
+      return;
+    }
+
+    if (nodo.tipo === "vector" && nodo.vector) {
+      capas.push({
+        ...base,
+        tipo: "vector",
+        path: nodo.vector.path,
+        ancho: nodo.ancho,
+        alto: nodo.alto,
+        relleno: nodo.vector.relleno,
+        reglaRelleno: nodo.vector.reglaRelleno,
+        trazoColor: nodo.vector.trazoColor,
+        trazoGrosor: nodo.vector.trazoGrosor,
+        remate: nodo.vector.remate,
         x: nodo.x + nodo.ancho / 2,
         y: nodo.y + nodo.alto / 2,
       });

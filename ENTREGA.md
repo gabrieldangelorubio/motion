@@ -98,7 +98,15 @@ entero; un escalonado puesto a mano, incluso 0 explícito, siempre manda),
 fill llegan como path animable; presets `trazar`/`retraer`/`borrar` y
 propiedades `trazoInicio`/`trazoFin` 0–1 keyframeables — implementado con
 `setLineDash`/`lineDashOffset` sobre el largo real medido al importar, y un
-trazo sin medir degrada a entero), **ESCENAS** (la jerarquía de arriba: proyecto → escenas → pantallas →
+trazo sin medir degrada a entero), **capas VECTOR de verdad** (tanda 2026-08-28,
+recetario AEUX reescrito: estrellas, polígonos, paths dibujados y BOOLEANS
+con estilo sólido llegan del plugin v7 como path SVG — la geometría
+computada de Figma, esquinas y booleans resueltas — el motor las pinta con
+Path2D respetando la regla even-odd y el borde, y el export a AE las arma
+como SHAPE EDITABLE: `ruta-puro.ts` convierte el `d` completo —M/L/H/V/C/
+S/Q/T/Z, relativos, cuadráticas elevadas a cúbicas— a vértices + tangentes
+relativas de AE, un Shape-Group por subruta con fill rule; el TRAZO también
+exporta ya su path real con su Trim Paths encima), **ESCENAS** (la jerarquía de arriba: proyecto → escenas → pantallas →
 capas — cada escena es una composición COMPLETA con su lienzo, sus
 pantallas y su cámara, y el corte entre escenas es duro como en un edit;
 la barra de chips arriba del lienzo cambia de escena —flusheando el
@@ -511,7 +519,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **212
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **226
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -565,7 +573,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   silencio). (28) reorden de moverPalabraLista quitado (el fix del chip
   inagarrable) → falló exactamente «el array queda en orden temporal».
   (29) el ÷2 de framesDeEncoder quitado (el parche del alineador) → falló
-  exacto el test del bug medido. Restaurados, 212/212 verdes. La tanda de UX del timeline (teclado del modal de recorte,
+  exacto el test del bug medido. (30) tangentes de ruta-puro dejadas
+  ABSOLUTAS (sin restar el vértice) → cayeron exactos los tests del parser
+  Y el end-to-end del export del trazo. Restaurados, 226/226 verdes. La tanda de UX del timeline (teclado del modal de recorte,
   imán shift, Alt-dup, drag de palabra, Efectos plegable) se verificó por
   Playwright end-to-end (verificar32/33) — sus checks mostraron rojo
   GENUINO durante el desarrollo (el imán con alcance corto, el carril

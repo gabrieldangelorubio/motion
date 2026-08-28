@@ -480,6 +480,7 @@ export function describir(comp: Composicion): string {
     if (capa.tipo === "texto" && capa.division !== "ninguna") partes.push(`división ${capa.division}`);
     if (capa.tipo === "texto" && capa.texto.includes("\n")) partes.push(`${capa.texto.split("\n").length} líneas`);
     if (capa.tipo === "trazo") partes.push(`largo ${Math.round(capa.largo)}px`);
+    if (capa.tipo === "vector") partes.push(capa.relleno ? `vector con relleno ${capa.relleno}` : "vector solo borde");
     if (capa.entrada) partes.push(`entrada ${capa.entrada.preset} @${capa.entrada.en}ms`);
     if (capa.salida) partes.push(`salida ${capa.salida.preset} @${capa.salida.en}ms`);
     const pistas = Object.keys(capa.pistas ?? {});

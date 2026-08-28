@@ -12,7 +12,7 @@
    vuelven en el resultado — verificación semántica barata.
 ----------------------------------------------------------------------------- */
 
-import { MEZCLAS, type Camara, type Capa, type CapaForma, type CapaTexto, type CapaTrazo, type Composicion, type Keyframe, type MezclaCapa, type NombreEasing, type NombrePropiedad, type OrdenEscalonado, type Segmento, type TemblorCamara } from "@/lib/motion/modelo";
+import { MEZCLAS, type Camara, type Capa, type CapaForma, type CapaTexto, type CapaTrazo, type CapaVector, type Composicion, type Keyframe, type MezclaCapa, type NombreEasing, type NombrePropiedad, type OrdenEscalonado, type Segmento, type TemblorCamara } from "@/lib/motion/modelo";
 import { agregarCapa, editarCapa, quitarCapa, describir } from "@/lib/motion/herramientas-puro";
 import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
 import { CATEGORIAS, escalonadoSano, nombresPresets, PRESETS } from "@/lib/motion/presets-puro";
@@ -189,6 +189,16 @@ export function ejecutarHerramienta(
         }
       } else if (capa.tipo === "forma" && typeof input.color === "string") {
         (cambios as Partial<CapaForma>).color = input.color;
+      } else if (capa.tipo === "vector") {
+        // «color» en un vector edita el RELLENO (lo que se ve); grosor, el borde
+        const extra = cambios as Partial<CapaVector>;
+        if (typeof input.color === "string") {
+          if (capa.relleno || !capa.trazoColor) extra.relleno = input.color;
+          else extra.trazoColor = input.color;
+        }
+        if (input.grosor !== undefined && capa.trazoGrosor) {
+          extra.trazoGrosor = clamp(numero(input.grosor, capa.trazoGrosor), 0.5, 200);
+        }
       } else if (capa.tipo === "trazo") {
         const extra = cambios as Partial<CapaTrazo>;
         if (typeof input.color === "string") extra.color = input.color;

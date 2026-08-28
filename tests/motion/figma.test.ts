@@ -255,3 +255,40 @@ test("avisoDePluginViejo: el sello delata un code.js desactualizado en Figma", a
   const m = /var VERSION_PLUGIN = (\d+);/.exec(codigo);
   assert.equal(Number(m?.[1]), PLUGIN_ESPERADO, "code.js y PLUGIN_ESPERADO van juntos");
 });
+
+test("un nodo «vector» del plugin llega como CapaVector: path, relleno, regla y borde", async () => {
+  const { normalizarFigma } = await import("@/lib/motion/figma-puro");
+  const res = normalizarFigma({
+    origen: "figma",
+    version: 1,
+    frame: { nombre: "F", ancho: 100, alto: 100, fondo: "#000000" },
+    nodos: [{
+      tipo: "vector",
+      nombre: "Estrella",
+      x: 10,
+      y: 20,
+      ancho: 40,
+      alto: 40,
+      vector: {
+        path: "M0 0L40 0L40 40Z",
+        relleno: "#ff0000",
+        reglaRelleno: "evenodd",
+        trazoColor: "#00ff00",
+        trazoGrosor: 2,
+        remate: "redondo",
+      },
+    }],
+  });
+  const capa = res.composicion.capas[0];
+  assert.equal(capa.tipo, "vector");
+  if (capa.tipo !== "vector") return;
+  assert.equal(capa.path, "M0 0L40 0L40 40Z");
+  assert.equal(capa.relleno, "#ff0000");
+  assert.equal(capa.reglaRelleno, "evenodd");
+  assert.equal(capa.trazoColor, "#00ff00");
+  assert.equal(capa.trazoGrosor, 2);
+  // el ancla es el CENTRO de la caja del nodo
+  assert.equal(capa.x, 30);
+  assert.equal(capa.y, 40);
+  assert.equal(res.avisos.length, 0);
+});

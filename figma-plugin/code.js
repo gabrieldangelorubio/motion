@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 6;
+var VERSION_PLUGIN = 7;
 
 function aHex(color) {
   var c = function (v) {
@@ -78,6 +78,67 @@ function caja(nodo, marco) {
     ancho: Math.round(b.width * 100) / 100,
     alto: Math.round(b.height * 100) / 100,
   };
+}
+
+// ¿Este nodo puede viajar como VECTOR REAL (path SVG editable) en vez de
+// rasterizarse? Necesita estilos sólidos: a lo sumo UN fill sólido y a lo
+// sumo UN borde sólido (gradientes e imágenes siguen al rasterizado). El
+// path sale de fillGeometry (la geometría YA COMPUTADA: esquinas redondeadas
+// y booleans resueltas) y cae a vectorPaths si no hay. Devuelve null si no
+// califica — el caller decide rasterizar.
+function vectorSolido(nodo) {
+  var fills = nodo.fills;
+  if (fills === figma.mixed) return null;
+  var fillsVisibles = Array.isArray(fills) ? fills.filter(function (f) { return f.visible !== false; }) : [];
+  if (fillsVisibles.length > 1) return null;
+  if (fillsVisibles.length === 1 && fillsVisibles[0].type !== "SOLID") return null;
+
+  var strokes = nodo.strokes;
+  if (strokes === figma.mixed) return null;
+  var bordes = Array.isArray(strokes) ? strokes.filter(function (s) { return s.visible !== false; }) : [];
+  if (bordes.length > 1) return null;
+  if (bordes.length === 1 && (bordes[0].type !== "SOLID" || typeof nodo.strokeWeight !== "number")) return null;
+  if (fillsVisibles.length === 0 && bordes.length === 0) return null;
+
+  var geometria = null;
+  if (nodo.fillGeometry && nodo.fillGeometry.length > 0) geometria = nodo.fillGeometry;
+  else if (nodo.vectorPaths && nodo.vectorPaths.length > 0) geometria = nodo.vectorPaths;
+  if (!geometria) return null;
+  var path = geometria.map(function (p) { return p.data; }).join(" ");
+  if (!path) return null;
+
+  var aviso = null;
+  if (bordes.length === 1 && nodo.strokeAlign && nodo.strokeAlign !== "CENTER") {
+    aviso = "borde " + nodo.strokeAlign + " se pintó centrado";
+  }
+  return {
+    vector: {
+      path: path,
+      reglaRelleno: geometria[0].windingRule === "EVENODD" ? "evenodd" : undefined,
+      relleno: fillsVisibles.length === 1 ? colorDePintura(fillsVisibles[0]) : undefined,
+      trazoColor: bordes.length === 1 ? colorDePintura(bordes[0]) : undefined,
+      trazoGrosor: bordes.length === 1 ? Math.round(nodo.strokeWeight * 100) / 100 : undefined,
+      remate: bordes.length === 1 && nodo.strokeCap === "ROUND" ? "redondo" : bordes.length === 1 ? "recto" : undefined,
+    },
+    aviso: aviso,
+  };
+}
+
+// Empuja el nodo como capa «vector» a la salida. `avisoExtra` viaja además
+// del posible aviso del borde no centrado.
+function empujarVector(nodo, marco, salida, datos, avisoExtra) {
+  var cv = caja(nodo, marco);
+  var mezclaV = mezclaDe(nodo);
+  var avisos = [datos.aviso, mezclaV.aviso, avisoExtra].filter(function (a) { return a; }).join("; ");
+  salida.push({
+    tipo: "vector",
+    nombre: nodo.name,
+    x: cv.x, y: cv.y, ancho: cv.ancho, alto: cv.alto,
+    opacidad: "opacity" in nodo && nodo.opacity < 1 ? nodo.opacity : undefined,
+    mezcla: mezclaV.mezcla,
+    aviso: avisos || undefined,
+    vector: datos.vector,
+  });
 }
 
 async function rasterizar(nodo, marco, aviso) {
@@ -396,6 +457,20 @@ async function nodoAIR(nodo, marco, salida) {
     }
   }
 
+  // Vectores CON estilo sólido (estrella, polígono, path dibujado) → capa
+  // «vector» con el path SVG real: se pinta nítido a cualquier escala y el
+  // export a AE lo arma como shape EDITABLE. Nada de rasterizar. Lo que no
+  // califica (gradiente, imagen, varios fills) sigue al rasterizado.
+  if ((nodo.type === "VECTOR" || nodo.type === "STAR" || nodo.type === "POLYGON") && !rotado && !tieneEfectos(nodo)) {
+    var datosV = vectorSolido(nodo);
+    if (datosV) {
+      empujarVector(nodo, marco, salida, datosV, null);
+      return;
+    }
+    salida.push(await rasterizar(nodo, marco, "fill o borde no sólido (gradiente/imagen): se rasterizó a 2×"));
+    return;
+  }
+
   if ((nodo.type === "RECTANGLE" || nodo.type === "ELLIPSE") && !rotado && !tieneEfectos(nodo)) {
     var p = pinturaSolida(nodo.fills);
     var sinBorde = nodo.strokes === figma.mixed || !nodo.strokes || nodo.strokes.length === 0;
@@ -418,7 +493,14 @@ async function nodoAIR(nodo, marco, salida) {
       });
       return;
     }
-    salida.push(await rasterizar(nodo, marco, "fill no sólido o con borde: se rasterizó a 2×"));
+    // con borde, esquinas mixtas o fill+borde: probar el camino VECTOR antes
+    // de rendirse al bitmap — la geometría computada ya trae las esquinas
+    var datosRE = vectorSolido(nodo);
+    if (datosRE) {
+      empujarVector(nodo, marco, salida, datosRE, null);
+      return;
+    }
+    salida.push(await rasterizar(nodo, marco, "fill no sólido: se rasterizó a 2×"));
     return;
   }
 
@@ -486,16 +568,24 @@ async function nodoAIR(nodo, marco, salida) {
     return;
   }
 
-  // VECTOR, BOOLEAN_OPERATION, STAR, LINE, POLYGON, o cualquier cosa nueva:
-  // rasterizar, nunca romper (mismo espíritu que el default que degrada).
-  // Una boolean con hijos merece el aviso ACCIONABLE: partirla acá cambiaría
-  // el render (el estilo vive en la boolean, no en sus hijos) — el camino
-  // para animar sus piezas es desagruparla EN FIGMA y re-exportar.
+  // Una BOOLEAN con estilo sólido viaja como VECTOR: Figma ya computó la
+  // geometría combinada (fillGeometry) — llega nítida y animable como UNA
+  // capa. Para animar sus PIEZAS por separado sigue valiendo desagruparla
+  // en Figma (⌘⇧G); con gradiente/imagen cae al rasterizado con ese aviso.
+  if (nodo.type === "BOOLEAN_OPERATION" && !rotado && !tieneEfectos(nodo)) {
+    var datosB = vectorSolido(nodo);
+    if (datosB) {
+      empujarVector(nodo, marco, salida, datosB,
+        "operación booleana: llegó como UN vector (para animar sus piezas, ⌘⇧G en Figma y re-exportá)");
+      return;
+    }
+  }
   if (nodo.type === "BOOLEAN_OPERATION" && "children" in nodo && nodo.children.length > 1) {
     salida.push(await rasterizar(nodo, marco,
-      "es una operacion booleana (" + nodo.children.length + " piezas): se rasterizó entera — para animar sus piezas convertila en GRUPO en Figma (⌘⇧G) y re-exportá"));
+      "es una operacion booleana (" + nodo.children.length + " piezas) con estilo no sólido o rotada: se rasterizó entera — para animar sus piezas convertila en GRUPO en Figma (⌘⇧G) y re-exportá"));
     return;
   }
+  // cualquier cosa nueva: rasterizar, nunca romper (degradación por-nodo).
   salida.push(await rasterizar(nodo, marco, "tipo " + nodo.type + ": se rasterizó a 2×"));
 }
 

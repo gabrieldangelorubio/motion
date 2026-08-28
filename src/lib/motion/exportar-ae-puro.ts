@@ -41,6 +41,7 @@ import { camaraEn, estadoEn } from "@/lib/motion/evaluar-puro";
 import { filasDeCapas, type FilaCapas } from "@/lib/motion/herramientas-puro";
 import { familiaPrincipal } from "@/lib/motion/fuentes-puro";
 import { compilarSegmento } from "@/lib/motion/presets-puro";
+import { desplazarSubrutas, subrutasDeSvg } from "@/lib/motion/ruta-puro";
 
 /* ——— Números y strings deterministas ————————————————————————————— */
 
@@ -436,7 +437,6 @@ function comentarioPendientes(
       }
     }
   }
-  if (capa.tipo === "trazo") pendientes.push("path SVG real (aca va un rectangulo)");
   if (capa.tipo === "media" && !conAsset) pendientes.push(`relinkear asset (${capa.mediaId.slice(0, 40)})`);
   if (pendientes.length === 0) return null;
   return "motion, pendiente de traducir: " + pendientes.join(" | ");
@@ -762,6 +762,24 @@ function emitirComunes(
   if (comentario) L.push(`capa.comment = ${cadena(comentario)};`);
 }
 
+/** Cada subruta del path SVG → un «ADBE Vector Shape - Group» dentro del
+    grupo `gr` en curso, con los vértices CENTRADOS en el ancla de la capa
+    (el path local tiene 0,0 arriba-izq; el ancla es el centro). Varias
+    subrutas bajo un mismo fill componen los agujeros con la fill rule. */
+function emitirSubrutas(L: string[], path: string, ancho: number, alto: number): void {
+  const subrutas = desplazarSubrutas(subrutasDeSvg(path), -ancho / 2, -alto / 2);
+  const par = (p: [number, number]) => `[${num(redondear(p[0], 3))}, ${num(redondear(p[1], 3))}]`;
+  for (const s of subrutas) {
+    L.push(`forma = gr.property("ADBE Vectors Group").addProperty("ADBE Vector Shape - Group");`);
+    L.push(`sh = new Shape();`);
+    L.push(`sh.vertices = [${s.puntos.map(par).join(", ")}];`);
+    L.push(`sh.inTangents = [${s.tanEntrada.map(par).join(", ")}];`);
+    L.push(`sh.outTangents = [${s.tanSalida.map(par).join(", ")}];`);
+    L.push(`sh.closed = ${s.cerrada ? "true" : "false"};`);
+    L.push(`forma.property("ADBE Vector Shape").setValue(sh);`);
+  }
+}
+
 function emitirCapa(
   L: string[],
   capa: Capa,
@@ -845,17 +863,41 @@ function emitirCapa(
     return;
   }
 
-  if (capa.tipo === "trazo") {
-    // El path SVG real es de la tanda 2: mientras tanto un rectángulo del
-    // MISMO tamaño con Trim Paths REAL — la animación de trim ya es fiel,
-    // el vector se reemplaza a mano (queda anotado en el comentario).
+  if (capa.tipo === "vector") {
+    // Vector REAL: cada subruta del path SVG entra como bezier de AE
+    // (vértices + tangentes) — shape layer editable, nada rasterizado.
+    // El borde va ANTES del relleno en el grupo (queda encima, como Figma).
     L.push(`capa = comp.layers.addShape();`);
     L.push(`gr = capa.property("ADBE Root Vectors Group").addProperty("ADBE Vector Group");`);
-    L.push(`forma = gr.property("ADBE Vectors Group").addProperty("ADBE Vector Shape - Rect");`);
-    L.push(`forma.property("ADBE Vector Rect Size").setValue([${num(capa.ancho)}, ${num(capa.alto)}]);`);
+    emitirSubrutas(L, capa.path, capa.ancho, capa.alto);
+    if (capa.trazoColor && capa.trazoGrosor) {
+      L.push(`tr = gr.property("ADBE Vectors Group").addProperty("ADBE Vector Graphic - Stroke");`);
+      L.push(`tr.property("ADBE Vector Stroke Color").setValue(${colorLit(capa.trazoColor)});`);
+      L.push(`tr.property("ADBE Vector Stroke Width").setValue(${num(capa.trazoGrosor)});`);
+      L.push(`tr.property("ADBE Vector Stroke Line Cap").setValue(${capa.remate === "recto" ? 1 : 2});`);
+    }
+    if (capa.relleno) {
+      L.push(`fx = gr.property("ADBE Vectors Group").addProperty("ADBE Vector Graphic - Fill");`);
+      L.push(`fx.property("ADBE Vector Fill Color").setValue(${colorLit(capa.relleno)});`);
+      // regla de relleno de AE: 1 = non-zero, 2 = even-odd (los agujeros)
+      if (capa.reglaRelleno === "evenodd") L.push(`fx.property("ADBE Vector Fill Rule").setValue(2);`);
+    }
+    const animVector = hornearCon(0);
+    emitirComunes(L, capa, sinAnimacion, false, animVector);
+    emitirTransform(L, capa, 0, sinAnimacion, false, animVector?.claves ?? null);
+    return;
+  }
+
+  if (capa.tipo === "trazo") {
+    // El PATH REAL del trazo (tanda 2 cumplida): las subrutas del SVG entran
+    // como bezier de AE y el Trim Paths anima sobre el vector de verdad.
+    L.push(`capa = comp.layers.addShape();`);
+    L.push(`gr = capa.property("ADBE Root Vectors Group").addProperty("ADBE Vector Group");`);
+    emitirSubrutas(L, capa.path, capa.ancho, capa.alto);
     L.push(`tr = gr.property("ADBE Vectors Group").addProperty("ADBE Vector Graphic - Stroke");`);
     L.push(`tr.property("ADBE Vector Stroke Color").setValue(${colorLit(capa.color)});`);
     L.push(`tr.property("ADBE Vector Stroke Width").setValue(${num(capa.grosor)});`);
+    L.push(`tr.property("ADBE Vector Stroke Line Cap").setValue(${capa.remate === "recto" ? 1 : 2});`);
     L.push(`tr = gr.property("ADBE Vectors Group").addProperty("ADBE Vector Filter - Trim");`);
     const animTrazo = hornearCon(0);
     if (animTrazo?.claves.trazoInicio) {
@@ -1183,7 +1225,7 @@ export function generarScriptAE(
   L.push(CABECERA);
   L.push(`app.beginUndoGroup(${cadena("motion: " + proyecto)});`);
   L.push(`var __carpeta = app.project.items.addFolder(${cadena(proyecto)});`);
-  L.push(`var comp, capa, doc, fx, gr, forma, tr, fuente;`);
+  L.push(`var comp, capa, doc, fx, gr, forma, tr, fuente, sh;`);
 
   const varsEscena: string[] = [];
   let totalCapas = 0;

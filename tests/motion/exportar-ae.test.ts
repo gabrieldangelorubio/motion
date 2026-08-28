@@ -642,3 +642,82 @@ test("duracionDesdeAudio: el largo del audio + 10% de aire, acotado a una escena
 test("sin escenas es un error claro, no un script vacio", () => {
   assert.throws(() => generarScriptAE([]), /No hay escenas/);
 });
+
+/* ——— vectores de VERDAD (tanda 2): shapes editables en AE ————————— */
+
+test("una capa vector sale como shape con bezier REAL: vértices centrados, fill y regla even-odd", () => {
+  const comp = base({
+    capas: [{
+      id: "estrella",
+      nombre: "Estrella",
+      tipo: "vector",
+      path: "M0 0L10 0L10 10L0 10Z M2 2L8 2L8 8L2 8Z",
+      ancho: 10,
+      alto: 10,
+      relleno: "#ff0000",
+      reglaRelleno: "evenodd",
+      x: 100,
+      y: 100,
+    }],
+  });
+  const jsx = generarScriptAE([comp]);
+  assert.match(jsx, /new Shape\(\)/);
+  // dos subrutas = dos Shape - Group (el agujero compone con la fill rule)
+  assert.equal(jsx.split('ADBE Vector Shape - Group').length - 1, 2);
+  // vértices CENTRADOS en el ancla (10×10 → 0,0 pasa a −5,−5)
+  assert.match(jsx, /sh\.vertices = \[\[-5, -5\], \[5, -5\], \[5, 5\], \[-5, 5\]\];/);
+  assert.match(jsx, /sh\.closed = true;/);
+  assert.match(jsx, /ADBE Vector Fill Color/);
+  assert.match(jsx, /ADBE Vector Fill Rule"\)\.setValue\(2\)/);
+  // sin borde: no hay stroke
+  assert.ok(!jsx.includes("ADBE Vector Graphic - Stroke"));
+});
+
+test("un vector con borde lleva stroke ANTES del fill (el borde encima, como Figma)", () => {
+  const comp = base({
+    capas: [{
+      id: "v",
+      nombre: "V",
+      tipo: "vector",
+      path: "M0 0L10 0L10 10Z",
+      ancho: 10,
+      alto: 10,
+      relleno: "#00ff00",
+      trazoColor: "#0000ff",
+      trazoGrosor: 2,
+      remate: "redondo",
+      x: 0,
+      y: 0,
+    }],
+  });
+  const jsx = generarScriptAE([comp]);
+  const iStroke = jsx.indexOf("ADBE Vector Graphic - Stroke");
+  const iFill = jsx.indexOf("ADBE Vector Graphic - Fill");
+  assert.ok(iStroke > -1 && iFill > -1 && iStroke < iFill);
+  assert.match(jsx, /ADBE Vector Stroke Line Cap"\)\.setValue\(2\)/);
+});
+
+test("el TRAZO exporta su path real (bezier), ya no un rectángulo placeholder", () => {
+  const trazo: CapaTrazo = {
+    id: "linea",
+    nombre: "Linea",
+    tipo: "trazo",
+    path: "M0 0C10 0 30 20 40 20",
+    ancho: 40,
+    alto: 20,
+    color: "#ffffff",
+    grosor: 3,
+    largo: 50,
+    x: 200,
+    y: 200,
+  };
+  const jsx = generarScriptAE([base({ capas: [trazo] })]);
+  assert.match(jsx, /new Shape\(\)/);
+  // tangentes de la curva, relativas (10,0) y (−10,0)
+  assert.match(jsx, /sh\.outTangents = \[\[10, 0\], \[0, 0\]\];/);
+  assert.match(jsx, /sh\.inTangents = \[\[0, 0\], \[-10, 0\]\];/);
+  assert.ok(!jsx.includes("ADBE Vector Shape - Rect") || !jsx.includes("pendiente de traducir: path SVG real"));
+  assert.match(jsx, /ADBE Vector Filter - Trim/);
+  // el comentario de pendientes ya no anuncia el rectángulo
+  assert.ok(!jsx.includes("path SVG real (aca va un rectangulo)"));
+});

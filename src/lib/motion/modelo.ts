@@ -195,6 +195,25 @@ export type CapaTrazo = CapaBase & {
   remate?: "redondo" | "recto";
 };
 
+/** Vector REAL de Figma (estrella, polígono, path dibujado, boolean ya
+    combinada): el path SVG viaja tal cual — el motor lo pinta con Path2D y
+    el export a AE lo convierte a shape editable (nada se rasteriza). */
+export type CapaVector = CapaBase & {
+  tipo: "vector";
+  /** path SVG en coordenadas locales del nodo (0,0 = esquina sup-izq) */
+  path: string;
+  ancho: number;
+  alto: number;
+  /** color del relleno; ausente = sin relleno (solo borde) */
+  relleno?: string;
+  /** regla de relleno del path; ausente = nonzero (la de Figma) */
+  reglaRelleno?: "nonzero" | "evenodd";
+  /** borde encima del relleno; ausentes = sin borde */
+  trazoColor?: string;
+  trazoGrosor?: number;
+  remate?: "redondo" | "recto";
+};
+
 /** Referencia media por id del catálogo (nunca URL cruda — §10.2 del kit). */
 export type CapaMedia = CapaBase & {
   tipo: "media";
@@ -204,7 +223,7 @@ export type CapaMedia = CapaBase & {
   ajuste: "cubrir" | "contener";
 };
 
-export type Capa = CapaTexto | CapaForma | CapaMedia | CapaTrazo;
+export type Capa = CapaTexto | CapaForma | CapaMedia | CapaTrazo | CapaVector;
 
 /** Cámara de la composición: el render ES lo que ella ve. Keyframes de centro
     (x, y en px del lienzo) y zoom (1 = el frame entero); `base` es el estado

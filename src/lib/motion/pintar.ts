@@ -222,6 +222,38 @@ function pintarTrazo(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
   ctx.restore();
 }
 
+function pintarVector(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): void {
+  const capa = estado.capa;
+  if (capa.tipo !== "vector") return;
+  const u = estado.unidades[0];
+  ctx.save();
+  ctx.globalAlpha *= u.opacidad;
+  ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
+  ctx.translate(u.dx, u.dy);
+  if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
+  ctx.scale(1 + u.dEscala, 1 + u.dEscala);
+  // el path viene en coordenadas locales del nodo; el ancla es el centro
+  ctx.translate(-capa.ancho / 2, -capa.alto / 2);
+  // Path2D no existe en node: en tests el vector se valida por el estado del
+  // contexto; en el navegador (preview y export) siempre está — mismo trato
+  // que el trazo.
+  const RutaSVG = (globalThis as { Path2D?: new (d: string) => Path2D }).Path2D;
+  if (RutaSVG) {
+    const ruta = new RutaSVG(capa.path);
+    if (capa.relleno) {
+      ctx.fillStyle = capa.relleno;
+      ctx.fill(ruta, capa.reglaRelleno ?? "nonzero");
+    }
+    if (capa.trazoColor && capa.trazoGrosor) {
+      ctx.strokeStyle = capa.trazoColor;
+      ctx.lineWidth = capa.trazoGrosor;
+      ctx.lineCap = capa.remate === "recto" ? "butt" : "round";
+      ctx.stroke(ruta);
+    }
+  }
+  ctx.restore();
+}
+
 function pintarForma(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): void {
   const capa = estado.capa;
   if (capa.tipo !== "forma") return;
@@ -325,6 +357,7 @@ export function pintar(estado: EstadoComposicion, ctx: Contexto2D, media: Fuente
     if (capa.capa.tipo === "texto") pintarTexto(capa, ctx, escalaPx);
     else if (capa.capa.tipo === "forma") pintarForma(capa, ctx, escalaPx);
     else if (capa.capa.tipo === "trazo") pintarTrazo(capa, ctx, escalaPx);
+    else if (capa.capa.tipo === "vector") pintarVector(capa, ctx, escalaPx);
     else pintarMedia(capa, ctx, media, escalaPx);
     ctx.restore();
   }

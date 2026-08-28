@@ -13,6 +13,28 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] VECTORES DE VERDAD: Figma → motor → AE sin rasterizar (2026-08-28, tanda 10)
+- **Hecho (recetario AEUX, Apache 2.0, reescrito de cero):** capa nueva
+  `vector` (path SVG + relleno + regla even-odd + borde). El plugin (v7) ya
+  NO rasteriza VECTOR/STAR/POLYGON con estilo sólido: manda la geometría
+  computada (fillGeometry: esquinas redondeadas y booleans resueltas); las
+  BOOLEANS con estilo sólido llegan como UN vector nítido y animable (chau
+  rasterizado; ⌘⇧G sigue siendo el camino para animar por pieza); los
+  rect/elipse con borde o esquinas mixtas también van por vector. El motor
+  los pinta con Path2D (fill con regla + stroke). El export AE los arma
+  como SHAPE EDITABLE: `ruta-puro.ts` parsea el `d` completo (M/L/H/V/C/S/
+  Q/T/Z, relativos, S/T reflejados, cuadráticas ELEVADAS a cúbicas — cosas
+  que al parser de AEUX le faltaban) → vértices + tangentes relativas de
+  AE, un Shape - Group por subruta, fill rule even-odd (los agujeros),
+  borde encima del fill como Figma. Y el TRAZO exporta su PATH REAL con
+  Trim Paths (se cumplió el pendiente «acá va un rectángulo»). OJO: re-
+  importar figma-plugin/manifest.json en Figma para el v7.
+- **Pendiente de la veta AEUX (anotado):** merge paths EDITABLE por pieza
+  (boolean como CompoundShape), máscaras de Figma → track matte ALPHA (la
+  base del revelado), gradientes lineales/radiales (en AE via preset .ffx),
+  grupos rotados por parenting en vez de rasterizar, prefijo `*` =
+  rasterizar a propósito, imagen de referencia del frame al 50%.
+
 ### [HECHO] Palabras BIEN puestas sobre la onda: bug del alineador (2026-08-28, tanda 9)
 - **Hecho:** encontrado y parcheado el bug de FONDO de «transcribe bien
   pero no las coloca bien»: transformers.js 2.17 le pasa al alineador de
