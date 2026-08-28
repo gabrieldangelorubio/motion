@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 5;
+var VERSION_PLUGIN = 6;
 
 function aHex(color) {
   var c = function (v) {
@@ -212,7 +212,10 @@ function contenidoConCortes(nodo) {
 
 async function nodoAIR(nodo, marco, salida) {
   if (!nodo.visible) return;
-  var rotado = "rotation" in nodo && Math.abs(nodo.rotation) > 0.01;
+  // Umbral PERCEPTIBLE: en Figma quedan micro-rotaciones accidentales de
+  // edición (0.02°, invisibles) que antes mandaban grupos y textos enteros
+  // al rasterizado — medio grado no se ve, y abre el camino editable.
+  var rotado = "rotation" in nodo && Math.abs(nodo.rotation) > 0.5;
 
   if (nodo.type === "TEXT") {
     var pintura = pinturaSolida(nodo.fills);
@@ -420,11 +423,30 @@ async function nodoAIR(nodo, marco, salida) {
   }
 
   if (nodo.type === "FRAME" || nodo.type === "GROUP" || nodo.type === "COMPONENT" || nodo.type === "INSTANCE") {
-    // Solo la ROTACIÓN rasteriza el grupo entero (un hijo de grupo rotado no
-    // se exporta fiel por separado). Un grupo CON EFECTOS igual se abre en
-    // sus hijos — tres estrellas dentro de un grupo tienen que llegar como
-    // TRES capas animables, no como un solo bitmap — y el efecto del grupo
-    // queda avisado (no viaja por partes).
+    // Un grupo CON EFECTOS igual se abre en sus hijos — tres estrellas
+    // dentro de un grupo tienen que llegar como TRES capas animables, no
+    // como un solo bitmap — y el efecto del grupo queda avisado.
+    // Un grupo ROTADO de verdad no puede abrir texto/formas nativas (los
+    // hijos heredarían la rotación y saldrían derechos), pero SÍ puede
+    // rasterizar CADA PIEZA por separado en su lugar: fiel al render y
+    // animable por partes.
+    if (rotado && "children" in nodo && nodo.children.length > 1) {
+      var desdeRotado = salida.length;
+      for (var r = 0; r < nodo.children.length; r++) {
+        if (!nodo.children[r].visible) continue;
+        salida.push(await rasterizar(nodo.children[r], marco, null));
+      }
+      for (var sr = desdeRotado; sr < salida.length; sr++) {
+        salida[sr].subgrupo = nodo.name;
+      }
+      if (salida.length > desdeRotado) {
+        salida[desdeRotado].aviso = conAviso(salida[desdeRotado],
+          "grupo rotado «" + nodo.name + "»: sus piezas se rasterizaron POR SEPARADO (animables)");
+      } else {
+        salida.push(await rasterizar(nodo, marco, "grupo rotado sin piezas visibles: se rasterizó entero"));
+      }
+      return;
+    }
     if (rotado) {
       salida.push(await rasterizar(nodo, marco, "grupo rotado: se rasterizó entero"));
       return;

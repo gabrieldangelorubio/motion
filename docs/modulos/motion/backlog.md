@@ -20,10 +20,13 @@
   BOOLEANA es accionable («convertila en GRUPO en Figma (⌘⇧G) y
   re-exportá» — partirla en el plugin cambiaría el render: el estilo vive
   en la boolean, no en sus hijos). Sello del plugin → v5.
-- **Caso Group 11 (las 3 estrellas), en investigación:** plugin v4/v5
-  confirmado corriendo y el grupo igual llega entero → la causa es
-  «grupo rotado» o «operación booleana»; con el toast desplegado la
-  próxima captura la nombra exacta.
+- **Caso Group 11 (las 3 estrellas), RESUELTO (v6):** el toast desplegado
+  lo nombró — «grupo rotado: se rasterizó entero». Doble fix: (1) el
+  umbral de rotación sube de 0.01° a 0.5° (las micro-rotaciones
+  accidentales de edición, invisibles, mandaban grupos y textos enteros
+  al rasterizado); (2) un grupo rotado DE VERDAD ya no es un solo bitmap:
+  cada pieza se rasteriza POR SEPARADO en su lugar (fiel al render,
+  animable por partes, subgrupo marcado). Sello → v6.
 
 ### [HECHO] Sello de versión del plugin (2026-08-28, tanda 6)
 - **Hecho:** el JSON del plugin lleva `plugin: 4` y el import AVISA con
