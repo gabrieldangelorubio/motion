@@ -36,7 +36,9 @@ import {
   desplazarTiempoCapas,
   estirarTiempoCapas,
 } from "@/lib/motion/herramientas-puro";
-import { camaraEn } from "@/lib/motion/evaluar-puro";
+import { camaraEn, estadoEn } from "@/lib/motion/evaluar-puro";
+import { pintar, type Contexto2D } from "@/lib/motion/pintar";
+import type { ImagenRevision } from "@/lib/motion/revision-puro";
 import { cajaMundoDeCapa } from "@/lib/motion/cajas-puro";
 import { cargarComposicionAction, guardarComposicionAction } from "@/app/(app)/(modulos)/motion/acciones";
 import { escenaDuplicada, escenaNueva, idDeEscena, quitarEscena, type EscenaInfo } from "@/lib/motion/escenas-puro";
@@ -1203,6 +1205,31 @@ export function Editor({
     },
   }), []);
 
+  // ——— Frames para la REVISIÓN VISUAL del director: el motor es
+  // determinista, así que pintar acá (cámara incluida, con la media ya
+  // cacheada del preview) ES lo que ve el usuario. 768px de ancho: legible
+  // para el modelo multimodal y barato en tokens. JPEG no tiene alfa: una
+  // base oscura evita que un lienzo transparente viaje negro-misterio. ———
+  const renderizarFramesRevision = useCallback(async (snapshot: string, tiempos: number[]): Promise<ImagenRevision[]> => {
+    const comp = deserializar(snapshot);
+    const escala = 768 / comp.ancho;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(comp.ancho * escala);
+    canvas.height = Math.round(comp.alto * escala);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return [];
+    const media = obtenerMedia();
+    return tiempos.map((tiempo) => {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = "#17171b";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(escala, 0, 0, escala, 0, 0);
+      pintar(estadoEn(comp, tiempo), ctx as unknown as Contexto2D, media, escala);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.72);
+      return { mime: "image/jpeg", datosBase64: dataUrl.slice(dataUrl.indexOf(",") + 1) };
+    });
+  }, [obtenerMedia]);
+
   // El largo real de un path sólo lo sabe el DOM de SVG (getTotalLength):
   // se mide UNA vez al importar y queda guardado en la capa — el motor puro
   // y el export nunca tocan el DOM. Si algo falla, largo 0 = trazo completo.
@@ -2062,6 +2089,7 @@ export function Editor({
                   return locales.map((p) => `«${p.texto}» @ ${p.ms}ms`).join("\n");
                 }}
                 composicionId={escenaActiva}
+                renderizarFrames={renderizarFramesRevision}
                 onAplicar={(snapshot) => {
                   registrar();
                   setComposicion(deserializar(snapshot));

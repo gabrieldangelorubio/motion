@@ -28,6 +28,8 @@ export async function POST(pedido: Request): Promise<Response> {
       historial?: TurnoAgente[];
       /** la locución de la escena: «palabra @ms» por línea (opcional) */
       contextoAudio?: string;
+      /** frames de la revisión visual (JPEG/PNG/WebP base64, opcional) */
+      imagenes?: { mime?: string; datosBase64?: string }[];
     };
     if (!cuerpo.snapshot || !cuerpo.mensaje) {
       return Response.json({ error: "Faltan snapshot o mensaje" }, { status: 400 });
@@ -42,6 +44,16 @@ export async function POST(pedido: Request): Promise<Response> {
     const composicion = deserializar(cuerpo.snapshot);
     const contextoAudio =
       typeof cuerpo.contextoAudio === "string" && cuerpo.contextoAudio ? cuerpo.contextoAudio.slice(0, 8000) : undefined;
+    // frames de revisión saneados: pocos, chicos y de tipos conocidos
+    const imagenes = (cuerpo.imagenes ?? [])
+      .filter(
+        (im): im is { mime: string; datosBase64: string } =>
+          (im.mime === "image/jpeg" || im.mime === "image/png" || im.mime === "image/webp") &&
+          typeof im.datosBase64 === "string" &&
+          im.datosBase64.length > 0 &&
+          im.datosBase64.length < 3_000_000,
+      )
+      .slice(0, 6);
 
     // STREAM NDJSON: un evento {tipo:"paso"} por iteración del loop (el panel
     // muestra el progreso EN VIVO y arma el log con tiempos — un pedido
@@ -54,10 +66,17 @@ export async function POST(pedido: Request): Promise<Response> {
       async start(controlador) {
         const emitir = (e: unknown) => controlador.enqueue(codificador.encode(JSON.stringify(e) + "\n"));
         try {
-          const res = await dirigirComposicion(composicion, mensaje, historial, contextoAudio, (evento) => {
-            console.log(`[agente] paso ${evento.iteracion} · modelo ${(evento.msModelo / 1000).toFixed(1)}s · ${evento.ops.join(" | ") || "respuesta final"}`);
-            emitir(evento);
-          });
+          const res = await dirigirComposicion(
+            composicion,
+            mensaje,
+            historial,
+            contextoAudio,
+            (evento) => {
+              console.log(`[agente] paso ${evento.iteracion} · modelo ${(evento.msModelo / 1000).toFixed(1)}s · ${evento.ops.join(" | ") || "respuesta final"}`);
+              emitir(evento);
+            },
+            imagenes.length ? imagenes : undefined,
+          );
           if (!res.ok) emitir({ tipo: "fin", error: res.error });
           else emitir({ tipo: "fin", respuesta: res.respuesta, snapshot: serializar(res.composicion), ops: res.ops, uso: res.uso, modelo: res.modelo });
         } catch (e) {

@@ -56,6 +56,12 @@ function segmentoDe(comp: Composicion, input: Record<string, unknown>, clase: "e
   if (!nombresPresets(clase).includes(preset)) {
     return `preset «${preset}» no existe; los de ${clase} son: ${nombresPresets(clase).join(", ")}`;
   }
+  // los presets de TRAZOS animan el trim del recorrido: en cualquier otra
+  // capa la op «funcionaba» sin efecto visible — el modelo creía haber
+  // animado y en pantalla no pasaba nada (visto con vectores de Figma)
+  if (PRESETS[preset].categoria === "trazos" && capa && capa.tipo !== "trazo") {
+    return `«${preset}» es un preset de TRAZOS (anima el trim del recorrido) y «${capa.nombre}» es una capa de ${capa.tipo}: no tendría ningún efecto visible. Para que una capa de ${capa.tipo} «se dibuje» o entre con carácter usá revelar (máscara), crecer, aparecer o desenfocar.`;
+  }
   // capa dividida sin escalonado pedido = bloque entero (no se ve la
   // división): el default sano de su división; un 0 explícito sí manda
   const escalonadoDefault =
@@ -542,7 +548,7 @@ export const DEFINICIONES_HERRAMIENTAS = [
       type: "object",
       properties: {
         capaId: { type: "string" },
-        propiedad: { type: "string", enum: ["x", "y", "escala", "rotacion", "opacidad", "desenfoque", "trazoInicio", "trazoFin"] },
+        propiedad: { type: "string", enum: ["x", "y", "escala", "rotacion", "opacidad", "desenfoque", "trazoInicio", "trazoFin", "numero"] },
         keyframes: {
           type: "array",
           items: {

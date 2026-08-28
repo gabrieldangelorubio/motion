@@ -271,3 +271,48 @@ test("transformar_texto achica el tamaño si el texto nuevo es más largo y cons
   const clon2 = res2.comp.capas.find((c) => c.id === "cta2-swap2") as CapaTexto;
   assert.equal(clon2.fuente.tamano, 90);
 });
+
+/* ——— presets de trazos: sólo capas de trazo (visto en producción:
+   «trazar» sobre vectores con relleno devolvía OK sin efecto visible
+   y el director creía haber animado) ————————————————————— */
+
+test("definir_entrada rechaza un preset de trazos en una capa que no es trazo, con guía", () => {
+  let comp = base();
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "titulo2", texto: "HOLA" }).comp;
+  const res = ejecutarHerramienta(comp, "definir_entrada", { capaId: "titulo2", preset: "trazar", en: 0, duracion: 600 });
+  assert.ok(res.esError);
+  assert.match(res.resultado, /TRAZOS/);
+  assert.match(res.resultado, /revelar/); // le dice QUÉ usar en su lugar
+  // la composición no cambió
+  assert.equal(res.comp.capas.find((c) => c.id === "titulo2")?.entrada, undefined);
+});
+
+test("definir_entrada acepta trazar en una capa de TRAZO de verdad", () => {
+  const comp = base();
+  comp.capas.push({
+    id: "linea", nombre: "Línea", tipo: "trazo", x: 100, y: 100,
+    path: "M0 0L200 0", ancho: 200, alto: 0, color: "#fff", grosor: 3, largo: 200,
+  });
+  const res = ejecutarHerramienta(comp, "definir_entrada", { capaId: "linea", preset: "trazar", en: 0, duracion: 600 });
+  assert.ok(!res.esError, res.resultado);
+  assert.equal(res.comp.capas[0].entrada?.preset, "trazar");
+});
+
+test("el schema de definir_pista incluye «numero» (el contador viaja por schema estricto)", () => {
+  const def = (DEFINICIONES_HERRAMIENTAS as unknown as { name: string; input_schema: { properties: { propiedad: { enum: string[] } } } }[])
+    .find((d) => d.name === "definir_pista")!;
+  assert.ok(def.input_schema.properties.propiedad.enum.includes("numero"));
+});
+
+test("partesDeUsuario arma imágenes ANTES del texto para el turno multimodal de Gemini", async () => {
+  const { partesDeUsuario } = await import("@/lib/motion/agente-gemini");
+  const partes = partesDeUsuario("mirá esto", [
+    { mime: "image/jpeg", datosBase64: "AAAA" },
+    { mime: "image/jpeg", datosBase64: "BBBB" },
+  ]);
+  assert.equal(partes.length, 3);
+  assert.deepEqual(partes[0], { inlineData: { mimeType: "image/jpeg", data: "AAAA" } });
+  assert.deepEqual(partes[2], { text: "mirá esto" });
+  // sin imágenes: sólo el texto
+  assert.deepEqual(partesDeUsuario("hola"), [{ text: "hola" }]);
+});

@@ -409,7 +409,21 @@ easing con las tres direcciones y la escalera de intensidad, staggers
 each/amount con sus from, el position parameter traducido a aritmética
 de «en», keyframes multi-paso, SplitText, un recetario de la casa con
 ~12 recetas ejecutables y los errores del principiante — un test
-verifica que cada easing nombrado en la escuela EXISTE en el motor), y **export a MP4 frame-exacto** (WebCodecs + `mp4-muxer`, decisión aprobada por Fran
+verifica que cada easing nombrado en la escuela EXISTE en el motor;
+los presets de TRAZOS aplicados a capas que no son trazo se RECHAZAN
+con guía — antes «funcionaban» sin efecto visible y el director creía
+haber animado —, y los errores de herramienta viajan al log con su
+motivo), con **REVISIÓN VISUAL AUTOMÁTICA** (al terminar una dirección
+con ops, el cliente renderiza 3–4 frames clave del RENDER REAL —mismo
+`estadoEn`+`pintar`, cámara y media incluidas, 768px JPEG— y se los
+manda al director en un turno multimodal extra: los mira como control
+de calidad —desbordes, encimados, capas quietas—, se corrige con las
+herramientas si hace falta (máx. 2 rondas, cada corrección es un paso
+de undo) y responde APROBADO cuando quedó; el ojo del header del panel
+la prende/apaga —prendida por defecto—, `revision-puro.ts` decide QUÉ
+instantes mirar —final de cada entrada, arranque de cada salida, medio
+y casi-final, deduplicados— y el log copiable registra cada ronda con
+frames, veredicto y costo), y **export a MP4 frame-exacto** (WebCodecs + `mp4-muxer`, decisión aprobada por Fran
 2026-08-26): la misma `pintar()` del preview frame a frame, H.264 con
 fallback a VP9-en-MP4 (Chromium sin codecs propietarios), **supersampling
 temporal 4×** para motion blur real (media móvil exacta sobre frames

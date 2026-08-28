@@ -23,6 +23,7 @@ import {
 } from "@/lib/motion/agente-herramientas";
 import { loopGemini, type DefHerramienta } from "@/lib/motion/agente-gemini";
 import { sumarUso, type UsoTokens } from "@/lib/motion/costo-agente-puro";
+import type { ImagenRevision } from "@/lib/motion/revision-puro";
 
 /** Qué modelo dirige. MOTION_AGENTE_MODELO manda (claude-* → Anthropic,
     gemini-* → Gemini); sin él, tener GEMINI_API_KEY elige flash (mucho más
@@ -44,6 +45,8 @@ const SISTEMA = `Sos el director de motion design de adiós adiós, trabajando d
 - CORRECCIONES: los pedidos que siguen a una dirección suelen ser AJUSTES sobre lo ya hecho («el SOLD OUT topa con el borde», «más lento», «el stock en mayúsculas»): el estado te muestra las capas, segmentos y pistas ACTUALES — editá exactamente eso (editar_capa, reescribir el segmento o la pista puntual). JAMÁS rehagas la escena ni dupliques capas para corregir.
 - FUENTES ALL-CAPS: si el contenido de un texto viene en minúsculas raras («stocK:171») pero el diseño lo muestra en MAYÚSCULAS, la fuente del diseño es all-caps: al editar o transformar ese texto escribilo en MAYÚSCULAS para que se vea igual en cualquier fuente.
 - SWAP DE TEXTO: si un texto debe convertirse en otro (BUY NOW → SOLD OUT), es SIEMPRE transformar_texto — clona el estilo entero y arma el cruce. JAMÁS agregues una capa de texto nueva para reemplazar una existente: pierde la tipografía. El «presionado» del botón antes del cambio: pista de escala corta en la original (1 → 0.94 → 1, ~180ms) terminando justo en el «en» del swap.
+- PRESETS DE TRAZOS: trazar/trazarCentro/retraer/borrar/recogerCentro (y las pistas trazoInicio/trazoFin) animan el TRIM del recorrido y sólo se ven en capas de TRAZO — en una forma, un vector con relleno o un texto no hacen NADA visible y la herramienta los rechaza. Para que esas capas «se dibujen» o entren con carácter: revelar (máscara), crecer, aparecer o desenfocar.
+- REVISIÓN VISUAL: cuando el mensaje diga «REVISIÓN VISUAL AUTOMÁTICA» y traiga frames del render, no es un pedido nuevo: es tu control de calidad. Mirá los frames de verdad (desbordes, encimados, capas quietas que deberían moverse, texto ilegible) contra lo que dirigiste. Todo bien → respondé EXACTAMENTE «APROBADO». Hay problemas → corregilos con las herramientas (ajustes puntuales) y terminá con «Corregí:» y una línea por arreglo.
 
 ${ESCUELA_GSAP}
 
@@ -103,6 +106,8 @@ export async function dirigirComposicion(
   historial: TurnoAgente[] = [],
   contextoAudio?: string,
   onEvento?: (evento: EventoAgente) => void,
+  /** frames de la revisión visual: el director MIRA el render (multimodal) */
+  imagenes?: ImagenRevision[],
 ): Promise<RespuestaAgente> {
   let comp = composicion;
   const ops: string[] = [];
@@ -126,6 +131,7 @@ export async function dirigirComposicion(
       sistema: SISTEMA,
       historial,
       primerUsuario,
+      imagenes,
       herramientas: DEFINICIONES_HERRAMIENTAS as unknown as DefHerramienta[],
       maxIteraciones: MAX_ITERACIONES,
       ejecutar: (nombre, input) => {
@@ -154,7 +160,19 @@ export async function dirigirComposicion(
       role: turno.rol === "usuario" ? "user" : "assistant",
       content: turno.texto,
     })),
-    { role: "user", content: primerUsuario },
+    {
+      role: "user",
+      // con frames de revisión el turno es multimodal: imágenes + texto
+      content: imagenes?.length
+        ? [
+            ...imagenes.map<Anthropic.ImageBlockParam>((im) => ({
+              type: "image",
+              source: { type: "base64", media_type: im.mime as "image/jpeg", data: im.datosBase64 },
+            })),
+            { type: "text", text: primerUsuario },
+          ]
+        : primerUsuario,
+    },
   ];
 
   for (let iteracion = 0; iteracion < MAX_ITERACIONES; iteracion++) {
@@ -201,7 +219,12 @@ export async function dirigirComposicion(
       const res = ejecutarHerramienta(comp, uso.name, uso.input);
       comp = res.comp;
       if (res.resumen) ops.push(res.resumen);
-      opsIteracion.push(res.esError ? `${uso.name} → ERROR` : (res.resumen ?? uso.name));
+      // el motivo del error viaja al log (antes «→ ERROR» a secas no decía nada)
+      opsIteracion.push(
+        res.esError
+          ? `${uso.name} → ERROR: ${res.resultado.replace(/^ERROR: /, "").split("\n")[0].slice(0, 110)}`
+          : (res.resumen ?? uso.name),
+      );
       resultados.push({
         type: "tool_result",
         tool_use_id: uso.id,

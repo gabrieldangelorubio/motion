@@ -17,6 +17,8 @@
 
 import { useRef, useState, useEffect } from "react";
 import { costoUSD, formatearCosto, formatearTokens, type UsoTokens } from "@/lib/motion/costo-agente-puro";
+import { esAprobado, mensajeDeRevision, tiemposDeRevision, type ImagenRevision } from "@/lib/motion/revision-puro";
+import { deserializar } from "@/lib/motion/serializar-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
@@ -24,11 +26,15 @@ import type { TurnoAgente } from "@/lib/motion/agente";
 
 type Mensaje = TurnoAgente & { ops?: string[]; meta?: string };
 
+/** lo que devuelve el stream al cerrar */
+type FinAgente = { respuesta?: string; snapshot?: string; ops?: string[]; error?: string; uso?: UsoTokens; modelo?: string };
+
 export function PanelAgente({
   obtenerSnapshot,
   obtenerContextoAudio,
   composicionId,
   onAplicar,
+  renderizarFrames,
 }: {
   obtenerSnapshot: () => string;
   /** la locución de la escena (palabra@ms por línea) para que el director
@@ -37,6 +43,9 @@ export function PanelAgente({
   composicionId: string;
   /** aplica la composición devuelta (el caller registra el undo) */
   onAplicar: (snapshot: string, ops: string[]) => void;
+  /** renderiza frames del snapshot con el motor real (el Editor los pinta
+      con su media): habilita la REVISIÓN VISUAL automática del director */
+  renderizarFrames?: (snapshot: string, tiempos: number[]) => Promise<ImagenRevision[]>;
 }) {
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [texto, setTexto] = useState("");
@@ -52,6 +61,9 @@ export function PanelAgente({
     return () => clearInterval(reloj);
   }, [pensando]);
   const [error, setError] = useState<string | null>(null);
+  // revisión visual automática: al terminar, el director mira frames del
+  // render y se corrige (prendida por defecto; el ojo del header la apaga)
+  const [autoRevision, setAutoRevision] = useState(true);
   const listaRef = useRef<HTMLDivElement>(null);
 
   // ——— Voz al chat: apretás el mic, hablás el pedido, Whisper LOCAL lo
@@ -106,92 +118,173 @@ export function PanelAgente({
     }
   };
 
+  // ——— un round-trip al agente (stream NDJSON): lo usa el pedido del
+  // usuario Y cada ronda de la revisión visual ———
+  const pedirAlAgente = async (
+    cuerpo: Record<string, unknown>,
+    log: string[],
+    t0: number,
+  ): Promise<{ fin: FinAgente | null; pasos: number }> => {
+    const res = await fetch("/api/motion/agente", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(cuerpo),
+    });
+    // los errores tempranos (permisos, body) siguen llegando como JSON
+    if (!res.ok || res.headers.get("content-type")?.includes("application/json")) {
+      const datos = (await res.json().catch(() => ({}))) as { error?: string };
+      return { fin: { error: datos.error ?? t("El agente no pudo responder") }, pasos: 0 };
+    }
+    if (!res.body) return { fin: null, pasos: 0 };
+    // NDJSON en vivo: {tipo:"paso"} por iteración, {tipo:"fin"} al final
+    const lector = res.body.getReader();
+    const dec = new TextDecoder();
+    let resto = "";
+    let fin: FinAgente | null = null;
+    let pasos = 0;
+    for (;;) {
+      const { done, value } = await lector.read();
+      if (done) break;
+      resto += dec.decode(value, { stream: true });
+      const lineas = resto.split("\n");
+      resto = lineas.pop() ?? "";
+      for (const linea of lineas) {
+        if (!linea.trim()) continue;
+        let evento: FinAgente & { tipo?: string; iteracion?: number; msModelo?: number };
+        try {
+          evento = JSON.parse(linea);
+        } catch {
+          continue;
+        }
+        const ts = ((performance.now() - t0) / 1000).toFixed(1);
+        if (evento.tipo === "paso") {
+          pasos = evento.iteracion ?? pasos;
+          const opsPaso = evento.ops ?? [];
+          const tokensPaso = evento.uso ? ` · ${formatearTokens(evento.uso.entrada + evento.uso.salida + (evento.uso.cacheLectura ?? 0))}` : "";
+          log.push(`[+${ts}s] paso ${evento.iteracion} · modelo ${(((evento.msModelo ?? 0)) / 1000).toFixed(1)}s${tokensPaso}${opsPaso.length ? ` · ${opsPaso.join(" | ")}` : " · respuesta final"}`);
+          setProgreso({ paso: evento.iteracion ?? 0, ultimaOp: opsPaso[opsPaso.length - 1] ?? null });
+        } else if (evento.tipo === "fin") {
+          log.push(`[+${ts}s] fin${evento.error ? ` con ERROR: ${evento.error}` : ` (${evento.ops?.length ?? 0} ops)`}`);
+          fin = evento;
+        }
+      }
+    }
+    return { fin, pasos };
+  };
+
+  // la META de un round-trip: pasos · tiempo · tokens · costo (si hay precio)
+  const metaDe = (fin: FinAgente, pasos: number, t0: number): string | undefined => {
+    if (!fin.uso || !fin.modelo) return undefined;
+    const total = fin.uso.entrada + fin.uso.salida + (fin.uso.cacheLectura ?? 0) + (fin.uso.cacheEscritura ?? 0);
+    const costo = costoUSD(fin.modelo, fin.uso);
+    const seg = Math.round((performance.now() - t0) / 1000);
+    return `${pasos} pasos · ${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, "0")} · ${formatearTokens(total)} · ${
+      costo !== null ? `~${formatearCosto(costo)}` : t("precio de {modelo} no cargado", { modelo: fin.modelo })
+    } · ${fin.modelo}`;
+  };
+
   const enviar = async () => {
     const pedido = texto.trim();
     if (!pedido || pensando) return;
     setTexto("");
     setError(null);
-    const historial = mensajes.map(({ rol, texto: tx }) => ({ rol, texto: tx }));
+    // el historial que viaja: turnos consecutivos del mismo rol se FUNDEN
+    // (la revisión visual agrega turnos de agente seguidos, y las APIs
+    // exigen user/assistant alternados)
+    const historial: TurnoAgente[] = [];
+    for (const m of mensajes) {
+      const ultimo = historial[historial.length - 1];
+      if (ultimo && ultimo.rol === m.rol) ultimo.texto += `\n${m.texto}`;
+      else historial.push({ rol: m.rol, texto: m.texto });
+    }
     setMensajes((m) => [...m, { rol: "usuario", texto: pedido }]);
     setPensando(true);
     try {
       const t0 = performance.now();
-      const log: string[] = [`[+0.0s] pedido enviado (${pedido.length} chars)`];
+      const log: string[] = [`[+0.0s] pedido: «${pedido.slice(0, 200)}»`];
       setProgreso(null);
       setTranscurrido(0);
-      const res = await fetch("/api/motion/agente", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
+      const { fin, pasos } = await pedirAlAgente(
+        {
           composicionId,
           snapshot: obtenerSnapshot(),
           mensaje: pedido,
           historial,
           contextoAudio: obtenerContextoAudio?.(),
-        }),
-      });
-      // los errores tempranos (permisos, body) siguen llegando como JSON
-      if (!res.ok || res.headers.get("content-type")?.includes("application/json")) {
-        const datos = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(datos.error ?? t("El agente no pudo responder"));
-        return;
-      }
-      if (!res.body) {
-        setError(t("El agente no pudo responder"));
-        return;
-      }
-      // NDJSON en vivo: {tipo:"paso"} por iteración, {tipo:"fin"} al final
-      const lector = res.body.getReader();
-      const dec = new TextDecoder();
-      let resto = "";
-      let fin: { respuesta?: string; snapshot?: string; ops?: string[]; error?: string; uso?: UsoTokens; modelo?: string } | null = null;
-      let pasos = 0;
-      for (;;) {
-        const { done, value } = await lector.read();
-        if (done) break;
-        resto += dec.decode(value, { stream: true });
-        const lineas = resto.split("\n");
-        resto = lineas.pop() ?? "";
-        for (const linea of lineas) {
-          if (!linea.trim()) continue;
-          let evento: { tipo?: string; iteracion?: number; msModelo?: number; ops?: string[]; respuesta?: string; snapshot?: string; error?: string; uso?: UsoTokens; modelo?: string };
-          try {
-            evento = JSON.parse(linea);
-          } catch {
-            continue;
-          }
-          const ts = ((performance.now() - t0) / 1000).toFixed(1);
-          if (evento.tipo === "paso") {
-            pasos = evento.iteracion ?? pasos;
-            const opsPaso = evento.ops ?? [];
-            const tokensPaso = evento.uso ? ` · ${formatearTokens(evento.uso.entrada + evento.uso.salida + (evento.uso.cacheLectura ?? 0))}` : "";
-            log.push(`[+${ts}s] paso ${evento.iteracion} · modelo ${(((evento.msModelo ?? 0)) / 1000).toFixed(1)}s${tokensPaso}${opsPaso.length ? ` · ${opsPaso.join(" | ")}` : " · respuesta final"}`);
-            setProgreso({ paso: evento.iteracion ?? 0, ultimaOp: opsPaso[opsPaso.length - 1] ?? null });
-          } else if (evento.tipo === "fin") {
-            log.push(`[+${ts}s] fin${evento.error ? ` con ERROR: ${evento.error}` : ` (${evento.ops?.length ?? 0} ops)`}`);
-            fin = evento;
-          }
-        }
-      }
+        },
+        log,
+        t0,
+      );
       setUltimoLog(log);
       if (!fin || fin.error || !fin.respuesta || !fin.snapshot) {
         setError(fin?.error ?? t("El agente no pudo responder"));
         return;
       }
       if (fin.ops && fin.ops.length > 0) onAplicar(fin.snapshot, fin.ops);
-      // la META del pedido: pasos · tiempo · tokens · costo (si hay precio)
-      let meta: string | undefined;
-      if (fin.uso && fin.modelo) {
-        const total = fin.uso.entrada + fin.uso.salida + (fin.uso.cacheLectura ?? 0) + (fin.uso.cacheEscritura ?? 0);
-        const costo = costoUSD(fin.modelo, fin.uso);
-        const seg = Math.round((performance.now() - t0) / 1000);
-        meta = `${pasos} pasos · ${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, "0")} · ${formatearTokens(total)} · ${
-          costo !== null ? `~${formatearCosto(costo)}` : t("precio de {modelo} no cargado", { modelo: fin.modelo })
-        } · ${fin.modelo}`;
-        log.push(`TOTAL: ${meta}`);
-      }
-      setMensajes((m) => [...m, { rol: "agente", texto: fin!.respuesta!, ops: fin.ops, meta }]);
+      const meta = metaDe(fin, pasos, t0);
+      if (meta) log.push(`TOTAL: ${meta}`);
+      setMensajes((m) => [...m, { rol: "agente", texto: fin.respuesta!, ops: fin.ops, meta }]);
       requestAnimationFrame(() => listaRef.current?.scrollTo({ top: 1e6 }));
+
+      // ——— REVISIÓN VISUAL AUTOMÁTICA: el director MIRA frames del render
+      // real y se corrige antes de darte el resultado (máx. 2 rondas) ———
+      if (autoRevision && renderizarFrames && (fin.ops?.length ?? 0) > 0) {
+        let snapshotVivo = fin.snapshot;
+        let historialVivo: TurnoAgente[] = [
+          ...historial,
+          { rol: "usuario", texto: pedido },
+          { rol: "agente", texto: fin.respuesta },
+        ];
+        for (let ronda = 1; ronda <= 2; ronda++) {
+          let tiempos: number[] = [];
+          let frames: ImagenRevision[] = [];
+          try {
+            tiempos = tiemposDeRevision(deserializar(snapshotVivo));
+            frames = await renderizarFrames(snapshotVivo, tiempos);
+          } catch {
+            break; // sin frames no hay revisión — el resultado ya está aplicado
+          }
+          if (frames.length === 0) break;
+          const ts = ((performance.now() - t0) / 1000).toFixed(1);
+          log.push(`[+${ts}s] revisión ${ronda}: mirando ${frames.length} frames (${tiempos.map((x) => `${x}ms`).join(", ")})`);
+          setProgreso({ paso: 0, ultimaOp: t("revisión visual {n}: mirando el render…", { n: ronda }) });
+          const { fin: finR, pasos: pasosR } = await pedirAlAgente(
+            { composicionId, snapshot: snapshotVivo, mensaje: mensajeDeRevision(tiempos), historial: historialVivo, imagenes: frames },
+            log,
+            t0,
+          );
+          if (!finR || finR.error || !finR.respuesta || !finR.snapshot) {
+            log.push(`revisión ${ronda}: ERROR ${finR?.error ?? ""}`);
+            break;
+          }
+          const aprobado = esAprobado(finR.respuesta);
+          if (finR.ops && finR.ops.length > 0) {
+            onAplicar(finR.snapshot, finR.ops);
+            snapshotVivo = finR.snapshot;
+          }
+          log.push(aprobado ? `revisión ${ronda}: APROBADO` : `revisión ${ronda}: corrigió ${finR.ops?.length ?? 0} ops`);
+          const metaR = metaDe(finR, pasosR, t0);
+          setMensajes((m) => [
+            ...m,
+            {
+              rol: "agente",
+              texto: aprobado
+                ? t("✓ Revisión visual: miré frames del render y quedó como lo dirigí.")
+                : finR.respuesta!,
+              ops: finR.ops,
+              meta: metaR ? `${t("revisión visual")} · ${metaR}` : undefined,
+            },
+          ]);
+          historialVivo = [
+            ...historialVivo,
+            { rol: "usuario", texto: "(revisión visual automática: frames del render adjuntos)" },
+            { rol: "agente", texto: finR.respuesta },
+          ];
+          requestAnimationFrame(() => listaRef.current?.scrollTo({ top: 1e6 }));
+          if (aprobado || (finR.ops?.length ?? 0) === 0) break;
+        }
+      }
+      setUltimoLog([...log]);
     } catch {
       setError(t("No se pudo hablar con el agente (¿el servidor está corriendo?)"));
     } finally {
@@ -203,6 +296,22 @@ export function PanelAgente({
     <div className="flex h-full min-h-0 flex-col border-t border-(--glass-border) bg-(--chrome-bg)">
       <div className="flex items-center border-b border-(--glass-border) px-3 py-2">
         <span className="min-w-0 flex-1 text-[13px] font-semibold text-foreground">{t("Director de motion")}</span>
+        {renderizarFrames && (
+          <span className="mr-1 shrink-0">
+            <BotonIcono
+              tam={24}
+              etiqueta={
+                autoRevision
+                  ? t("Revisión visual automática PRENDIDA: al terminar, el director mira frames del render y se corrige (tocá para apagarla)")
+                  : t("Revisión visual automática apagada (tocá para prenderla)")
+              }
+              activo={autoRevision}
+              onClick={() => setAutoRevision((v) => !v)}
+            >
+              <Icono nombre={autoRevision ? "ojo" : "ojoTachado"} width={13} height={13} />
+            </BotonIcono>
+          </span>
+        )}
         {ultimoLog.length > 0 && (
           <button
             type="button"

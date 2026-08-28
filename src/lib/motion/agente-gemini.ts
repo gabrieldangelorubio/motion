@@ -11,9 +11,11 @@
 
 import type { EventoAgente } from "@/lib/motion/agente";
 import { sumarUso, type UsoTokens } from "@/lib/motion/costo-agente-puro";
+import type { ImagenRevision } from "@/lib/motion/revision-puro";
 
 type ParteGemini =
   | { text: string }
+  | { inlineData: { mimeType: string; data: string } }
   | { functionCall: { name: string; args: Record<string, unknown> } }
   | { functionResponse: { name: string; response: Record<string, unknown> } };
 
@@ -48,6 +50,16 @@ export function herramientasParaGemini(defs: DefHerramienta[]): { functionDeclar
   }];
 }
 
+/** El primer turno de usuario como partes: los frames de la revisión
+    visual (inlineData) ANTES del texto — el orden que Gemini recomienda
+    para que el texto refiera a las imágenes. Pura: testeable. */
+export function partesDeUsuario(texto: string, imagenes?: ImagenRevision[]): ParteGemini[] {
+  return [
+    ...(imagenes ?? []).map<ParteGemini>((im) => ({ inlineData: { mimeType: im.mime, data: im.datosBase64 } })),
+    { text: texto },
+  ];
+}
+
 /** Cuando Gemini retira un modelo devuelve 404 con el reemplazo adentro
     («Please update your code to use models/gemini-X»): se extrae para
     reintentar solo — el director no se cae por un rename de Google. */
@@ -67,6 +79,8 @@ export async function loopGemini(opts: {
   historial: { rol: "usuario" | "agente"; texto: string }[];
   /** el primer turno de usuario: estado + locución + pedido */
   primerUsuario: string;
+  /** frames de la revisión visual (van como inlineData antes del texto) */
+  imagenes?: ImagenRevision[];
   herramientas: DefHerramienta[];
   maxIteraciones: number;
   ejecutar: (nombre: string, input: Record<string, unknown>) => { resultado: string; esError?: boolean; resumen?: string };
@@ -82,7 +96,7 @@ export async function loopGemini(opts: {
       role: turno.rol === "usuario" ? "user" : "model",
       parts: [{ text: turno.texto }],
     })),
-    { role: "user", parts: [{ text: opts.primerUsuario }] },
+    { role: "user", parts: partesDeUsuario(opts.primerUsuario, opts.imagenes) },
   ];
 
   for (let iteracion = 0; iteracion < opts.maxIteraciones; iteracion++) {
@@ -148,7 +162,13 @@ export async function loopGemini(opts: {
     const opsIteracion: string[] = [];
     for (const llamada of llamadas) {
       const res2 = opts.ejecutar(llamada.functionCall.name, llamada.functionCall.args ?? {});
-      opsIteracion.push(res2.esError ? `${llamada.functionCall.name} → ERROR` : (res2.resumen ?? llamada.functionCall.name));
+      // el error VIAJA al log: «definir_entrada → ERROR» a secas no le
+      // decía a nadie qué pasó (ni al usuario ni al log que nos copia)
+      opsIteracion.push(
+        res2.esError
+          ? `${llamada.functionCall.name} → ERROR: ${res2.resultado.replace(/^ERROR: /, "").split("\n")[0].slice(0, 110)}`
+          : (res2.resumen ?? llamada.functionCall.name),
+      );
       respuestas.push({
         functionResponse: {
           name: llamada.functionCall.name,
