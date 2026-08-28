@@ -477,7 +477,13 @@ Nada más: cero librerías de animación, canvas o UI.
 - **`ANTHROPIC_API_KEY`** (SECRETA) — la clave de la API de Claude para el
   agente director. Sin ella el módulo funciona entero salvo el chat, que
   avisa con un error legible (503).
-- `MOTION_AGENTE_MODELO` (opcional) — modelo del agente; default
+- **`GEMINI_API_KEY`** (SECRETA, opcional) — la clave de Gemini: el
+  director es multi-proveedor (mismo prompt-escuela y mismas herramientas
+  por function calling). Con esta clave puesta y sin `MOTION_AGENTE_MODELO`
+  el default pasa a `gemini-2.5-flash` (mucho más barato por pedido).
+- `MOTION_AGENTE_MODELO` (opcional) — modelo del agente y a la vez el
+  selector de proveedor: `claude-*` → Anthropic, `gemini-*` → Gemini.
+  Default: `gemini-2.5-flash` si hay GEMINI_API_KEY, si no
   `claude-opus-5`.
 
 ## Migración (SQL aditivo) + fragmento de schema
@@ -523,7 +529,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **238
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **240
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;

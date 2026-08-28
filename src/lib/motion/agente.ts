@@ -21,8 +21,15 @@ import {
   catalogoParaPrompt,
   ejecutarHerramienta,
 } from "@/lib/motion/agente-herramientas";
+import { loopGemini, type DefHerramienta } from "@/lib/motion/agente-gemini";
 
-const MODELO = process.env.MOTION_AGENTE_MODELO || "claude-opus-5";
+/** Qué modelo dirige. MOTION_AGENTE_MODELO manda (claude-* → Anthropic,
+    gemini-* → Gemini); sin él, tener GEMINI_API_KEY elige flash (mucho más
+    barato por pedido) y si no, opus. Pura: testeable. */
+export function modeloDirector(env: { MOTION_AGENTE_MODELO?: string; GEMINI_API_KEY?: string }): string {
+  if (env.MOTION_AGENTE_MODELO) return env.MOTION_AGENTE_MODELO;
+  return env.GEMINI_API_KEY ? "gemini-2.5-flash" : "claude-opus-5";
+}
 const MAX_ITERACIONES = 24;
 
 const SISTEMA = `Sos el director de motion design de adiós adiós, trabajando dentro del módulo de motion de diosa. Tu oficio viene de la escuela GSAP —timelines, staggers, coreografía de easings— y lo ejecutás sobre el motor propio del módulo con las herramientas disponibles.
@@ -88,6 +95,42 @@ export async function dirigirComposicion(
   contextoAudio?: string,
   onEvento?: (evento: EventoAgente) => void,
 ): Promise<RespuestaAgente> {
+  let comp = composicion;
+  const ops: string[] = [];
+
+  const primerUsuario = `Estado actual de la composición:\n${describir(comp)}\n${
+    contextoAudio
+      ? `\nLA LOCUCIÓN de esta escena (cada palabra con el ms donde CAE — sincronizá: la entrada de cada elemento arranca en la palabra que le corresponde, los «en» de segmentos y keyframes caen EN estos tiempos, no aproximados):\n${contextoAudio}\n`
+      : ""
+  }\nPedido: ${mensaje}`;
+
+  const modelo = modeloDirector({ MOTION_AGENTE_MODELO: process.env.MOTION_AGENTE_MODELO, GEMINI_API_KEY: process.env.GEMINI_API_KEY });
+
+  // ——— proveedor GEMINI (mismo prompt, mismas herramientas, otro loop) ———
+  if (modelo.startsWith("gemini")) {
+    if (!process.env.GEMINI_API_KEY) {
+      return { ok: false, error: "Falta GEMINI_API_KEY en el entorno: el modelo elegido es Gemini (ver ENTREGA.md)" };
+    }
+    const res = await loopGemini({
+      apiKey: process.env.GEMINI_API_KEY,
+      modelo,
+      sistema: SISTEMA,
+      historial,
+      primerUsuario,
+      herramientas: DEFINICIONES_HERRAMIENTAS as unknown as DefHerramienta[],
+      maxIteraciones: MAX_ITERACIONES,
+      ejecutar: (nombre, input) => {
+        const r = ejecutarHerramienta(comp, nombre, input);
+        comp = r.comp;
+        if (r.resumen) ops.push(r.resumen);
+        return { resultado: r.resultado, esError: r.esError };
+      },
+      onEvento,
+    });
+    return res.ok ? { ok: true, respuesta: res.respuesta, composicion: comp, ops } : res;
+  }
+
+  // ——— proveedor ANTHROPIC (el camino de siempre) ———
   if (!process.env.ANTHROPIC_API_KEY) {
     return {
       ok: false,
@@ -96,28 +139,18 @@ export async function dirigirComposicion(
   }
   const cliente = new Anthropic();
 
-  let comp = composicion;
-  const ops: string[] = [];
-
   const mensajes: Anthropic.MessageParam[] = [
     ...historial.slice(-12).map<Anthropic.MessageParam>((turno) => ({
       role: turno.rol === "usuario" ? "user" : "assistant",
       content: turno.texto,
     })),
-    {
-      role: "user",
-      content: `Estado actual de la composición:\n${describir(comp)}\n${
-        contextoAudio
-          ? `\nLA LOCUCIÓN de esta escena (cada palabra con el ms donde CAE — sincronizá: la entrada de cada elemento arranca en la palabra que le corresponde, los «en» de segmentos y keyframes caen EN estos tiempos, no aproximados):\n${contextoAudio}\n`
-          : ""
-      }\nPedido: ${mensaje}`,
-    },
+    { role: "user", content: primerUsuario },
   ];
 
   for (let iteracion = 0; iteracion < MAX_ITERACIONES; iteracion++) {
     const t0 = Date.now();
     const respuesta = await cliente.messages.create({
-      model: MODELO,
+      model: modelo,
       max_tokens: 16000,
       system: [{ type: "text", text: SISTEMA, cache_control: { type: "ephemeral" } }],
       tools: DEFINICIONES_HERRAMIENTAS as unknown as Anthropic.Tool[],

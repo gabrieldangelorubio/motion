@@ -13,6 +13,16 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Director multi-proveedor: Gemini Flash por costo (2026-08-28, tanda 16)
+- **Hecho:** el director habla con CUALQUIER modelo con function calling —
+  el «entrenamiento» es el prompt-escuela + las herramientas, y viajan tal
+  cual. `agente-gemini.ts` habla la REST de generateContent (sin SDK
+  nuevo): mismo loop, mismos eventos de progreso, mismas herramientas
+  (convertidas a functionDeclarations, testeado). Selección por modelo:
+  `MOTION_AGENTE_MODELO` manda (`claude-*`/`gemini-*`); sin él, tener
+  `GEMINI_API_KEY` en .env.local elige `gemini-2.5-flash` solo (el pedido
+  de costo). Las keys SIEMPRE en .env.local, jamás al repo.
+
 ### [HECHO] Efectos de agencia: contador, swap con estilo, log del director (2026-08-28, tanda 15)
 - **Hecho:** (1) CONTADOR de números: pista animable «numero» — en una capa
   de texto, el valor interpolado y redondeado reemplaza la PRIMERA cifra

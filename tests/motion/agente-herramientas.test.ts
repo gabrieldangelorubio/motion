@@ -211,3 +211,32 @@ test("definir_pista «numero» solo va en textos con una cifra", () => {
   });
   assert.ok(mal.esError);
 });
+
+/* ——— el director multi-proveedor (Claude / Gemini) ————————————— */
+
+test("modeloDirector: MOTION_AGENTE_MODELO manda; sin él, la key de Gemini elige flash", async () => {
+  const { modeloDirector } = await import("@/lib/motion/agente");
+  assert.equal(modeloDirector({}), "claude-opus-5");
+  assert.equal(modeloDirector({ GEMINI_API_KEY: "x" }), "gemini-2.5-flash");
+  assert.equal(modeloDirector({ GEMINI_API_KEY: "x", MOTION_AGENTE_MODELO: "claude-sonnet-5" }), "claude-sonnet-5");
+  assert.equal(modeloDirector({ MOTION_AGENTE_MODELO: "gemini-2.5-pro" }), "gemini-2.5-pro");
+});
+
+test("herramientasParaGemini convierte TODAS las herramientas al formato functionDeclarations", async () => {
+  const { herramientasParaGemini } = await import("@/lib/motion/agente-gemini");
+  const tools = herramientasParaGemini(DEFINICIONES_HERRAMIENTAS as never);
+  assert.equal(tools.length, 1);
+  const defs = tools[0].functionDeclarations;
+  assert.equal(defs.length, (DEFINICIONES_HERRAMIENTAS as { name: string }[]).length);
+  for (const d of defs) {
+    assert.ok(d.name && d.description, `${d.name} sin descripción`);
+    assert.ok(d.parameters && typeof d.parameters === "object", `${d.name} sin parameters`);
+    // el subset OpenAPI: nada de additionalProperties en ningún nivel
+    assert.ok(!JSON.stringify(d.parameters).includes("additionalProperties"));
+  }
+  // las herramientas clave del oficio viajan
+  const nombres = defs.map((d) => d.name);
+  for (const clave of ["transformar_texto", "definir_pista", "definir_camara", "definir_entrada"]) {
+    assert.ok(nombres.includes(clave), `falta ${clave}`);
+  }
+});
