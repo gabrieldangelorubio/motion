@@ -60,6 +60,14 @@ export function partesDeUsuario(texto: string, imagenes?: ImagenRevision[]): Par
   ];
 }
 
+/** El PENSAMIENTO de Gemini a fondo: presupuesto DINÁMICO (-1) — el modelo
+    razona lo que el paso pida en vez del default conservador de Flash. Sólo
+    para las familias que lo soportan (2.5+, 3.x); para el resto no se manda
+    nada. Pura: testeable. */
+export function configGeneracion(modelo: string): { thinkingConfig: { thinkingBudget: number } } | undefined {
+  return /^gemini-(2\.5|[3-9])/.test(modelo) ? { thinkingConfig: { thinkingBudget: -1 } } : undefined;
+}
+
 /** Cuando Gemini retira un modelo devuelve 404 con el reemplazo adentro
     («Please update your code to use models/gemini-X»): se extrae para
     reintentar solo — el director no se cae por un rename de Google. */
@@ -89,6 +97,9 @@ export async function loopGemini(opts: {
   let usoTotal: UsoTokens = { entrada: 0, salida: 0 };
   let modeloVivo = opts.modelo;
   let reintentoModelo = false;
+  // pensamiento dinámico prendido; si el modelo lo rechaza (400 que nombra
+  // thinking) se apaga y se reintenta UNA vez — degradar, no romper
+  let conPensamiento = true;
   const tools = herramientasParaGemini(opts.herramientas);
 
   const contents: ContenidoGemini[] = [
@@ -109,6 +120,9 @@ export async function loopGemini(opts: {
         systemInstruction: { parts: [{ text: opts.sistema }] },
         contents,
         tools,
+        ...(conPensamiento && configGeneracion(modeloVivo)
+          ? { generationConfig: configGeneracion(modeloVivo) }
+          : {}),
       }),
     });
     if (!res.ok) {
@@ -118,6 +132,12 @@ export async function loopGemini(opts: {
       if (sugerido) {
         reintentoModelo = true;
         modeloVivo = sugerido;
+        iteracion--;
+        continue;
+      }
+      // el modelo no acepta thinkingConfig: se apaga y se sigue sin él
+      if (res.status === 400 && conPensamiento && /thinking/i.test(detalle)) {
+        conPensamiento = false;
         iteracion--;
         continue;
       }

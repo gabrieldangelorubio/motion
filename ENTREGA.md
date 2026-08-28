@@ -500,10 +500,14 @@ Nada más: cero librerías de animación, canvas o UI.
 - **`GEMINI_API_KEY`** (SECRETA, opcional) — la clave de Gemini: el
   director es multi-proveedor (mismo prompt-escuela y mismas herramientas
   por function calling). Con esta clave puesta y sin `MOTION_AGENTE_MODELO`
-  el default pasa a `gemini-2.5-flash` (mucho más barato por pedido).
+  el default pasa a `gemini-3.6-flash` (mucho más barato por pedido). A los
+  Gemini que lo soportan (2.5+, 3.x) se les manda PENSAMIENTO DINÁMICO
+  (`thinkingBudget: -1` — razona lo que el paso pida en vez del default
+  conservador de Flash); si un modelo rechaza el thinkingConfig se apaga y
+  se reintenta sin él.
 - `MOTION_AGENTE_MODELO` (opcional) — modelo del agente y a la vez el
   selector de proveedor: `claude-*` → Anthropic, `gemini-*` → Gemini.
-  Default: `gemini-2.5-flash` si hay GEMINI_API_KEY, si no
+  Default: `gemini-3.6-flash` si hay GEMINI_API_KEY, si no
   `claude-opus-5`.
 
 ## Migración (SQL aditivo) + fragmento de schema

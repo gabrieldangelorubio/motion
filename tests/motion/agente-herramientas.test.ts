@@ -316,3 +316,12 @@ test("partesDeUsuario arma imágenes ANTES del texto para el turno multimodal de
   // sin imágenes: sólo el texto
   assert.deepEqual(partesDeUsuario("hola"), [{ text: "hola" }]);
 });
+
+test("configGeneracion: pensamiento dinámico para los Gemini que lo soportan, nada para el resto", async () => {
+  const { configGeneracion } = await import("@/lib/motion/agente-gemini");
+  assert.deepEqual(configGeneracion("gemini-3.6-flash"), { thinkingConfig: { thinkingBudget: -1 } });
+  assert.deepEqual(configGeneracion("gemini-2.5-flash"), { thinkingConfig: { thinkingBudget: -1 } });
+  assert.deepEqual(configGeneracion("gemini-4.0-pro"), { thinkingConfig: { thinkingBudget: -1 } });
+  assert.equal(configGeneracion("gemini-2.0-flash"), undefined);
+  assert.equal(configGeneracion("gemini-1.5-pro"), undefined);
+});
