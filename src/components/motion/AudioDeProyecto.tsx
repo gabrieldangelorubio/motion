@@ -3,15 +3,16 @@
 /* -----------------------------------------------------------------------------
    Franja de audio del proyecto — la voz en off estructurando las escenas
 
-   Vive arriba de la línea de tiempo, a lo ancho: la forma de onda del audio
-   del proyecto (ritmo y pausas a la vista) con los CORTES de escena encima.
+   Vive arriba de la línea de tiempo, a lo ancho, en DOS carriles:
+   - la FORMA DE ONDA (canvas): lo ya reproducido en acento, lo que falta en
+     tinta apagada — el progreso se lee de un vistazo; encima los CORTES de
+     escena (arrastrables) y el playhead.
+   - la TRANSCRIPCIÓN (HTML, separada abajo): cada PALABRA posicionada donde
+     cae en el tiempo, clickeable — click = saltar el playhead ahí, la base
+     para ubicar keyframes sobre la locución. Una transcripción vieja sin
+     palabras degrada a bloques por oración.
    El eje X es el tiempo GLOBAL del proyecto (las escenas concatenadas, el
    mismo orden del export).
-
-   - Click en la franja → salta a ese punto (cambia de escena si hace falta).
-   - Arrastrar un corte → ajusta la duración de la escena que termina ahí:
-     así separás la locución en segmentos («esto es la escena 1, esto la 2»).
-   - El cursor muestra dónde va sonando el playhead de la escena activa.
 ----------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -20,7 +21,7 @@ import { duracionTotal, type CorteEscena } from "@/lib/motion/audio-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 
-const ALTO = 44;
+const ALTO = 36;
 const UMBRAL_CORTE_PX = 6;
 
 export function AudioDeProyecto({
@@ -66,7 +67,7 @@ export function AudioDeProyecto({
   const activa = cortes.find((c) => c.id === escenaActiva);
   const globalPlayhead = (activa?.desdeMs ?? 0) + tiempoMs;
 
-  // ——— pintar la franja: onda + cortes + playhead ———
+  // ——— pintar la onda: progreso en acento + cortes + playhead ———
   useEffect(() => {
     const lienzo = lienzoRef.current;
     const marco = marcoRef.current;
@@ -84,17 +85,20 @@ export function AudioDeProyecto({
     const tinta = estilos.color;
     const acento = estilos.getPropertyValue("--acento").trim() || "#5b8cff";
 
-    // la onda ocupa el tramo del audio dentro del total global
+    // la onda ocupa el tramo del audio dentro del total global; lo YA
+    // reproducido va en acento — el progreso se lee sin buscar el playhead
     const anchoOnda = (audio.duracionMs / total) * ancho;
+    const xPlay = (Math.min(globalPlayhead, total) / total) * ancho;
     const picos = audio.picos;
-    const centro = ALTO / 2;
-    ctx.fillStyle = tinta;
-    ctx.globalAlpha = 0.55;
+    const centro = ALTO / 2 + 3; // deja aire arriba para los nombres de escena
     const pasos = Math.max(1, Math.floor(anchoOnda));
     for (let x = 0; x < pasos; x++) {
       const pico = picos[Math.min(picos.length - 1, Math.floor((x / anchoOnda) * picos.length))] ?? 0;
       // piso de 1px: el silencio se ve como línea — las PAUSAS de la locución
-      const alto = Math.max(1, pico * (ALTO - 10));
+      const alto = Math.max(1, pico * (ALTO - 14));
+      const reproducido = x <= xPlay;
+      ctx.fillStyle = reproducido ? acento : tinta;
+      ctx.globalAlpha = reproducido ? 0.8 : 0.3;
       ctx.fillRect(x, centro - alto / 2, 1, alto);
     }
     ctx.globalAlpha = 1;
@@ -107,56 +111,42 @@ export function AudioDeProyecto({
       const x = (globalCorte / total) * ancho;
       const esUltimo = i === cortes.length - 1;
       ctx.strokeStyle = acento;
-      ctx.globalAlpha = esUltimo ? 0.45 : 0.9;
+      ctx.globalAlpha = esUltimo ? 0.4 : 0.85;
       ctx.lineWidth = vivo && vivo.indice === i ? 2 : 1;
       ctx.beginPath();
-      ctx.moveTo(x, 0);
+      ctx.moveTo(x, 2);
       ctx.lineTo(x, ALTO);
       ctx.stroke();
+      // manijita: el corte se agarra
+      ctx.fillStyle = acento;
+      ctx.fillRect(x - 2, 2, 5, 3);
     }
     ctx.globalAlpha = 1;
 
-    // nombre de cada escena al inicio de su tramo
+    // nombre de cada escena al inicio de su tramo, en el aire de arriba
     ctx.fillStyle = tinta;
-    ctx.globalAlpha = 0.6;
-    ctx.font = "9px ui-sans-serif, system-ui, sans-serif";
+    ctx.globalAlpha = 0.5;
+    ctx.font = "600 8px ui-sans-serif, system-ui, sans-serif";
     for (const corte of cortes) {
       const x = (corte.desdeMs / total) * ancho;
-      ctx.fillText(corte.nombre, x + 4, 10);
+      ctx.fillText(corte.nombre.toUpperCase(), x + 5, 8);
     }
     ctx.globalAlpha = 1;
 
-    // la transcripción: cada oración escrita SOBRE su tramo del audio (donde
-    // cae en el tiempo), recortada a su ancho — la locución se LEE en la onda
-    const oraciones = audio.transcripcion?.oraciones ?? [];
-    if (oraciones.length > 0) {
-      ctx.font = "8px ui-sans-serif, system-ui, sans-serif";
-      for (const oracion of oraciones) {
-        const x0 = (oracion.desdeMs / total) * ancho;
-        const x1 = (oracion.hastaMs / total) * ancho;
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(x0, ALTO - 12, Math.max(8, x1 - x0) - 2, 12);
-        ctx.clip();
-        ctx.globalAlpha = 0.85;
-        ctx.fillStyle = tinta;
-        ctx.fillText(oracion.texto, x0 + 2, ALTO - 3);
-        ctx.restore();
-        // tick del arranque de la oración
-        ctx.globalAlpha = 0.4;
-        ctx.fillRect(x0, ALTO - 12, 1, 12);
-        ctx.globalAlpha = 1;
-      }
-    }
-
-    // playhead global
-    const xPlay = (Math.min(globalPlayhead, total) / total) * ancho;
+    // playhead: línea con cabeza — el cursor manda sobre todo
     ctx.strokeStyle = acento;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(xPlay, 0);
     ctx.lineTo(xPlay, ALTO);
     ctx.stroke();
+    ctx.fillStyle = acento;
+    ctx.beginPath();
+    ctx.moveTo(xPlay - 3.5, 0);
+    ctx.lineTo(xPlay + 3.5, 0);
+    ctx.lineTo(xPlay, 5);
+    ctx.closePath();
+    ctx.fill();
   }, [audio, cortes, total, globalPlayhead, arrastre]);
 
   const globalDeEvento = useCallback(
@@ -216,59 +206,106 @@ export function AudioDeProyecto({
     onCortar(corte.id, Math.round(vivo.globalMs - corte.desdeMs));
   }, [cortes, onCortar]);
 
+  // ——— el carril de transcripción: palabras (o oraciones) en su tiempo ———
+  const palabras = audio.transcripcion?.palabras ?? [];
+  const oraciones = audio.transcripcion?.oraciones ?? [];
+  const unidades = palabras.length > 0 ? palabras : oraciones;
+  const conCarril = unidades.length > 0;
+
+  const saltarPorFondo = useCallback(
+    (e: React.PointerEvent) => {
+      // el fondo del carril también scrubbea; las palabras ya saltan solas
+      if ((e.target as HTMLElement).closest("button")) return;
+      onSaltar(globalDeEvento(e));
+    },
+    [globalDeEvento, onSaltar],
+  );
+
   return (
-    <div className="flex items-center gap-2 border-b border-(--panel-border) bg-(--panel-bg) px-3 py-1">
-      <div
-        ref={marcoRef}
-        role="slider"
-        aria-label={t("Audio del proyecto: {nombre}", { nombre: audio.nombre })}
-        aria-valuemin={0}
-        aria-valuemax={total}
-        aria-valuenow={Math.round(globalPlayhead)}
-        className="relative min-w-0 flex-1 cursor-crosshair select-none touch-none"
-        style={{ height: ALTO }}
-        onPointerDown={alBajar}
-        onPointerMove={alMover}
-        onPointerUp={alSoltar}
-        onPointerCancel={() => setArrastre(null)}
-      >
-        <canvas ref={lienzoRef} className="absolute inset-0 h-full w-full" />
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-0.5">
-        <span className="max-w-40 truncate text-[10px] text-foreground/60" title={audio.nombre}>
-          ♪ {audio.nombre}
-        </span>
-        {onRecortarAudio && (
-          <button
-            type="button"
-            onClick={onRecortarAudio}
-            title={t("Elegir otro segmento del archivo (el proyecto usa solo ese pedazo)")}
-            className="flex h-5 items-center rounded-control px-1.5 text-[10px] text-foreground/50 hover:bg-ink/[0.06] hover:text-foreground"
-          >
-            {t("Recortar")}
-          </button>
-        )}
-        {onTranscribir && !audio.transcripcion && (
-          <button
-            type="button"
-            onClick={onTranscribir}
-            disabled={transcribiendo !== null}
-            title={t("Whisper local: las oraciones con sus tiempos quedan sobre la onda — nada sale de tu máquina")}
-            className="flex h-5 items-center rounded-control px-1.5 text-[10px] text-acento hover:bg-acento/10 disabled:opacity-60"
-          >
-            {transcribiendo ?? t("Transcribir")}
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onQuitar}
-          className="flex h-5 items-center gap-1 rounded-control px-1.5 text-[10px] text-foreground/50 hover:bg-ink/[0.06] hover:text-peligro"
-          aria-label={t("Quitar el audio del proyecto")}
+    <div className="border-b border-(--panel-border) bg-(--panel-bg)">
+      <div className="flex items-stretch gap-3 px-3 pt-1.5">
+        <div
+          ref={marcoRef}
+          role="slider"
+          aria-label={t("Audio del proyecto: {nombre}", { nombre: audio.nombre })}
+          aria-valuemin={0}
+          aria-valuemax={total}
+          aria-valuenow={Math.round(globalPlayhead)}
+          className="relative min-w-0 flex-1 cursor-crosshair select-none touch-none"
+          style={{ height: ALTO }}
+          onPointerDown={alBajar}
+          onPointerMove={alMover}
+          onPointerUp={alSoltar}
+          onPointerCancel={() => setArrastre(null)}
         >
-          <Icono nombre="cerrar" width={9} height={9} />
-          {t("Quitar")}
-        </button>
+          <canvas ref={lienzoRef} className="absolute inset-0 h-full w-full" />
+        </div>
+        <div className="flex shrink-0 flex-col items-end justify-center gap-1">
+          <span className="max-w-44 truncate text-[10px] text-foreground/60" title={audio.nombre}>
+            ♪ {audio.nombre}
+          </span>
+          <div className="flex items-center gap-0.5">
+            {onRecortarAudio && (
+              <button
+                type="button"
+                onClick={onRecortarAudio}
+                title={t("Elegir otro segmento del archivo (el proyecto usa solo ese pedazo)")}
+                className="flex h-5 items-center rounded-control px-1.5 text-[10px] text-foreground/50 hover:bg-ink/[0.06] hover:text-foreground"
+              >
+                {t("Recortar")}
+              </button>
+            )}
+            {onTranscribir && (
+              <button
+                type="button"
+                onClick={onTranscribir}
+                disabled={transcribiendo !== null}
+                title={t("Whisper local, idioma autodetectado: cada palabra con su tiempo, clickeable para ubicar keyframes — nada sale de tu máquina")}
+                className="flex h-5 items-center rounded-control px-1.5 text-[10px] text-acento hover:bg-acento/10 disabled:opacity-60"
+              >
+                {transcribiendo ?? (audio.transcripcion ? t("Re-transcribir") : t("Transcribir"))}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onQuitar}
+              className="flex h-5 items-center gap-1 rounded-control px-1.5 text-[10px] text-foreground/50 hover:bg-ink/[0.06] hover:text-peligro"
+              aria-label={t("Quitar el audio del proyecto")}
+            >
+              <Icono nombre="cerrar" width={9} height={9} />
+            </button>
+          </div>
+        </div>
       </div>
+      {conCarril && (
+        <div
+          className="relative mx-3 mb-1 mt-0.5 h-[18px] select-none overflow-hidden border-t border-(--panel-border)"
+          aria-label={t("Transcripción: click en una palabra salta ahí")}
+          onPointerDown={saltarPorFondo}
+        >
+          {unidades.map((u, i) => {
+            const sonando = globalPlayhead >= u.desdeMs && globalPlayhead < u.hastaMs;
+            return (
+              <button
+                key={`${u.desdeMs}-${i}`}
+                type="button"
+                onClick={() => onSaltar(u.desdeMs)}
+                title={`${u.texto} · ${(u.desdeMs / 1000).toFixed(2)}s`}
+                style={{
+                  left: `${(u.desdeMs / total) * 100}%`,
+                  width: `${Math.max(0.2, ((u.hastaMs - u.desdeMs) / total) * 100)}%`,
+                }}
+                className={[
+                  "absolute inset-y-0 overflow-hidden border-l border-(--panel-border) px-0.5 text-left text-[9px] leading-[17px] whitespace-nowrap",
+                  sonando ? "bg-acento/10 text-acento" : "text-foreground/55 hover:bg-ink/[0.06] hover:text-foreground",
+                ].join(" ")}
+              >
+                {u.texto}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

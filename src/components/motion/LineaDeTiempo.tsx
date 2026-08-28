@@ -108,6 +108,7 @@ export function LineaDeTiempo({
   onMoverPoseCamara,
   seleccionKf,
   onSeleccionarKf,
+  tiemposDeSnap,
 }: {
   composicion: Composicion;
   tiempo: number;
@@ -140,6 +141,9 @@ export function LineaDeTiempo({
   onMoverPoseCamara: (tActual: number, nuevoT: number) => void;
   seleccionKf: SeleccionKeyframe | null;
   onSeleccionarKf: (sel: SeleccionKeyframe | null) => void;
+  /** tiempos LOCALES (ms) con imán al arrastrar spans/keyframes — los
+      inicios de palabra de la transcripción: la animación cae en la voz */
+  tiemposDeSnap?: number[];
 }) {
   const pistaRef = useRef<HTMLDivElement>(null);
   const filasRef = useRef<HTMLDivElement>(null);
@@ -190,6 +194,25 @@ export function LineaDeTiempo({
   const alFrame = (ms: number) => Math.round(ms / cuadro) * cuadro;
   const pct = (ms: number) => `${(ms / composicion.duracion) * 100}%`;
 
+  // snap al frame + IMÁN a los inicios de palabra de la locución (si hay
+  // transcripción): dentro de ~8px de una palabra, gana la palabra — así
+  // los keyframes caen EXACTO donde la voz dice lo suyo
+  const snapear = (ms: number) => {
+    const objetivo = alFrame(ms);
+    if (!tiemposDeSnap || tiemposDeSnap.length === 0) return objetivo;
+    const iman = 8 * msPorPx();
+    let mejor = objetivo;
+    let dist = iman;
+    for (const t of tiemposDeSnap) {
+      const d = Math.abs(ms - t);
+      if (d < dist) {
+        dist = d;
+        mejor = t;
+      }
+    }
+    return mejor;
+  };
+
   const tiempoDeEvento = (clientX: number) => {
     const rect = pistaRef.current?.getBoundingClientRect();
     if (!rect) return 0;
@@ -221,11 +244,11 @@ export function LineaDeTiempo({
       const { desde0, hasta0 } = gesto;
       if (gesto.borde === "der") {
         // el borde derecho estira con el IZQUIERDO clavado
-        const nuevoHasta = alFrame(Math.min(comp.duracion, Math.max(desde0 + cuadro, hasta0 + dt)));
+        const nuevoHasta = Math.min(comp.duracion, Math.max(desde0 + cuadro, snapear(hasta0 + dt)));
         onEstirarSeleccion(desde0, (nuevoHasta - desde0) / (hasta0 - desde0));
       } else {
         // el borde izquierdo estira con el DERECHO clavado
-        const nuevoDesde = alFrame(Math.min(hasta0 - cuadro, Math.max(0, desde0 + dt)));
+        const nuevoDesde = Math.min(hasta0 - cuadro, Math.max(0, snapear(desde0 + dt)));
         onEstirarSeleccion(hasta0, (hasta0 - nuevoDesde) / (hasta0 - desde0));
       }
       return;
@@ -243,19 +266,19 @@ export function LineaDeTiempo({
       const fin = gesto.enOriginal + gesto.duracionOriginal;
       if (gesto.modo === "izq") {
         // estira desde el borde izquierdo: el FIN queda clavado
-        const nuevoEn = alFrame(Math.min(fin - cuadro, Math.max(0, gesto.enOriginal + dt)));
+        const nuevoEn = Math.min(fin - cuadro, Math.max(0, snapear(gesto.enOriginal + dt)));
         onRetimarSegmento(gesto.capaId, gesto.clave, nuevoEn, fin - nuevoEn);
       } else if (gesto.modo === "der") {
         // estira desde el borde derecho: el INICIO queda clavado
-        const nuevoFin = alFrame(Math.min(comp.duracion, Math.max(gesto.enOriginal + cuadro, fin + dt)));
+        const nuevoFin = Math.min(comp.duracion, Math.max(gesto.enOriginal + cuadro, snapear(fin + dt)));
         onRetimarSegmento(gesto.capaId, gesto.clave, gesto.enOriginal, nuevoFin - gesto.enOriginal);
       } else {
-        const nuevoEn = alFrame(Math.min(comp.duracion, Math.max(0, gesto.enOriginal + dt)));
+        const nuevoEn = Math.min(comp.duracion, Math.max(0, snapear(gesto.enOriginal + dt)));
         onRetimarSegmento(gesto.capaId, gesto.clave, nuevoEn);
       }
     } else if (gesto.tipo === "poseCamara") {
       const pistasCam = comp.camara?.pistas;
-      const nuevoT = alFrame(Math.min(comp.duracion, Math.max(0, gesto.tOriginal + dt)));
+      const nuevoT = Math.min(comp.duracion, Math.max(0, snapear(gesto.tOriginal + dt)));
       if (nuevoT === gesto.tActual || !pistasCam) return;
       // no pisar otra pose
       if ((["x", "y", "zoom"] as CanalCamara[]).some((c) => pistasCam[c]?.some((k) => k.t === nuevoT))) return;
@@ -264,7 +287,7 @@ export function LineaDeTiempo({
     } else {
       const capa = comp.capas.find((c) => c.id === gesto.capaId);
       const pista = capa?.pistas?.[gesto.propiedad];
-      const nuevoT = alFrame(Math.min(comp.duracion, Math.max(0, gesto.tOriginal + dt)));
+      const nuevoT = Math.min(comp.duracion, Math.max(0, snapear(gesto.tOriginal + dt)));
       if (nuevoT === gesto.tActual || !pista) return;
       if (pista.some((k) => k.t === nuevoT)) return; // no pisar otro keyframe
       onMoverKeyframe(gesto.capaId, gesto.propiedad, gesto.tActual, nuevoT);
@@ -533,6 +556,14 @@ export function LineaDeTiempo({
       >
         {Array.from({ length: Math.floor(composicion.duracion / 1000) + 1 }, (_, s) => (
           <div key={s} className="absolute top-0 h-2 w-px bg-foreground/20" style={{ left: pct(s * 1000) }} />
+        ))}
+        {/* los inicios de PALABRA de la locución: los imanes del snap, a la vista */}
+        {(tiemposDeSnap ?? []).map((t0, i) => (
+          <div
+            key={`palabra-${i}`}
+            className="pointer-events-none absolute bottom-0 h-1.5 w-px bg-acento/50"
+            style={{ left: pct(t0) }}
+          />
         ))}
         <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-acento" style={{ left: pct(tiempo) }} />
         </div>

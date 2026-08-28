@@ -8,6 +8,9 @@ declare module "@xenova/transformers/dist/transformers.min.js" {
     opciones?: {
       quantized?: boolean;
       progress_callback?: (info: { status?: string; progress?: number }) => void;
+      /** export alternativo del modelo (p. ej. "output_attentions" para
+          timestamps por palabra de Whisper) */
+      revision?: string;
     },
   ): Promise<unknown>;
 }

@@ -206,6 +206,19 @@ export function Editor({
     cortesRef.current = cortes;
   }, [cortes]);
 
+  // los INICIOS de palabra de la transcripción que caen en la escena activa,
+  // en tiempo LOCAL: el timeline los usa como imán al arrastrar keyframes y
+  // spans — la animación se recuesta sobre la locución
+  const tiemposDePalabras = useMemo(() => {
+    const palabras = audio?.transcripcion?.palabras ?? [];
+    if (palabras.length === 0) return [];
+    const activa = cortes.find((c) => c.id === escenaActiva);
+    const desde = activa?.desdeMs ?? 0;
+    return palabras
+      .map((p) => p.desdeMs - desde)
+      .filter((ms) => ms >= 0 && ms <= composicion.duracion);
+  }, [audio, cortes, escenaActiva, composicion.duracion]);
+
   // vista del lienzo: "mundo" = el canvas con el encuadre dibujado;
   // "camara" = lo que ve la cámara (arrastrar ENCUADRA, con auto-key);
   // "ambas" = el mundo con el outline moviéndose + PiP de la cámara.
@@ -1775,6 +1788,7 @@ export function Editor({
           onMoverPoseCamara={moverPoseCamaraEnVivo}
           seleccionKf={seleccionKf}
           onSeleccionarKf={setSeleccionKf}
+          tiemposDeSnap={tiemposDePalabras}
         />
       </div>
       <div className="flex min-h-0 flex-col">

@@ -13,7 +13,18 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
-### [P1] Rediseño de la franja de audio + transcripción por PALABRA (pedido 2026-08-28)
+### [HECHO] Rediseño de la franja de audio + transcripción por PALABRA (2026-08-28)
+- **Hecho:** dos carriles (onda con progreso en acento + carril de
+  transcripción separado abajo con cada palabra en su tiempo, clickeable y
+  resaltada al sonar); Whisper AUTODETECTA idioma (adiós al "spanish"
+  hardcodeado que rompía el inglés) y pide timestamps POR PALABRA
+  (revision output_attentions, degrada a oraciones si no está); los
+  inicios de palabra son IMANES del drag de spans/keyframes en el timeline
+  (marquitas en la regla). «Re-transcribir» rehace transcripciones viejas.
+- **Pendiente menor:** stagger-ease de GSAP (distribuir los inicios del
+  escalonado con una curva) y snap de palabra también en el scrub.
+
+### [ANTES] El pedido original (2026-08-28)
 - **Qué:** la franja del waveform está fuera de la estética del resto y se
   lee poco (captura de Gabriel: onda gris chata, transcripción encimada en
   la misma franja). Rediseñarla con el lenguaje visual de la casa y con la

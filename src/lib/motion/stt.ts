@@ -16,9 +16,16 @@
    la promesa rechaza con un mensaje legible — degradar, no romper.
 ----------------------------------------------------------------------------- */
 
-import { aMono, remuestrear, oracionesDeTrozos, type Transcripcion } from "@/lib/motion/stt-puro";
+import {
+  aMono,
+  remuestrear,
+  oracionesDeTrozos,
+  oracionesDePalabras,
+  palabrasDeTrozos,
+  type Transcripcion,
+} from "@/lib/motion/stt-puro";
 
-export type { Transcripcion, Oracion } from "@/lib/motion/stt-puro";
+export type { Transcripcion, Oracion, Palabra } from "@/lib/motion/stt-puro";
 
 const MODELO_DEFAULT = "Xenova/whisper-base";
 const HZ_WHISPER = 16000;
@@ -28,7 +35,8 @@ type SalidaAsr = { text: string; chunks?: TrozoCrudo[] };
 type OpcionesAsr = {
   language?: string;
   task?: string;
-  return_timestamps?: boolean;
+  /** true = timestamps por trozo/oración; "word" = POR PALABRA */
+  return_timestamps?: boolean | "word";
   chunk_length_s?: number;
   stride_length_s?: number;
 };
@@ -36,7 +44,10 @@ type Asr = (pcm: Float32Array, opciones: OpcionesAsr) => Promise<SalidaAsr>;
 
 let motorPromesa: Promise<Asr> | null = null;
 
-/** Carga (una vez) el pipeline de Whisper. onProgreso: 0–1 de la descarga. */
+/** Carga (una vez) el pipeline de Whisper. onProgreso: 0–1 de la descarga.
+    Los timestamps POR PALABRA necesitan el export del modelo que trae las
+    cross-attentions (revision "output_attentions"); si ese export no está,
+    cae al modelo estándar — la transcripción sale igual, por oración. */
 function motor(onProgreso?: (fraccion: number) => void, modelo = MODELO_DEFAULT): Promise<Asr> {
   if (!motorPromesa) {
     motorPromesa = (async () => {
@@ -51,11 +62,20 @@ function motor(onProgreso?: (fraccion: number) => void, modelo = MODELO_DEFAULT)
           onProgreso?.(Math.min(1, info.progress / 100));
         }
       };
-      const asr = await pipeline("automatic-speech-recognition", modelo, {
-        quantized: true,
-        progress_callback: progreso,
-      });
-      return asr as unknown as Asr;
+      try {
+        const asr = await pipeline("automatic-speech-recognition", modelo, {
+          quantized: true,
+          progress_callback: progreso,
+          revision: "output_attentions",
+        });
+        return asr as unknown as Asr;
+      } catch {
+        const asr = await pipeline("automatic-speech-recognition", modelo, {
+          quantized: true,
+          progress_callback: progreso,
+        });
+        return asr as unknown as Asr;
+      }
     })();
     // un fallo de descarga no envenena el próximo intento
     motorPromesa.catch(() => {
@@ -66,9 +86,12 @@ function motor(onProgreso?: (fraccion: number) => void, modelo = MODELO_DEFAULT)
 }
 
 /**
- * Transcribe PCM (canales crudos con su sample rate) a texto con oraciones
- * y timestamps. `onProgreso` cubre la descarga del modelo la primera vez.
- * `modelo` deja elegir otro Whisper (p. ej. tiny para pruebas rápidas).
+ * Transcribe PCM (canales crudos con su sample rate) a texto con PALABRAS
+ * y oraciones con timestamps. El idioma se AUTODETECTA (la voz en off puede
+ * venir en inglés o castellano: forzar un idioma la destroza — visto con
+ * "spanish" hardcodeado sobre locución en inglés). `onProgreso` cubre la
+ * descarga del modelo la primera vez. Si el modelo no da timestamps por
+ * palabra, degrada a oraciones por trozo — nunca a nada.
  */
 export async function transcribir(
   canales: Float32Array[],
@@ -84,15 +107,23 @@ export async function transcribir(
   });
   const pcm = remuestrear(aMono(canales), sampleRate, HZ_WHISPER);
   const duracionMs = Math.round((pcm.length / HZ_WHISPER) * 1000);
-  const salida = await asr(pcm, {
-    language: "spanish",
-    task: "transcribe",
-    return_timestamps: true,
-    chunk_length_s: 30,
-    stride_length_s: 5,
-  });
-  return {
-    texto: salida.text.trim(),
-    oraciones: oracionesDeTrozos(salida.chunks ?? [], duracionMs),
-  };
+  // sin `language`: Whisper detecta solo; task transcribe = jamás traducir
+  const base: OpcionesAsr = { task: "transcribe", chunk_length_s: 30, stride_length_s: 5 };
+  try {
+    const salida = await asr(pcm, { ...base, return_timestamps: "word" });
+    const palabras = palabrasDeTrozos(salida.chunks ?? [], duracionMs);
+    if (palabras.length === 0) throw new Error("el modelo no dio palabras");
+    return {
+      texto: salida.text.trim(),
+      oraciones: oracionesDePalabras(palabras),
+      palabras,
+    };
+  } catch {
+    // sin cross-attentions (modelo estándar): timestamps por trozo
+    const salida = await asr(pcm, { ...base, return_timestamps: true });
+    return {
+      texto: salida.text.trim(),
+      oraciones: oracionesDeTrozos(salida.chunks ?? [], duracionMs),
+    };
+  }
 }

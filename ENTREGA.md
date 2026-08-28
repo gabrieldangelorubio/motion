@@ -227,10 +227,22 @@ el recorte descarta la transcripción vieja; el panel tiene REPRODUCTOR:
 play/pausa y scrub sobre la onda (click fuera de las manijas = escuchar
 desde ahí, frena solo al fin del segmento) para cortar con la oreja, y
 la «×» sale sin tocar nada; «Recortar» en la franja lo
-reabre— y decodificado a una franja de FORMA DE ONDA arriba del timeline — el
-ritmo y las pausas de la locución a la vista, con los CORTES de escena
-encima sobre el eje global del proyecto (las escenas concatenadas, el
-orden del export); click en la franja salta a ese punto —cambiando de
+reabre— y decodificado a una franja de FORMA DE ONDA arriba del timeline
+en DOS CARRILES (rediseño 2026-08-28): la onda con lo YA REPRODUCIDO en
+acento (el progreso se lee de un vistazo) y los CORTES de escena encima
+sobre el eje global del proyecto (las escenas concatenadas, el orden del
+export), y un CARRIL DE TRANSCRIPCIÓN separado abajo: cada PALABRA
+posicionada donde cae en el tiempo, clickeable (click = saltar ahí, la
+que suena se resalta); la transcripción Whisper ahora AUTODETECTA el
+idioma (antes forzaba "spanish" y destrozaba locución en inglés) y pide
+timestamps POR PALABRA (export del modelo con cross-attentions, revision
+output_attentions; sin él degrada a oraciones por trozo), las oraciones
+se agrupan por puntuación y pausas (oracionesDePalabras), y los INICIOS
+de palabra se vuelven IMANES del timeline: al arrastrar spans y
+keyframes, dentro de ~8px de una palabra gana la palabra (los imanes se
+ven como marquitas en la regla) — la animación se recuesta sobre la voz;
+«Re-transcribir» rehace una transcripción vieja (sin palabras o con el
+idioma forzado); click en la franja salta a ese punto —cambiando de
 escena si hace falta—, arrastrar un corte ajusta la duración de la
 escena que termina ahí (la activa con undo; una no activa se edita en su
 documento y el registro aprende la duración), y el preview reproduce el
@@ -450,7 +462,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **204
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **206
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -495,7 +507,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   (22) barajado de «azar» apagado en delaysEscalonado → falló exactamente
   «barajado DETERMINISTA que cubre todos los rangos». (23) elastico/pique/
   escalones quitados de EASINGS_NO_RALOS (saliendo como keyframes ralos a
-  AE) → falló exacto el test de horneado denso. Restaurados, 204/204
+  AE) → falló exacto el test de horneado denso. (24) corte por pausa de
+  oracionesDePalabras quitado y (25) puntuación de cierre sin comillas →
+  cayó exacto el test del agrupador en ambos. Restaurados, 206/206
   verdes.
 
 ## Qué necesita cablearse de su lado
