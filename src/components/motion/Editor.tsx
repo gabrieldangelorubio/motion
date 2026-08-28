@@ -103,6 +103,10 @@ export function Editor({
   const [tiempoUI, setTiempoUI] = useState(0);
   const [seleccionId, setSeleccionId] = useState<string | null>(null);
   const [avisoGuardado, setAvisoGuardado] = useState<string | null>(null);
+  // el DETALLE de los avisos del último import de Figma (qué se rasterizó y
+  // por qué): viaja con el toast «Importado con N avisos» — diagnóstico a
+  // la vista, no un número mudo
+  const [detalleImport, setDetalleImport] = useState<string[]>([]);
   // alto inicial generoso: con un par de pantallas importadas las filas ya
   // no entran en 240 (la agarradera lo ajusta entre 160 y 600)
   const [altoTimeline, setAltoTimeline] = useState(340);
@@ -1353,6 +1357,7 @@ export function Editor({
     tiempoRef.current = 0;
     setTiempoUI(0);
     const avisos = pantallas.reduce((s, p) => s + p.resultado.avisos.length, 0);
+    setDetalleImport(pantallas.flatMap((p) => p.resultado.avisos));
     setAvisoGuardado(
       seSuma
         ? t.plural(pantallas.length, "{n} pantalla sumada al lienzo, a la derecha de lo existente", "{n} pantallas sumadas al lienzo, a la derecha de lo existente")
@@ -1850,9 +1855,29 @@ export function Editor({
           {avisoGuardado && (
             <div
               role="status"
-              className="absolute left-1/2 top-3 -translate-x-1/2 rounded-control border border-peligro/30 bg-(--menu-solido-bg) px-3 py-1.5 text-xs text-foreground shadow-(--menu-shadow)"
+              className="absolute left-1/2 top-3 max-w-xl -translate-x-1/2 rounded-control border border-peligro/30 bg-(--menu-solido-bg) px-3 py-1.5 text-xs text-foreground shadow-(--menu-shadow)"
             >
-              {avisoGuardado}
+              <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1">{avisoGuardado}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAvisoGuardado(null);
+                    setDetalleImport([]);
+                  }}
+                  aria-label={t("Cerrar el aviso")}
+                  className="shrink-0 text-foreground/50 hover:text-foreground"
+                >
+                  ×
+                </button>
+              </div>
+              {avisoGuardado.includes("aviso") && detalleImport.length > 0 && (
+                <ul className="mt-1.5 max-h-32 overflow-y-auto border-t border-(--panel-border) pt-1.5 text-[11px] leading-snug text-muted">
+                  {detalleImport.map((aviso, i) => (
+                    <li key={i}>· {aviso}</li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </div>

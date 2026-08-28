@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 4;
+var VERSION_PLUGIN = 5;
 
 function aHex(color) {
   var c = function (v) {
@@ -466,6 +466,14 @@ async function nodoAIR(nodo, marco, salida) {
 
   // VECTOR, BOOLEAN_OPERATION, STAR, LINE, POLYGON, o cualquier cosa nueva:
   // rasterizar, nunca romper (mismo espíritu que el default que degrada).
+  // Una boolean con hijos merece el aviso ACCIONABLE: partirla acá cambiaría
+  // el render (el estilo vive en la boolean, no en sus hijos) — el camino
+  // para animar sus piezas es desagruparla EN FIGMA y re-exportar.
+  if (nodo.type === "BOOLEAN_OPERATION" && "children" in nodo && nodo.children.length > 1) {
+    salida.push(await rasterizar(nodo, marco,
+      "es una operacion booleana (" + nodo.children.length + " piezas): se rasterizó entera — para animar sus piezas convertila en GRUPO en Figma (⌘⇧G) y re-exportá"));
+    return;
+  }
   salida.push(await rasterizar(nodo, marco, "tipo " + nodo.type + ": se rasterizó a 2×"));
 }
 

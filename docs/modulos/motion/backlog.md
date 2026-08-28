@@ -13,6 +13,18 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Diagnóstico del import a la vista (2026-08-28, tanda 7)
+- **Hecho:** el toast «Importado con N avisos» ahora DESPLIEGA la lista
+  completa (qué capa se rasterizó y por qué, con × para cerrar): el
+  diagnóstico deja de ser un número mudo. El aviso de una operación
+  BOOLEANA es accionable («convertila en GRUPO en Figma (⌘⇧G) y
+  re-exportá» — partirla en el plugin cambiaría el render: el estilo vive
+  en la boolean, no en sus hijos). Sello del plugin → v5.
+- **Caso Group 11 (las 3 estrellas), en investigación:** plugin v4/v5
+  confirmado corriendo y el grupo igual llega entero → la causa es
+  «grupo rotado» o «operación booleana»; con el toast desplegado la
+  próxima captura la nombra exacta.
+
 ### [HECHO] Sello de versión del plugin (2026-08-28, tanda 6)
 - **Hecho:** el JSON del plugin lleva `plugin: 4` y el import AVISA con
   instrucciones cuando el JSON salió de un code.js viejo (la causa clásica
