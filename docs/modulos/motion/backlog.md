@@ -13,6 +13,27 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Efectos de agencia: contador, swap con estilo, log del director (2026-08-28, tanda 15)
+- **Hecho:** (1) CONTADOR de números: pista animable «numero» — en una capa
+  de texto, el valor interpolado y redondeado reemplaza la PRIMERA cifra
+  del contenido («STOCK:171» con keyframes 171→0 baja en vivo, easing
+  incluido). No hay que separar nada en Figma ni duplicar capas. A AE
+  exporta como Slider Control + expression en el Source Text (editable
+  allá). El director lo sabe usar (regla dura + definir_pista numero con
+  guard: solo textos con cifra). (2) SWAP de texto: herramienta
+  transformar_texto — clona la capa original con TODO su estilo, texto
+  nuevo, salida ocultarSubir + entrada revelar sincronizadas, el clon
+  justo encima en el z-order; regla dura: JAMÁS capa nueva para reemplazar
+  un texto. (3) el chat del director pasa a STREAM NDJSON: progreso EN
+  VIVO (paso N · mm:ss · última op), log con tiempos por paso («paso 3 ·
+  modelo 8.1s · ops…») copiable con el botón «copiar log», y console.log
+  espejo en la terminal del server. Los errores tempranos siguen JSON.
+  (4) plugin v9: rasterizar usa absoluteRenderBounds — una LINE tiene
+  boundingBox de alto CERO y la capa salía invisible (las rayitas y el «+»
+  del carrito que faltaban); el render bounds además trae sombras/blur
+  completos. Verificado: unit (contador motor+AE, transformar_texto,
+  guard) + Playwright del stream (verificar43).
+
 ### [HECHO] Biblioteca afinada: compacta, división al aplicar y curvas (2026-08-28, tanda 14)
 - **Hecho:** (1) tarjetas COMPACTAS (el preview recorta centrado en
   vertical: misma demo, la mitad del alto). (2) en «Textos» un segmentado

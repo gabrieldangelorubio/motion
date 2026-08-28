@@ -69,7 +69,11 @@ export type NombrePropiedad =
   | "desenfoque"
   /** trim del trazo (capas tipo trazo), 0–1 como en AE */
   | "trazoInicio"
-  | "trazoFin";
+  | "trazoFin"
+  /** CONTADOR (capas de texto): el valor interpolado y redondeado reemplaza
+      la primera cifra del contenido — «STOCK:171» con pista 171→0 baja en
+      vivo. En AE exporta como Slider + expression en el sourceText. */
+  | "numero";
 
 export type Pistas = Partial<Record<NombrePropiedad, Keyframe[]>>;
 

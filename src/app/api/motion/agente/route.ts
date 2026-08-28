@@ -40,20 +40,33 @@ export async function POST(pedido: Request): Promise<Response> {
     }
 
     const composicion = deserializar(cuerpo.snapshot);
-    const res = await dirigirComposicion(
-      composicion,
-      cuerpo.mensaje,
-      cuerpo.historial ?? [],
-      typeof cuerpo.contextoAudio === "string" && cuerpo.contextoAudio ? cuerpo.contextoAudio.slice(0, 8000) : undefined,
-    );
-    if (!res.ok) {
-      return Response.json({ error: res.error }, { status: 503 });
-    }
-    return Response.json({
-      respuesta: res.respuesta,
-      snapshot: serializar(res.composicion),
-      ops: res.ops,
+    const contextoAudio =
+      typeof cuerpo.contextoAudio === "string" && cuerpo.contextoAudio ? cuerpo.contextoAudio.slice(0, 8000) : undefined;
+
+    // STREAM NDJSON: un evento {tipo:"paso"} por iteración del loop (el panel
+    // muestra el progreso EN VIVO y arma el log con tiempos — un pedido
+    // grande tarda minutos y esperar a ciegas parecía un cuelgue) y al final
+    // {tipo:"fin"} con la respuesta completa de siempre.
+    const codificador = new TextEncoder();
+    const mensaje = cuerpo.mensaje;
+    const historial = cuerpo.historial ?? [];
+    const stream = new ReadableStream({
+      async start(controlador) {
+        const emitir = (e: unknown) => controlador.enqueue(codificador.encode(JSON.stringify(e) + "\n"));
+        try {
+          const res = await dirigirComposicion(composicion, mensaje, historial, contextoAudio, (evento) => {
+            console.log(`[agente] paso ${evento.iteracion} · modelo ${(evento.msModelo / 1000).toFixed(1)}s · ${evento.ops.join(" | ") || "respuesta final"}`);
+            emitir(evento);
+          });
+          if (!res.ok) emitir({ tipo: "fin", error: res.error });
+          else emitir({ tipo: "fin", respuesta: res.respuesta, snapshot: serializar(res.composicion), ops: res.ops });
+        } catch (e) {
+          emitir({ tipo: "fin", error: e instanceof Error ? e.message : "Error inesperado del agente" });
+        }
+        controlador.close();
+      },
     });
+    return new Response(stream, { headers: { "content-type": "application/x-ndjson; charset=utf-8" } });
   } catch (e) {
     const mensaje = e instanceof Error ? e.message : "Error inesperado del agente";
     return Response.json({ error: mensaje }, { status: 500 });

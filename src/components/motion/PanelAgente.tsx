@@ -15,7 +15,7 @@
    trabaja sobre una composición vieja.
 ----------------------------------------------------------------------------- */
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
@@ -40,6 +40,16 @@ export function PanelAgente({
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [texto, setTexto] = useState("");
   const [pensando, setPensando] = useState(false);
+  // progreso EN VIVO del stream (paso y última op) + reloj + log con tiempos
+  const [progreso, setProgreso] = useState<{ paso: number; ultimaOp: string | null } | null>(null);
+  const [transcurrido, setTranscurrido] = useState(0);
+  const [ultimoLog, setUltimoLog] = useState<string[]>([]);
+  useEffect(() => {
+    if (!pensando) return;
+    const t0 = Date.now();
+    const reloj = setInterval(() => setTranscurrido(Math.round((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(reloj);
+  }, [pensando]);
   const [error, setError] = useState<string | null>(null);
   const listaRef = useRef<HTMLDivElement>(null);
 
@@ -104,6 +114,10 @@ export function PanelAgente({
     setMensajes((m) => [...m, { rol: "usuario", texto: pedido }]);
     setPensando(true);
     try {
+      const t0 = performance.now();
+      const log: string[] = [`[+0.0s] pedido enviado (${pedido.length} chars)`];
+      setProgreso(null);
+      setTranscurrido(0);
       const res = await fetch("/api/motion/agente", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -115,13 +129,53 @@ export function PanelAgente({
           contextoAudio: obtenerContextoAudio?.(),
         }),
       });
-      const datos = (await res.json()) as { respuesta?: string; snapshot?: string; ops?: string[]; error?: string };
-      if (!res.ok || !datos.respuesta || !datos.snapshot) {
+      // los errores tempranos (permisos, body) siguen llegando como JSON
+      if (!res.ok || res.headers.get("content-type")?.includes("application/json")) {
+        const datos = (await res.json().catch(() => ({}))) as { error?: string };
         setError(datos.error ?? t("El agente no pudo responder"));
         return;
       }
-      if (datos.ops && datos.ops.length > 0) onAplicar(datos.snapshot, datos.ops);
-      setMensajes((m) => [...m, { rol: "agente", texto: datos.respuesta!, ops: datos.ops }]);
+      if (!res.body) {
+        setError(t("El agente no pudo responder"));
+        return;
+      }
+      // NDJSON en vivo: {tipo:"paso"} por iteración, {tipo:"fin"} al final
+      const lector = res.body.getReader();
+      const dec = new TextDecoder();
+      let resto = "";
+      let fin: { respuesta?: string; snapshot?: string; ops?: string[]; error?: string } | null = null;
+      for (;;) {
+        const { done, value } = await lector.read();
+        if (done) break;
+        resto += dec.decode(value, { stream: true });
+        const lineas = resto.split("\n");
+        resto = lineas.pop() ?? "";
+        for (const linea of lineas) {
+          if (!linea.trim()) continue;
+          let evento: { tipo?: string; iteracion?: number; msModelo?: number; ops?: string[]; respuesta?: string; snapshot?: string; error?: string };
+          try {
+            evento = JSON.parse(linea);
+          } catch {
+            continue;
+          }
+          const ts = ((performance.now() - t0) / 1000).toFixed(1);
+          if (evento.tipo === "paso") {
+            const opsPaso = evento.ops ?? [];
+            log.push(`[+${ts}s] paso ${evento.iteracion} · modelo ${(((evento.msModelo ?? 0)) / 1000).toFixed(1)}s${opsPaso.length ? ` · ${opsPaso.join(" | ")}` : " · respuesta final"}`);
+            setProgreso({ paso: evento.iteracion ?? 0, ultimaOp: opsPaso[opsPaso.length - 1] ?? null });
+          } else if (evento.tipo === "fin") {
+            log.push(`[+${ts}s] fin${evento.error ? ` con ERROR: ${evento.error}` : ` (${evento.ops?.length ?? 0} ops)`}`);
+            fin = evento;
+          }
+        }
+      }
+      setUltimoLog(log);
+      if (!fin || fin.error || !fin.respuesta || !fin.snapshot) {
+        setError(fin?.error ?? t("El agente no pudo responder"));
+        return;
+      }
+      if (fin.ops && fin.ops.length > 0) onAplicar(fin.snapshot, fin.ops);
+      setMensajes((m) => [...m, { rol: "agente", texto: fin!.respuesta!, ops: fin.ops }]);
       requestAnimationFrame(() => listaRef.current?.scrollTo({ top: 1e6 }));
     } catch {
       setError(t("No se pudo hablar con el agente (¿el servidor está corriendo?)"));
@@ -132,8 +186,18 @@ export function PanelAgente({
 
   return (
     <div className="flex h-full min-h-0 flex-col border-t border-(--glass-border) bg-(--chrome-bg)">
-      <div className="border-b border-(--glass-border) px-3 py-2 text-[13px] font-semibold text-foreground">
-        {t("Director de motion")}
+      <div className="flex items-center border-b border-(--glass-border) px-3 py-2">
+        <span className="min-w-0 flex-1 text-[13px] font-semibold text-foreground">{t("Director de motion")}</span>
+        {ultimoLog.length > 0 && (
+          <button
+            type="button"
+            onClick={() => void navigator.clipboard?.writeText(ultimoLog.join("\n")).catch(() => undefined)}
+            title={t("Copia el log del último pedido (pasos, tiempos y ops) para pegarlo donde haga falta")}
+            className="shrink-0 rounded-control px-1.5 py-0.5 font-mono text-[10px] text-foreground/50 hover:bg-ink/[0.06] hover:text-foreground"
+          >
+            {t("copiar log")}
+          </button>
+        )}
       </div>
       <div ref={listaRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         {mensajes.length === 0 && (
@@ -156,7 +220,12 @@ export function PanelAgente({
             )}
           </div>
         ))}
-        {pensando && <div className="py-1 font-mono text-[11px] text-muted">{t("dirigiendo…")}</div>}
+        {pensando && (
+          <div className="py-1 font-mono text-[11px] text-muted">
+            {t("dirigiendo…")} {progreso ? t("paso {n}", { n: progreso.paso }) : ""} · {Math.floor(transcurrido / 60)}:{String(transcurrido % 60).padStart(2, "0")}
+            {progreso?.ultimaOp && <div className="truncate text-[10px] text-foreground/40">{progreso.ultimaOp}</div>}
+          </div>
+        )}
         {error && <div role="alert" className="py-1 text-xs text-peligro">{error}</div>}
       </div>
       <div className="flex items-end gap-2 border-t border-(--glass-border) p-2">

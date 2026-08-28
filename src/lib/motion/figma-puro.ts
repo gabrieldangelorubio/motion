@@ -189,7 +189,7 @@ export function validarImportFigma(datos: unknown): datos is ImportFigma {
 /** La versión del plugin que este build espera: el JSON exportado lleva el
     sello `plugin: N` y un sello menor delata un plugin desactualizado en
     Figma (la causa clásica de «el fix no anda»: el code.js viejo). */
-export const PLUGIN_ESPERADO = 8;
+export const PLUGIN_ESPERADO = 9;
 
 /** El aviso de plugin viejo, o null si el sello está al día. */
 export function avisoDePluginViejo(datos: unknown): string | null {

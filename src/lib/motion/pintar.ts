@@ -111,7 +111,8 @@ function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
   };
   const anchoDe = (corridas: Corrida[]) => corridas.reduce((a, c) => a + c.ancho, 0);
 
-  const lineas = capa.texto.split("\n");
+  // el CONTADOR (pista «numero») pisa el contenido: el texto vivo del frame
+  const lineas = (estado.textoVivo ?? capa.texto).split("\n");
   // El bloque queda centrado verticalmente en el ancla: con 1 línea la
   // baseline cae en y=0 (igual que antes de existir multilínea).
   const baseDeLinea = (i: number) => (i - (lineas.length - 1) / 2) * interlineado;

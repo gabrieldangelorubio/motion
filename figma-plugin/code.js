@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 8;
+var VERSION_PLUGIN = 9;
 
 function aHex(color) {
   var c = function (v) {
@@ -168,9 +168,24 @@ async function rasterizarComoSeVe(nodo, marco, aviso) {
   }
 }
 
+// La caja del RENDER (absoluteRenderBounds): incluye el grosor del borde,
+// las sombras y el blur — lo que el PNG exportado contiene de verdad. Una
+// LINE tiene boundingBox de alto CERO (la geometría) y con esa caja la capa
+// rasterizada salía invisible: las rayitas y el «+» del carrito que faltaban.
+function cajaRender(nodo, marco) {
+  var b = nodo.absoluteRenderBounds || nodo.absoluteBoundingBox;
+  var m = marco.absoluteBoundingBox;
+  return {
+    x: Math.round((b.x - m.x) * 100) / 100,
+    y: Math.round((b.y - m.y) * 100) / 100,
+    ancho: Math.max(Math.round(b.width * 100) / 100, 1),
+    alto: Math.max(Math.round(b.height * 100) / 100, 1),
+  };
+}
+
 async function rasterizar(nodo, marco, aviso, nodoExport) {
   var bytes = await (nodoExport || nodo).exportAsync({ format: "PNG", constraint: { type: "SCALE", value: 2 } });
-  var c = caja(nodo, marco);
+  var c = cajaRender(nodo, marco);
   var mezcla = mezclaDe(nodo);
   var salida = {
     tipo: "imagen",

@@ -161,3 +161,53 @@ test("la escuela del agente solo nombra easings QUE EXISTEN en el motor (no le e
     assert.ok(ESCUELA_GSAP.includes(clave), `la escuela enseña ${clave}`);
   }
 });
+
+/* ——— transformar_texto: el swap de agencia con el estilo CLONADO ———— */
+
+test("transformar_texto clona el estilo entero, arma salida+entrada y ubica el clon encima", () => {
+  let comp = base();
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", {
+    id: "cta", texto: "BUY NOW", tamano: 90, peso: 800, color: "#ffffff",
+  }).comp;
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "fondo-x" }).comp;
+  const res = ejecutarHerramienta(comp, "transformar_texto", { capaId: "cta", texto: "SOLD OUT", en: 2000 });
+  assert.ok(!res.esError, res.resultado);
+  const original = res.comp.capas.find((c) => c.id === "cta") as CapaTexto;
+  const clon = res.comp.capas.find((c) => c.id === "cta-swap") as CapaTexto;
+  assert.ok(clon, "el clon existe");
+  // MISMO estilo: tipografía, tamaño, peso, color, posición
+  assert.deepEqual(clon.fuente, original.fuente);
+  assert.equal(clon.color, original.color);
+  assert.equal(clon.x, original.x);
+  assert.equal(clon.texto, "SOLD OUT");
+  // el cruce: salida de la original y entrada del clon EN el mismo ms
+  assert.equal(original.salida?.en, 2000);
+  assert.equal(clon.entrada?.en, 2000);
+  assert.equal(clon.salida, undefined);
+  // el clon queda JUSTO encima de la original en el z-order
+  const idx = res.comp.capas.findIndex((c) => c.id === "cta");
+  assert.equal(res.comp.capas[idx + 1].id, "cta-swap");
+});
+
+test("transformar_texto rechaza capas que no son texto y textos vacíos", () => {
+  let comp = base();
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "caja" }).comp;
+  assert.ok(ejecutarHerramienta(comp, "transformar_texto", { capaId: "caja", texto: "X", en: 0 }).esError);
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "tx", texto: "HOLA" }).comp;
+  assert.ok(ejecutarHerramienta(comp, "transformar_texto", { capaId: "tx", texto: "  ", en: 0 }).esError);
+});
+
+test("definir_pista «numero» solo va en textos con una cifra", () => {
+  let comp = base();
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "stock", texto: "STOCK:171" }).comp;
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "puro", texto: "HOLA" }).comp;
+  const ok = ejecutarHerramienta(comp, "definir_pista", {
+    capaId: "stock", propiedad: "numero",
+    keyframes: [{ t: 0, v: 171 }, { t: 1500, v: 0, easing: "salidaExpo" }],
+  });
+  assert.ok(!ok.esError, ok.resultado);
+  const mal = ejecutarHerramienta(comp, "definir_pista", {
+    capaId: "puro", propiedad: "numero", keyframes: [{ t: 0, v: 1 }],
+  });
+  assert.ok(mal.esError);
+});

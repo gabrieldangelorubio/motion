@@ -813,6 +813,16 @@ function emitirCapa(
     L.push(`doc.autoLeading = false;`);
     L.push(`doc.leading = ${num(interlineado)};`);
     L.push(`capa.property("ADBE Text Properties").property("ADBE Text Document").setValue(doc);`);
+    // CONTADOR (pista «numero»): un Slider con los keyframes + expression en
+    // el Source Text que reemplaza la primera cifra — editable en AE
+    const pistaNumero = sinAnimacion ? undefined : capa.pistas?.numero;
+    if (pistaNumero?.length) {
+      L.push(`fx = capa.property("ADBE Effect Parade").addProperty("ADBE Slider Control");`);
+      L.push(`fx.name = ${cadena("Contador")};`);
+      L.push(`__pista(fx.property("ADBE Slider Control-0001"), ${clavesLit(clavesDe(pistaNumero, redondear))}, 1);`);
+      const expr = `${JSON.stringify(capa.texto)}.replace(/\\d[\\d.,]*/, "" + Math.round(effect("Contador")("ADBE Slider Control-0001")))`;
+      L.push(`capa.property("ADBE Text Properties").property("ADBE Text Document").expression = ${cadena(expr)};`);
+    }
     const animTexto = hornearCon(desplazarY);
     emitirComunes(L, capa, sinAnimacion, false, animTexto);
     // DESPUÉS del comentario: si la fuente no aparece, el helper le anexa

@@ -143,6 +143,47 @@ export function ejecutarHerramienta(
       return res.ok ? exito(res.valor, `forma «${capa.nombre}» agregada`) : fallo(comp, res.error);
     }
 
+    case "transformar_texto": {
+      const capa = capaDe(input.capaId);
+      if (!capa) return fallo(comp, `no hay ninguna capa «${String(input.capaId)}»; ids: ${comp.capas.map((c) => c.id).join(", ")}`);
+      if (capa.tipo !== "texto") return fallo(comp, `«${capa.nombre}» es ${capa.tipo}: transformar_texto solo cambia capas de TEXTO`);
+      const textoNuevo = String(input.texto ?? "").trim();
+      if (!textoNuevo) return fallo(comp, "falta el texto nuevo");
+      const en = clamp(numero(input.en, 0), 0, comp.duracion);
+      const dur = clamp(numero(input.duracion, 350), 100, 2000);
+      // el CLON hereda TODO el estilo (tipografía, tamaño, color, alineación,
+      // división) — los tramos no viajan (indexan caracteres del texto viejo)
+      let idClon = `${capa.id}-swap`;
+      let nClon = 2;
+      while (comp.capas.some((c) => c.id === idClon)) idClon = `${capa.id}-swap${nClon++}`;
+      const escal = capa.division !== "ninguna" ? { escalonado: escalonadoSano(capa.division) } : {};
+      const clon: CapaTexto = {
+        ...capa,
+        id: idClon,
+        nombre: `${capa.nombre} → ${textoNuevo}`,
+        texto: textoNuevo,
+        tramos: undefined,
+        pistas: undefined,
+        v: undefined,
+        entrada: { preset: "revelar", en, duracion: dur, easing: "salidaExpo", ...escal },
+        salida: undefined,
+      };
+      const conSalida = editarCapa(comp, capa.id, {
+        salida: { preset: "ocultarSubir", en, duracion: dur, easing: "entradaCubic", ...escal },
+      }, marca);
+      if (!conSalida.ok) return fallo(comp, conSalida.error);
+      const agregada = agregarCapa(conSalida.valor, clon, marca);
+      if (!agregada.ok) return fallo(comp, agregada.error);
+      // el clon va JUSTO ENCIMA de la original (mismo lugar visual del stack)
+      const sinClon = agregada.valor.capas.filter((c) => c.id !== idClon);
+      const idx = sinClon.findIndex((c) => c.id === capa.id);
+      sinClon.splice(idx + 1, 0, agregada.valor.capas.find((c) => c.id === idClon)!);
+      return exito(
+        { ...agregada.valor, capas: sinClon },
+        `«${capa.nombre}» se transforma en «${textoNuevo}» @${en}ms (estilo clonado, salida+entrada armadas)`,
+      );
+    }
+
     case "editar_capa": {
       const capa = capaDe(input.capaId);
       if (!capa) return fallo(comp, `no hay ninguna capa «${String(input.capaId)}»; ids: ${comp.capas.map((c) => c.id).join(", ")}`);
@@ -236,12 +277,15 @@ export function ejecutarHerramienta(
       const capa = capaDe(input.capaId);
       if (!capa) return fallo(comp, `no hay ninguna capa «${String(input.capaId)}»`);
       const propiedad = String(input.propiedad) as NombrePropiedad;
-      if (!["x", "y", "escala", "rotacion", "opacidad", "desenfoque", "trazoInicio", "trazoFin"].includes(propiedad)) {
-        return fallo(comp, `propiedad «${propiedad}» no animable; usá x, y, escala, rotacion, opacidad, desenfoque, trazoInicio o trazoFin`);
+      if (!["x", "y", "escala", "rotacion", "opacidad", "desenfoque", "trazoInicio", "trazoFin", "numero"].includes(propiedad)) {
+        return fallo(comp, `propiedad «${propiedad}» no animable; usá x, y, escala, rotacion, opacidad, desenfoque, trazoInicio, trazoFin o numero`);
       }
       const esTrim = propiedad === "trazoInicio" || propiedad === "trazoFin";
       if (esTrim && capa.tipo !== "trazo") {
         return fallo(comp, `«${capa.nombre}» es ${capa.tipo}: trazoInicio/trazoFin sólo existen en capas de trazo`);
+      }
+      if (propiedad === "numero" && (capa.tipo !== "texto" || !/\d/.test(capa.texto))) {
+        return fallo(comp, `«${capa.nombre}» no es un texto con una cifra: la pista «numero» reemplaza la PRIMERA cifra del contenido (ej «STOCK:171»)`);
       }
       if (!Array.isArray(input.keyframes) || input.keyframes.length === 0) {
         return fallo(comp, "keyframes tiene que ser una lista no vacía de {t, v, easing?, hold?}");
@@ -416,6 +460,20 @@ export const DEFINICIONES_HERRAMIENTAS = [
     },
   },
   {
+    name: "transformar_texto",
+    description: "El SWAP de texto de agencia (BUY NOW → SOLD OUT): clona la capa original con TODO su estilo (tipografía, tamaño, color, alineación, división), le pone el texto nuevo, y arma el intercambio completo — salida ocultarSubir en la original + entrada revelar en el clon, sincronizadas en «en». USALA SIEMPRE que un texto deba convertirse en otro: NUNCA agregues una capa de texto nueva para reemplazar una existente (pierde la tipografía). El «presionado» previo (pop de escala) agregalo aparte con definir_pista escala en la capa original.",
+    input_schema: {
+      type: "object",
+      properties: {
+        capaId: { type: "string", description: "la capa de texto original" },
+        texto: { type: "string", description: "el texto nuevo (SOLD OUT)" },
+        en: { type: "number", description: "ms donde ocurre el cambio" },
+        duracion: { type: "number", description: "ms del cruce (default 350)" },
+      },
+      required: ["capaId", "texto", "en"],
+    },
+  },
+  {
     name: "editar_capa",
     description: "Edita propiedades base de una capa existente: posición, escala (1 = 100%), rotación, opacidad (0-1), motionBlur (0-2), mezcla (normal, multiply, screen, overlay…), nombre; en texto también texto (\\n = salto de línea), color, tamano, peso, division; en trazos color, grosor y el trim base trazoInicio/trazoFin (0-1).",
     input_schema: {
@@ -465,7 +523,7 @@ export const DEFINICIONES_HERRAMIENTAS = [
   },
   {
     name: "definir_pista",
-    description: "Define la pista COMPLETA de keyframes de una propiedad (reemplaza la anterior). Valores ABSOLUTOS que pisan la base: x/y en px, escala 1=100%, rotacion en grados, opacidad 0-1, desenfoque en px. El easing va en el keyframe de SALIDA del tramo; hold congela hasta el siguiente.",
+    description: "Define la pista COMPLETA de keyframes de una propiedad (reemplaza la anterior). Valores ABSOLUTOS que pisan la base: x/y en px, escala 1=100%, rotacion en grados, opacidad 0-1, desenfoque en px, numero = CONTADOR (en capas de texto con una cifra: el valor interpolado y redondeado reemplaza la PRIMERA cifra del contenido — «STOCK:171» con keyframes 171→0 baja en vivo; usalo con division ninguna y easing salidaExpo). El easing va en el keyframe de SALIDA del tramo; hold congela hasta el siguiente.",
     input_schema: {
       type: "object",
       properties: {

@@ -44,6 +44,10 @@ export type EstadoCapa = {
   rotacion: number;
   opacidad: number;
   visible: boolean;
+  /** el texto con el CONTADOR aplicado (pista «numero»): la primera cifra
+      del contenido reemplazada por el valor interpolado — ausente si la
+      capa no cuenta. pintar() lo prefiere sobre capa.texto */
+  textoVivo?: string;
   /** una por unidad de división (1 sola si la capa no se divide) */
   unidades: EstadoUnidad[];
 };
@@ -150,6 +154,12 @@ function aplicarSegmento(
   }
 }
 
+/** El texto con el contador puesto: la PRIMERA cifra (con . o , adentro)
+    reemplazada por el valor redondeado — «STOCK:171» + 98.4 → «STOCK:98». */
+export function textoConNumero(texto: string, valor: number): string {
+  return texto.replace(/\d[\d.,]*/, String(Math.round(valor)));
+}
+
 function estadoDeCapa(capa: Capa, t: number): EstadoCapa {
   const pistas = capa.pistas ?? {};
   const base: EstadoCapa = {
@@ -160,6 +170,10 @@ function estadoDeCapa(capa: Capa, t: number): EstadoCapa {
     rotacion: pistas.rotacion ? interpolar(pistas.rotacion, t) : (capa.rotacion ?? 0),
     opacidad: pistas.opacidad ? interpolar(pistas.opacidad, t) : (capa.opacidad ?? 1),
     visible: !capa.oculta,
+    textoVivo:
+      capa.tipo === "texto" && pistas.numero
+        ? textoConNumero(capa.texto, interpolar(pistas.numero, t))
+        : undefined,
     unidades: [],
   };
 

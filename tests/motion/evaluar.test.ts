@@ -117,3 +117,43 @@ test("un preset desconocido degrada a fade en vez de romper (§2.8)", () => {
   const titulo = estado.capas.find((c) => c.capa.id === "titulo")!;
   assert.equal(titulo.unidades[0].opacidad, 1);
 });
+
+/* ——— el CONTADOR: pista «numero» dentro del texto —————————————— */
+
+test("textoConNumero reemplaza la PRIMERA cifra, redondeada", async () => {
+  const { textoConNumero } = await import("@/lib/motion/evaluar-puro");
+  assert.equal(textoConNumero("STOCK:171", 98.4), "STOCK:98");
+  assert.equal(textoConNumero("STOCK:171", 0), "STOCK:0");
+  assert.equal(textoConNumero("$ 1.200 antes", 850), "$ 850 antes");
+  assert.equal(textoConNumero("sin cifras", 5), "sin cifras");
+});
+
+test("la pista «numero» produce textoVivo interpolado en el estado (el contador de agencia)", () => {
+  const comp: Composicion = {
+    version: 1,
+    nombre: "contador",
+    ancho: 400,
+    alto: 300,
+    fps: 30,
+    duracion: 2000,
+    fondo: "#000000",
+    capas: [{
+      id: "stock",
+      nombre: "Stock",
+      tipo: "texto",
+      texto: "STOCK:171",
+      fuente: { familia: "x", tamano: 40, peso: 700 },
+      color: "#ffffff",
+      division: "ninguna",
+      x: 100,
+      y: 100,
+      pistas: { numero: [{ t: 0, v: 171, easing: "lineal" }, { t: 1000, v: 0 }] },
+    } as CapaTexto],
+  };
+  assert.equal(estadoEn(comp, 0).capas[0].textoVivo, "STOCK:171");
+  assert.equal(estadoEn(comp, 500).capas[0].textoVivo, "STOCK:86");
+  assert.equal(estadoEn(comp, 1500).capas[0].textoVivo, "STOCK:0");
+  // sin pista numero, no hay textoVivo
+  const quieta = { ...comp, capas: [{ ...comp.capas[0], pistas: {} } as CapaTexto] };
+  assert.equal(estadoEn(quieta, 500).capas[0].textoVivo, undefined);
+});

@@ -32,6 +32,8 @@ const SISTEMA = `Sos el director de motion design de adiós adiós, trabajando d
 - Duraciones: títulos 700-1000ms, secundarios 500-700ms, salidas 400-600ms.
 - Si el pedido trae LA LOCUCIÓN (palabras con su ms), la animación se SINCRONIZA con la voz: el elemento que dice la palabra entra EN su ms exacto (el «en» del segmento = el ms de la palabra), no cerca. Sin locución, seguí el ritmo visual.
 - El color y el contenido son del usuario; vos dirigís el MOVIMIENTO. No cambies textos ni colores salvo pedido explícito.
+- CONTADOR: si piden que un número baje o suba (stock, precio, %, cuenta regresiva), es SIEMPRE definir_pista propiedad «numero» sobre LA MISMA capa (el valor interpolado reemplaza la cifra dentro del texto — «STOCK:171» con keyframes 171→0 baja en vivo, easing salidaExpo desacelera al final). JAMÁS dupliques la capa ni hagas swap para animar un número.
+- SWAP DE TEXTO: si un texto debe convertirse en otro (BUY NOW → SOLD OUT), es SIEMPRE transformar_texto — clona el estilo entero y arma el cruce. JAMÁS agregues una capa de texto nueva para reemplazar una existente: pierde la tipografía. El «presionado» del botón antes del cambio: pista de escala corta en la original (1 → 0.94 → 1, ~180ms) terminando justo en el «en» del swap.
 
 ${ESCUELA_GSAP}
 
@@ -58,6 +60,18 @@ ${catalogoParaPrompt()}
 
 export type TurnoAgente = { rol: "usuario" | "agente"; texto: string };
 
+/** Evento de PROGRESO del loop: uno por iteración (llamada al modelo +
+    herramientas ejecutadas) — el route lo streamea y el panel lo muestra
+    en vivo con su log de tiempos. */
+export type EventoAgente = {
+  tipo: "paso";
+  iteracion: number;
+  /** ms que tardó la llamada al modelo de esta iteración */
+  msModelo: number;
+  /** resúmenes de las herramientas ejecutadas en esta iteración */
+  ops: string[];
+};
+
 export type RespuestaAgente =
   | {
       ok: true;
@@ -72,6 +86,7 @@ export async function dirigirComposicion(
   mensaje: string,
   historial: TurnoAgente[] = [],
   contextoAudio?: string,
+  onEvento?: (evento: EventoAgente) => void,
 ): Promise<RespuestaAgente> {
   if (!process.env.ANTHROPIC_API_KEY) {
     return {
@@ -100,6 +115,7 @@ export async function dirigirComposicion(
   ];
 
   for (let iteracion = 0; iteracion < MAX_ITERACIONES; iteracion++) {
+    const t0 = Date.now();
     const respuesta = await cliente.messages.create({
       model: MODELO,
       max_tokens: 16000,
@@ -107,6 +123,8 @@ export async function dirigirComposicion(
       tools: DEFINICIONES_HERRAMIENTAS as unknown as Anthropic.Tool[],
       messages: mensajes,
     });
+
+    const msModelo = Date.now() - t0;
 
     if (respuesta.stop_reason === "refusal") {
       return { ok: false, error: "El modelo declinó el pedido" };
@@ -117,6 +135,7 @@ export async function dirigirComposicion(
     );
 
     if (respuesta.stop_reason !== "tool_use" || usosDeTools.length === 0) {
+      onEvento?.({ tipo: "paso", iteracion: iteracion + 1, msModelo, ops: [] });
       const texto = respuesta.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
         .map((b) => b.text)
@@ -127,10 +146,12 @@ export async function dirigirComposicion(
 
     mensajes.push({ role: "assistant", content: respuesta.content });
     const resultados: Anthropic.ToolResultBlockParam[] = [];
+    const opsIteracion: string[] = [];
     for (const uso of usosDeTools) {
       const res = ejecutarHerramienta(comp, uso.name, uso.input);
       comp = res.comp;
       if (res.resumen) ops.push(res.resumen);
+      opsIteracion.push(res.esError ? `${uso.name} → ERROR` : (res.resumen ?? uso.name));
       resultados.push({
         type: "tool_result",
         tool_use_id: uso.id,
@@ -139,6 +160,7 @@ export async function dirigirComposicion(
       });
     }
     mensajes.push({ role: "user", content: resultados });
+    onEvento?.({ tipo: "paso", iteracion: iteracion + 1, msModelo, ops: opsIteracion });
   }
 
   return {

@@ -721,3 +721,18 @@ test("el TRAZO exporta su path real (bezier), ya no un rectángulo placeholder",
   // el comentario de pendientes ya no anuncia el rectángulo
   assert.ok(!jsx.includes("path SVG real (aca va un rectangulo)"));
 });
+
+test("el CONTADOR exporta como Slider + expression en el Source Text", () => {
+  const comp = base({
+    capas: [titulo({
+      texto: "STOCK:171",
+      pistas: { numero: [{ t: 0, v: 171, easing: "salidaExpo" }, { t: 1500, v: 0 }] },
+    })],
+  });
+  const jsx = generarScriptAE([comp]);
+  assert.match(jsx, /ADBE Slider Control/);
+  assert.match(jsx, /Contador/);
+  assert.match(jsx, /expression = /);
+  assert.match(jsx, /STOCK:171/);
+  assert.match(jsx, /Math\.round\(effect\(/);
+});
