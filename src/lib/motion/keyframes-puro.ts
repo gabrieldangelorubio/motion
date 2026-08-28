@@ -34,13 +34,27 @@ export function ordenarKeyframes(keyframes: Keyframe[]): Keyframe[] {
   return [...keyframes].sort((a, b) => a.t - b.t);
 }
 
-/** Delays de escalonado para n unidades: índice de rango × paso, según el orden. */
+/** Delays de escalonado para n unidades: índice de rango × paso, según el orden.
+    «azar» (el from: "random" de GSAP) es un barajado DETERMINISTA por hash de
+    seno: mismo n, mismos delays — el render y el export nunca difieren. */
 export function delaysEscalonado(
   n: number,
   paso: number,
-  orden: "inicio" | "fin" | "centro" | "bordes" = "inicio",
+  orden: "inicio" | "fin" | "centro" | "bordes" | "azar" = "inicio",
 ): number[] {
   const indices = Array.from({ length: n }, (_, i) => i);
+  if (orden === "azar") {
+    const ruido = (i: number) => {
+      const x = Math.sin((i + 1) * 127.1 + n * 311.7) * 43758.5453;
+      return x - Math.floor(x);
+    };
+    const barajados = [...indices].sort((a, b) => ruido(a) - ruido(b));
+    const rango: number[] = new Array(n);
+    barajados.forEach((idx, pos) => {
+      rango[idx] = pos;
+    });
+    return indices.map((i) => rango[i] * paso);
+  }
   const rangos = indices.map((i) => {
     switch (orden) {
       case "fin": return n - 1 - i;

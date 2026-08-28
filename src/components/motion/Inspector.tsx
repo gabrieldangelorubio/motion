@@ -24,6 +24,7 @@ const OPCIONES_ORDEN: { valor: OrdenEscalonado; nombre: string }[] = [
   { valor: "fin", nombre: "desde el fin" },
   { valor: "centro", nombre: "desde el centro" },
   { valor: "bordes", nombre: "desde los bordes" },
+  { valor: "azar", nombre: "al azar (determinista)" },
 ];
 
 function SeccionSegmento({

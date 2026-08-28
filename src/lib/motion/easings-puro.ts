@@ -47,21 +47,70 @@ function resorte(rigidez: number, amortiguacion: number) {
   };
 }
 
+/* Elastic y bounce son las fórmulas Penner clásicas (las mismas de GSAP:
+   elastic.out(1, 0.3) y bounce): tienen rebotes de verdad, un bezier no las
+   cuenta. `escalones` es steps(10) — stop-motion, 10 saltos secos. */
+
+function salidaElastico(t: number): number {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  const p = 0.3;
+  return Math.pow(2, -10 * t) * Math.sin(((t - p / 4) * (2 * Math.PI)) / p) + 1;
+}
+
+function salidaPique(t: number): number {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  const n1 = 7.5625;
+  const d1 = 2.75;
+  if (t < 1 / d1) return n1 * t * t;
+  if (t < 2 / d1) return n1 * (t -= 1.5 / d1) * t + 0.75;
+  if (t < 2.5 / d1) return n1 * (t -= 2.25 / d1) * t + 0.9375;
+  return n1 * (t -= 2.625 / d1) * t + 0.984375;
+}
+
+function escalones(t: number): number {
+  if (t >= 1) return 1;
+  if (t <= 0) return 0;
+  return Math.floor(t * 10) / 10;
+}
+
 export const EASINGS: Record<NombreEasing, (t: number) => number> = {
   lineal: (t) => t,
   suave: bezier(0.4, 0.0, 0.2, 1),
   seco: bezier(0.9, 0.05, 0.1, 1),
+  // salidas — arrancan rápido y frenan (la dirección default para entradas de elementos)
+  salidaSine: bezier(0.39, 0.575, 0.565, 1),
   salidaQuad: bezier(0.25, 0.46, 0.45, 0.94),
   salidaCubic: bezier(0.215, 0.61, 0.355, 1),
   salidaQuart: bezier(0.165, 0.84, 0.44, 1),
+  salidaQuint: bezier(0.23, 1, 0.32, 1),
   salidaExpo: bezier(0.19, 1, 0.22, 1),
+  salidaCirc: bezier(0.075, 0.82, 0.165, 1),
   salidaBack: bezier(0.175, 0.885, 0.32, 1.275),
+  salidaElastico,
+  salidaPique,
+  // entradas — arrancan lento y aceleran (para salidas de elementos que "caen")
+  entradaSine: bezier(0.47, 0, 0.745, 0.715),
   entradaQuad: bezier(0.55, 0.085, 0.68, 0.53),
   entradaCubic: bezier(0.55, 0.055, 0.675, 0.19),
+  entradaQuart: bezier(0.895, 0.03, 0.685, 0.22),
+  entradaQuint: bezier(0.755, 0.05, 0.855, 0.06),
   entradaExpo: bezier(0.95, 0.05, 0.795, 0.035),
+  entradaCirc: bezier(0.6, 0.04, 0.98, 0.335),
   entradaBack: bezier(0.6, -0.28, 0.735, 0.045),
+  entradaElastico: (t) => 1 - salidaElastico(1 - t),
+  entradaPique: (t) => 1 - salidaPique(1 - t),
+  // entrada-salida — aceleran y frenan (traslados y cámara)
+  entradaSalidaSine: bezier(0.445, 0.05, 0.55, 0.95),
+  entradaSalidaQuad: bezier(0.455, 0.03, 0.515, 0.955),
   entradaSalidaCubic: bezier(0.645, 0.045, 0.355, 1),
+  entradaSalidaQuart: bezier(0.77, 0, 0.175, 1),
+  entradaSalidaQuint: bezier(0.86, 0, 0.07, 1),
   entradaSalidaExpo: bezier(0.87, 0, 0.13, 1),
+  entradaSalidaCirc: bezier(0.785, 0.135, 0.15, 0.86),
+  entradaSalidaBack: bezier(0.68, -0.55, 0.265, 1.55),
+  escalones,
   resorteSuave: resorte(120, 18),
   resorteTenso: resorte(260, 24),
   resorteRebote: resorte(220, 12),

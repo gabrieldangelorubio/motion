@@ -13,6 +13,20 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Escuela GSAP: catálogo completo + agente super especialista (2026-08-28)
+- **Qué:** decisión con Gabriel — NO se incluye el código de GSAP (motor
+  propio determinista, ver research-ia-y-gsap.md); se ABSORBE su escuela:
+  (1) los 35 easings del catálogo GSAP v3 en el motor (sine/quad/cubic/
+  quart/quint/expo/circ ×3 direcciones, back completo, elastic Penner
+  «salidaElastico», bounce Penner «salidaPique», steps(10) «escalones»),
+  con su tabla BEZIER_AE y los no-representables horneados densos;
+  (2) ordenEscalonado «azar» (from: "random", barajado determinista);
+  (3) `escuela-gsap.ts`: la memoria del agente director — easing/staggers/
+  position parameter/keyframes/SplitText/recetario destilados de la doc
+  oficial y traducidos a nuestras herramientas, con test de coherencia
+  escuela↔motor. Pendiente natural: presets nuevos que luzcan el catálogo
+  (loops pulse/float/shimmer siguen abajo).
+
 ### [P1] Render en worker + subida al catálogo de media
 - **Estado:** abierto
 - **Qué:** lo que falta encima del export ya hecho: mover el loop de render

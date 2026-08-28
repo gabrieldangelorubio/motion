@@ -75,3 +75,59 @@ test("delaysEscalonado: orden centro arranca del medio", () => {
 test("delaysEscalonado: orden inicio es 0, paso, 2·paso…", () => {
   assert.deepEqual(delaysEscalonado(3, 40, "inicio"), [0, 40, 80]);
 });
+
+/* ——— La escuela GSAP: el catálogo nuevo ——————————————————————— */
+
+test("salidaElastico oscila alrededor del destino (elastic real, no bezier)", () => {
+  const fn = EASINGS.salidaElastico;
+  let maximo = 0;
+  let minimoTrasLlegar = 2;
+  for (let t = 0.1; t <= 1; t += 0.005) {
+    maximo = Math.max(maximo, fn(t));
+    if (fn(t - 0.005) > 1 && fn(t) < 1) minimoTrasLlegar = Math.min(minimoTrasLlegar, fn(t));
+  }
+  assert.ok(maximo > 1.05, `el elástico sobrepasa bien (llegó a ${maximo})`);
+  assert.ok(minimoTrasLlegar < 1, "y vuelve a cruzar el destino (oscila, no clava de una)");
+  // el espejo: entradaElastico arranca oscilando alrededor de 0
+  let minimo = 1;
+  for (let t = 0; t <= 0.9; t += 0.005) minimo = Math.min(minimo, EASINGS.entradaElastico(t));
+  assert.ok(minimo < -0.05, `entradaElastico baja de 0 al arrancar (${minimo})`);
+});
+
+test("salidaPique rebota contra el piso: nunca pasa de 1 y toca 1 varias veces (bounce Penner)", () => {
+  const fn = EASINGS.salidaPique;
+  let maximo = 0;
+  let toques = 0;
+  let arriba = false;
+  for (let t = 0; t <= 1; t += 0.002) {
+    const v = fn(t);
+    maximo = Math.max(maximo, v);
+    const cerca = v > 0.995;
+    if (cerca && !arriba) toques++;
+    arriba = cerca;
+  }
+  assert.ok(maximo <= 1.0001, `el pique no sobrepasa 1 (${maximo})`);
+  assert.ok(toques >= 3, `toca el piso varias veces (tocó ${toques})`);
+  // los puntos exactos de la fórmula Penner
+  assert.ok(Math.abs(fn(1 / 2.75) - 1) < 1e-6, "primer toque exacto en t=1/2.75");
+});
+
+test("escalones da exactamente 10 niveles secos (steps de GSAP, stop-motion)", () => {
+  const fn = EASINGS.escalones;
+  const niveles = new Set<number>();
+  for (let t = 0; t < 1; t += 0.001) niveles.add(fn(t));
+  assert.equal(niveles.size, 10);
+  assert.equal(fn(0.05), 0);
+  assert.equal(fn(0.15), 0.1);
+  assert.equal(fn(1), 1);
+});
+
+test("delaysEscalonado azar: barajado DETERMINISTA que cubre todos los rangos", () => {
+  const delays = delaysEscalonado(6, 10, "azar");
+  // determinista: dos llamadas, el mismo resultado
+  assert.deepEqual(delays, delaysEscalonado(6, 10, "azar"));
+  // es una permutación completa de 0,10,…,50
+  assert.deepEqual([...delays].sort((a, b) => a - b), [0, 10, 20, 30, 40, 50]);
+  // y NO es el orden de "inicio" (si lo fuera, azar no barajaría nada)
+  assert.notDeepEqual(delays, delaysEscalonado(6, 10, "inicio"));
+});

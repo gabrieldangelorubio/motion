@@ -6,8 +6,13 @@
 
 Motor puro de motion graphics (`lib/motion`): composición JSON versionada →
 `estadoEn(comp, t)` → `pintar(estado, ctx)` determinista sobre canvas 2D.
-Presets de entrada/salida con escalonado por caracteres/palabras, easings con
-nombre (incl. resortes), pistas crudas de keyframes con hold, motion blur
+Presets de entrada/salida con escalonado por caracteres/palabras (orden
+inicio/fin/centro/bordes/azar — el from de GSAP completo; azar es un
+barajado determinista), **35 easings con nombre**: el catálogo GSAP entero
+— sine/quad/cubic/quart/quint/expo/circ en las tres direcciones, back
+completo, elastic real («salidaElastico», fórmula Penner), bounce real
+(«salidaPique»), steps(10) («escalones») — más los resortes con física
+propia, pistas crudas de keyframes con hold, motion blur
 sintetizado desde la velocidad del easing, merge por elemento con lápidas
 para guardado concurrente, y operaciones puras listas para tools de Diosa.
 Encima, el editor: page `/motion` con lienzo (cámara pan/zoom al cursor con
@@ -323,7 +328,13 @@ director de motion** (ruta `/api/motion/agente`: loop agéntico
 con la API de Claude sobre 13 herramientas incrementales validadas y
 clampeadas — incluye `definir_camara`/`quitar_camara` y los trims — panel
 de chat que aplica cada respuesta como UN paso de undo y
-muestra las ops), y **export a MP4 frame-exacto** (WebCodecs + `mp4-muxer`, decisión aprobada por Fran
+muestra las ops; su system prompt lleva la **ESCUELA GSAP completa**
+(`escuela-gsap.ts`, destilada de la documentación oficial de GSAP v3:
+easing con las tres direcciones y la escalera de intensidad, staggers
+each/amount con sus from, el position parameter traducido a aritmética
+de «en», keyframes multi-paso, SplitText, un recetario de la casa con
+~12 recetas ejecutables y los errores del principiante — un test
+verifica que cada easing nombrado en la escuela EXISTE en el motor), y **export a MP4 frame-exacto** (WebCodecs + `mp4-muxer`, decisión aprobada por Fran
 2026-08-26): la misma `pintar()` del preview frame a frame, H.264 con
 fallback a VP9-en-MP4 (Chromium sin codecs propietarios), **supersampling
 temporal 4×** para motion blur real (media móvil exacta sobre frames
@@ -439,7 +450,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **199
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **204
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -481,7 +492,11 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   cubrir/contener invertido en la emisión del encaje → primero NO cayó
   (el test usaba la misma caja para ambos ajustes y no distinguía cuál
   era cuál: test débil); endurecido con cajas distintas, cayó exacto.
-  Restaurados, 199/199 verdes.
+  (22) barajado de «azar» apagado en delaysEscalonado → falló exactamente
+  «barajado DETERMINISTA que cubre todos los rangos». (23) elastico/pique/
+  escalones quitados de EASINGS_NO_RALOS (saliendo como keyframes ralos a
+  AE) → falló exacto el test de horneado denso. Restaurados, 204/204
+  verdes.
 
 ## Qué necesita cablearse de su lado
 

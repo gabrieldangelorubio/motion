@@ -151,24 +151,44 @@ export function leemeDeFuentes(
 
 /* ——— Easings → temporal ease de AE ——————————————————————————————— */
 
-// Los mismos cubic-bezier de easings-puro. Los resortes no tienen bezier
-// exacto (rebotan): se aproximan con overshoot tipo back — documentado; el
-// horneado por frame exacto queda para cuando haga falta fidelidad total.
+// Los mismos cubic-bezier de easings-puro. Los que rebotan de verdad
+// (resortes, elastico, pique) no tienen bezier exacto: se aproximan con
+// overshoot tipo back — y en PRESETS van horneados densos (fidelidad total);
+// escalones tampoco (una escalera no es una curva): en pistas crudas degrada
+// a lineal, en presets el horneado por frame la captura exacta.
 const BEZIER_AE: Record<NombreEasing, [number, number, number, number]> = {
   lineal: [0, 0, 1, 1],
   suave: [0.4, 0.0, 0.2, 1],
   seco: [0.9, 0.05, 0.1, 1],
+  salidaSine: [0.39, 0.575, 0.565, 1],
   salidaQuad: [0.25, 0.46, 0.45, 0.94],
   salidaCubic: [0.215, 0.61, 0.355, 1],
   salidaQuart: [0.165, 0.84, 0.44, 1],
+  salidaQuint: [0.23, 1, 0.32, 1],
   salidaExpo: [0.19, 1, 0.22, 1],
+  salidaCirc: [0.075, 0.82, 0.165, 1],
   salidaBack: [0.175, 0.885, 0.32, 1.275],
+  salidaElastico: [0.175, 0.885, 0.32, 1.35],
+  salidaPique: [0.175, 0.885, 0.32, 1.275],
+  entradaSine: [0.47, 0, 0.745, 0.715],
   entradaQuad: [0.55, 0.085, 0.68, 0.53],
   entradaCubic: [0.55, 0.055, 0.675, 0.19],
+  entradaQuart: [0.895, 0.03, 0.685, 0.22],
+  entradaQuint: [0.755, 0.05, 0.855, 0.06],
   entradaExpo: [0.95, 0.05, 0.795, 0.035],
+  entradaCirc: [0.6, 0.04, 0.98, 0.335],
   entradaBack: [0.6, -0.28, 0.735, 0.045],
+  entradaElastico: [0.6, -0.28, 0.735, 0.045],
+  entradaPique: [0.6, -0.28, 0.735, 0.045],
+  entradaSalidaSine: [0.445, 0.05, 0.55, 0.95],
+  entradaSalidaQuad: [0.455, 0.03, 0.515, 0.955],
   entradaSalidaCubic: [0.645, 0.045, 0.355, 1],
+  entradaSalidaQuart: [0.77, 0, 0.175, 1],
+  entradaSalidaQuint: [0.86, 0, 0.07, 1],
   entradaSalidaExpo: [0.87, 0, 0.13, 1],
+  entradaSalidaCirc: [0.785, 0.135, 0.15, 0.86],
+  entradaSalidaBack: [0.68, -0.55, 0.265, 1.55],
+  escalones: [0, 0, 1, 1],
   resorteSuave: [0.175, 0.885, 0.32, 1.275],
   resorteTenso: [0.2, 0.9, 0.25, 1.2],
   resorteRebote: [0.175, 0.885, 0.32, 1.35],
@@ -536,10 +556,13 @@ function clavesHorneadas(comp: Composicion, capa: Capa, desplazarY: number): Cla
   return filtrarCanales(canales, capa);
 }
 
-// Los resortes rebotan de verdad en el motor: un solo tramo bezier de AE no
-// puede contar esa curva — van horneados densos. Los back sí: su overshoot
-// es un cubic-bezier y el temporal ease lo aproxima bien.
-const EASINGS_NO_RALOS: NombreEasing[] = ["resorteSuave", "resorteTenso", "resorteRebote"];
+// Los que rebotan o saltan de verdad en el motor (resortes, elastico, pique,
+// escalones) no caben en un solo tramo bezier de AE — van horneados densos.
+// Los back sí: su overshoot es un cubic-bezier y el temporal ease lo aproxima.
+const EASINGS_NO_RALOS: NombreEasing[] = [
+  "resorteSuave", "resorteTenso", "resorteRebote",
+  "salidaElastico", "entradaElastico", "salidaPique", "entradaPique", "escalones",
+];
 
 /** ¿El segmento se puede contar RALO (in y out, 2 keyframes con ease) sin
     mentir? Sí cuando cada canal de su preset es un tramo simple 0→1 (el

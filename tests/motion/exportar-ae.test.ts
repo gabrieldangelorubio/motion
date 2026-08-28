@@ -226,6 +226,17 @@ test("presets con overshoot en la pista (pop) y resortes van HORNEADOS densos", 
   const jsxResorte = generarScriptAE([resorte]);
   assert.match(jsxResorte, /animacion horneada a keyframes \(entrada subir\)/);
 
+  // los nuevos de la escuela GSAP que rebotan/saltan tampoco caben en un tramo
+  for (const easing of ["salidaElastico", "salidaPique", "escalones"] as const) {
+    const comp = base({ capas: [titulo({ entrada: { preset: "subir", en: 0, duracion: 500, easing } })] });
+    assert.match(generarScriptAE([comp]), /animacion horneada a keyframes/, `${easing} va denso`);
+  }
+  // y los bezier nuevos sí van ralos, con su temporal ease
+  const sine = base({ capas: [titulo({ entrada: { preset: "subir", en: 0, duracion: 500, easing: "salidaSine" } })] });
+  assert.match(generarScriptAE([sine]), /animacion en keyframes editables/);
+  assert.ok(easeDeTramo("salidaSine", 100, 1), "salidaSine convierte a temporal ease");
+  assert.ok(easeDeTramo("entradaSalidaBack", 100, 1), "entradaSalidaBack convierte a temporal ease");
+
   // una pista cruda sobre el preset también fuerza el horneado (se SUMAN)
   const mezcla = base({
     capas: [titulo({

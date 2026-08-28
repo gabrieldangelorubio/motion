@@ -36,7 +36,7 @@ function easingValido(v: unknown): NombreEasing | undefined {
 }
 
 function ordenValido(v: unknown): OrdenEscalonado | undefined {
-  return v === "inicio" || v === "fin" || v === "centro" || v === "bordes" ? v : undefined;
+  return v === "inicio" || v === "fin" || v === "centro" || v === "bordes" || v === "azar" ? v : undefined;
 }
 
 function fallo(comp: Composicion, mensaje: string): ResultadoHerramienta {
@@ -339,7 +339,7 @@ const PROPS_SEGMENTO = {
   duracion: { type: "number", description: "ms que dura" },
   easing: { type: "string", description: `uno de: ${Object.keys(EASINGS).join(", ")}` },
   escalonado: { type: "number", description: "ms entre unidades si la capa está dividida (0 = sin escalonado)" },
-  ordenEscalonado: { type: "string", enum: ["inicio", "fin", "centro", "bordes"] },
+  ordenEscalonado: { type: "string", enum: ["inicio", "fin", "centro", "bordes", "azar"] },
   params: { type: "object", description: "parámetros del preset, ej {distancia: 140}" },
 } as const;
 

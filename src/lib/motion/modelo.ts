@@ -8,22 +8,43 @@
    propiedades animadas son keyframes declarativos, nunca estado acumulado.
 ----------------------------------------------------------------------------- */
 
-/** Nombres de easing del sistema. Parte del contrato del JSON: sólo se agregan. */
+/** Nombres de easing del sistema. Parte del contrato del JSON: sólo se agregan.
+    El catálogo cubre la escuela GSAP completa: las familias por intensidad
+    (sine < quad < cubic < quart < quint < expo), circ, back, elastic
+    («elastico»), bounce («pique») y steps («escalones»). */
 export type NombreEasing =
   | "lineal"
   | "suave"
   | "seco"
+  | "salidaSine"
   | "salidaQuad"
   | "salidaCubic"
   | "salidaQuart"
+  | "salidaQuint"
   | "salidaExpo"
+  | "salidaCirc"
   | "salidaBack"
+  | "salidaElastico"
+  | "salidaPique"
+  | "entradaSine"
   | "entradaQuad"
   | "entradaCubic"
+  | "entradaQuart"
+  | "entradaQuint"
   | "entradaExpo"
+  | "entradaCirc"
   | "entradaBack"
+  | "entradaElastico"
+  | "entradaPique"
+  | "entradaSalidaSine"
+  | "entradaSalidaQuad"
   | "entradaSalidaCubic"
+  | "entradaSalidaQuart"
+  | "entradaSalidaQuint"
   | "entradaSalidaExpo"
+  | "entradaSalidaCirc"
+  | "entradaSalidaBack"
+  | "escalones"
   | "resorteSuave"
   | "resorteTenso"
   | "resorteRebote";
@@ -52,8 +73,10 @@ export type NombrePropiedad =
 
 export type Pistas = Partial<Record<NombrePropiedad, Keyframe[]>>;
 
-/** Orden en que los sub-elementos de un texto entran en el escalonado. */
-export type OrdenEscalonado = "inicio" | "fin" | "centro" | "bordes";
+/** Orden en que los sub-elementos de un texto entran en el escalonado.
+    Los `from` de GSAP: start/end/center/edges/random → inicio/fin/centro/
+    bordes/azar (azar es un barajado DETERMINISTA: mismo texto, mismo orden). */
+export type OrdenEscalonado = "inicio" | "fin" | "centro" | "bordes" | "azar";
 
 export type Segmento = {
   preset: string;

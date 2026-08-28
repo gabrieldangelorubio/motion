@@ -143,3 +143,21 @@ test("escalonadoSano: un valor por división, 0 para «ninguna»", async () => {
   assert.equal(escalonadoSano("lineas"), 140);
   assert.equal(escalonadoSano("ninguna"), 0);
 });
+
+/* ——— La escuela GSAP del agente ————————————————————————————— */
+
+test("la escuela del agente solo nombra easings QUE EXISTEN en el motor (no le enseña fantasmas)", async () => {
+  const { ESCUELA_GSAP } = await import("@/lib/motion/escuela-gsap");
+  const { EASINGS } = await import("@/lib/motion/easings-puro");
+  const nombres = ESCUELA_GSAP.match(/\b(?:entradaSalida|salida|entrada)[A-Z][a-zA-Z]+\b|\bescalones\b|\bresorte(?:Suave|Tenso|Rebote)\b/g) ?? [];
+  assert.ok(nombres.length > 20, `la escuela nombra easings concretos (encontró ${nombres.length})`);
+  for (const nombre of new Set(nombres)) {
+    // «entradaSalida» pelado es el comodín de la FAMILIA (entradaSalida*), no un nombre
+    if (nombre === "entradaSalida") continue;
+    assert.ok(nombre in EASINGS, `«${nombre}» está en la escuela pero no en el motor`);
+  }
+  // y cubre las piezas nuevas del catálogo GSAP
+  for (const clave of ["salidaElastico", "salidaPique", "escalones", "azar", "entradaSalidaBack"]) {
+    assert.ok(ESCUELA_GSAP.includes(clave), `la escuela enseña ${clave}`);
+  }
+});
