@@ -13,6 +13,20 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Import fiel: logo espejado, placa negra y rotados (2026-08-28, tanda 13)
+- **Hecho (plugin v8):** (1) las piezas de un grupo rotado se exportan VIA
+  CLON con la transform ABSOLUTA compuesta (`rasterizarComoSeVe`):
+  exportAsync del original solo aplica la transform propia y una pieza que
+  el grupo espejaba salía AL REVÉS (el logo «welcado libre»). (2) un grupo
+  con un hijo isMask se rasteriza ENTERO: la máscara no se puede abrir por
+  piezas — antes salía como capa opaca (la placa negra). (3) los nodos
+  ROTADOS (vector/estrella/polígono/rect/elipse) con estilo sólido ya NO
+  se rasterizan: llegan como capa vector con `rotacion` (el path viaja sin
+  rotar, la capa rota en el centro — el motor y AE ya lo hacían); con FLIP
+  siguen al raster (no hay equivalente). Verificado con píxeles por
+  geometría (verificar41: bbox cuadrado + esquinas vacías = rombo real) y
+  el .jsx con Rotate Z. OJO: re-importar el manifest en Figma (v8).
+
 ### [HECHO] Biblioteca por FAMILIAS con pares in/out (2026-08-28, tanda 12)
 - **Hecho:** (1) la biblioteca de efectos se reorganiza en PESTAÑAS por
   familia — Textos, Gráficos, Trazos — y cada demo corre sobre la capa que

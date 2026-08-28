@@ -26,6 +26,10 @@ export type NodoFigma = {
   opacidad?: number;
   /** modo de mezcla en términos de canvas (el plugin ya mapeó el enum de Figma) */
   mezcla?: string;
+  /** rotación en grados HORARIOS (el plugin ya invirtió el signo de Figma):
+      solo la traen los vectores rotados — el path viaja sin rotar y la capa
+      rota alrededor de su centro, igual que el motor y AE */
+  rotacion?: number;
   /** grados; el plugin ya avisa si venía rotado y lo rasterizó */
   texto?: {
     contenido: string;
@@ -185,7 +189,7 @@ export function validarImportFigma(datos: unknown): datos is ImportFigma {
 /** La versión del plugin que este build espera: el JSON exportado lleva el
     sello `plugin: N` y un sello menor delata un plugin desactualizado en
     Figma (la causa clásica de «el fix no anda»: el code.js viejo). */
-export const PLUGIN_ESPERADO = 7;
+export const PLUGIN_ESPERADO = 8;
 
 /** El aviso de plugin viejo, o null si el sello está al día. */
 export function avisoDePluginViejo(datos: unknown): string | null {
@@ -391,6 +395,7 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
       capas.push({
         ...base,
         tipo: "vector",
+        rotacion: nodo.rotacion,
         path: nodo.vector.path,
         ancho: nodo.ancho,
         alto: nodo.alto,

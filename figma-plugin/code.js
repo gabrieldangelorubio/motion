@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 7;
+var VERSION_PLUGIN = 8;
 
 function aHex(color) {
   var c = function (v) {
@@ -141,8 +141,35 @@ function empujarVector(nodo, marco, salida, datos, avisoExtra) {
   });
 }
 
-async function rasterizar(nodo, marco, aviso) {
-  var bytes = await nodo.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: 2 } });
+// ¿La transform del nodo ESPEJA? (determinante negativo: flip horizontal o
+// vertical). Un flip no es una rotación: no se puede reproducir con la capa.
+function tieneFlip(nodo) {
+  var m = "relativeTransform" in nodo ? nodo.relativeTransform : null;
+  if (!m) return false;
+  return m[0][0] * m[1][1] - m[0][1] * m[1][0] < 0;
+}
+
+// Exporta el nodo COMO SE VE en el render final (transforms de los
+// ancestros INCLUIDAS): clona la pieza a la raíz de la página con su
+// transform ABSOLUTA y exporta el clon. exportAsync del original solo
+// aplica la transform PROPIA del nodo — una pieza que su grupo espejaba o
+// rotaba salía al revés (visto: el logo espejado del grupo con flip).
+async function rasterizarComoSeVe(nodo, marco, aviso) {
+  var clon = null;
+  try {
+    clon = nodo.clone();
+    figma.currentPage.appendChild(clon);
+    clon.relativeTransform = nodo.absoluteTransform;
+    return await rasterizar(nodo, marco, aviso, clon);
+  } catch (e) {
+    return await rasterizar(nodo, marco, aviso);
+  } finally {
+    if (clon) { try { clon.remove(); } catch (e2) { /* ya no está */ } }
+  }
+}
+
+async function rasterizar(nodo, marco, aviso, nodoExport) {
+  var bytes = await (nodoExport || nodo).exportAsync({ format: "PNG", constraint: { type: "SCALE", value: 2 } });
   var c = caja(nodo, marco);
   var mezcla = mezclaDe(nodo);
   var salida = {
@@ -512,11 +539,19 @@ async function nodoAIR(nodo, marco, salida) {
     // hijos heredarían la rotación y saldrían derechos), pero SÍ puede
     // rasterizar CADA PIEZA por separado en su lugar: fiel al render y
     // animable por partes.
+    // un hijo con isMask recorta a sus hermanos: ese render NO se puede
+    // reproducir abriendo el grupo por piezas (la "máscara" saldría como
+    // una capa opaca — la placa negra del logo). Entero y fiel.
+    if ("children" in nodo && nodo.children.some(function (h) { return h.isMask === true; })) {
+      salida.push(await rasterizarComoSeVe(nodo, marco,
+        "grupo con MÁSCARA adentro: se rasterizó entero (una máscara no se abre por piezas)"));
+      return;
+    }
     if (rotado && "children" in nodo && nodo.children.length > 1) {
       var desdeRotado = salida.length;
       for (var r = 0; r < nodo.children.length; r++) {
         if (!nodo.children[r].visible) continue;
-        salida.push(await rasterizar(nodo.children[r], marco, null));
+        salida.push(await rasterizarComoSeVe(nodo.children[r], marco, null));
       }
       for (var sr = desdeRotado; sr < salida.length; sr++) {
         salida[sr].subgrupo = nodo.name;
@@ -572,6 +607,41 @@ async function nodoAIR(nodo, marco, salida) {
   // geometría combinada (fillGeometry) — llega nítida y animable como UNA
   // capa. Para animar sus PIEZAS por separado sigue valiendo desagruparla
   // en Figma (⌘⇧G); con gradiente/imagen cae al rasterizado con ese aviso.
+  // Un nodo ROTADO con estilo sólido ya no se rasteriza: el path viaja en
+  // coordenadas locales y la ROTACIÓN va aparte en la capa (el motor y AE
+  // rotan alrededor del centro — el centro del bbox rotado ES el centro
+  // del nodo). Con FLIP (espejado) no hay equivalente: sigue al raster.
+  if ((nodo.type === "VECTOR" || nodo.type === "STAR" || nodo.type === "POLYGON" ||
+       nodo.type === "RECTANGLE" || nodo.type === "ELLIPSE") &&
+      rotado && !tieneFlip(nodo) && !tieneEfectos(nodo)) {
+    var datosRot = vectorSolido(nodo);
+    if (datosRot) {
+      var br = nodo.absoluteBoundingBox;
+      var mr = marco.absoluteBoundingBox;
+      var cxr = br.x + br.width / 2 - mr.x;
+      var cyr = br.y + br.height / 2 - mr.y;
+      var mezclaR = mezclaDe(nodo);
+      var avisosR = [datosRot.aviso, mezclaR.aviso].filter(function (a) { return a; }).join("; ");
+      salida.push({
+        tipo: "vector",
+        nombre: nodo.name,
+        x: Math.round((cxr - nodo.width / 2) * 100) / 100,
+        y: Math.round((cyr - nodo.height / 2) * 100) / 100,
+        ancho: Math.round(nodo.width * 100) / 100,
+        alto: Math.round(nodo.height * 100) / 100,
+        // Figma rota antihorario positivo; el motor y AE, horario positivo
+        rotacion: Math.round(-nodo.rotation * 100) / 100,
+        opacidad: "opacity" in nodo && nodo.opacity < 1 ? nodo.opacity : undefined,
+        mezcla: mezclaR.mezcla,
+        aviso: avisosR || undefined,
+        vector: datosRot.vector,
+      });
+      return;
+    }
+    salida.push(await rasterizar(nodo, marco, "rotado y con fill o borde no sólido: se rasterizó a 2×"));
+    return;
+  }
+
   if (nodo.type === "BOOLEAN_OPERATION" && !rotado && !tieneEfectos(nodo)) {
     var datosB = vectorSolido(nodo);
     if (datosB) {

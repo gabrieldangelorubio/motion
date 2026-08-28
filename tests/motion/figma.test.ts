@@ -292,3 +292,26 @@ test("un nodo «vector» del plugin llega como CapaVector: path, relleno, regla 
   assert.equal(capa.y, 40);
   assert.equal(res.avisos.length, 0);
 });
+
+test("un vector ROTADO llega con su rotación en la capa (el path sin rotar)", async () => {
+  const { normalizarFigma } = await import("@/lib/motion/figma-puro");
+  const res = normalizarFigma({
+    origen: "figma",
+    version: 1,
+    frame: { nombre: "F", ancho: 200, alto: 200, fondo: "#000000" },
+    nodos: [{
+      tipo: "vector",
+      nombre: "Rotado",
+      x: 50,
+      y: 50,
+      ancho: 100,
+      alto: 100,
+      rotacion: 45,
+      vector: { path: "M0 0L100 0L100 100L0 100Z", relleno: "#ff0000" },
+    }],
+  });
+  const capa = res.composicion.capas[0];
+  assert.equal(capa.tipo, "vector");
+  assert.equal(capa.rotacion, 45);
+  assert.equal(capa.x, 100); // el ancla sigue siendo el centro de la caja
+});
