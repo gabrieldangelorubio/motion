@@ -10,6 +10,7 @@
 ----------------------------------------------------------------------------- */
 
 import type { EventoAgente } from "@/lib/motion/agente";
+import { sumarUso, type UsoTokens } from "@/lib/motion/costo-agente-puro";
 
 type ParteGemini =
   | { text: string }
@@ -70,7 +71,8 @@ export async function loopGemini(opts: {
   maxIteraciones: number;
   ejecutar: (nombre: string, input: Record<string, unknown>) => { resultado: string; esError?: boolean };
   onEvento?: (evento: EventoAgente) => void;
-}): Promise<{ ok: true; respuesta: string } | { ok: false; error: string }> {
+}): Promise<{ ok: true; respuesta: string; uso: UsoTokens } | { ok: false; error: string }> {
+  let usoTotal: UsoTokens = { entrada: 0, salida: 0 };
   let modeloVivo = opts.modelo;
   let reintentoModelo = false;
   const tools = herramientasParaGemini(opts.herramientas);
@@ -109,21 +111,36 @@ export async function loopGemini(opts: {
     }
     const datos = (await res.json()) as {
       candidates?: { content?: { parts?: ParteGemini[] }; finishReason?: string }[];
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        thoughtsTokenCount?: number;
+        cachedContentTokenCount?: number;
+      };
     };
     const msModelo = Date.now() - t0;
+    const um = datos.usageMetadata;
+    const cacheLeido = um?.cachedContentTokenCount ?? 0;
+    const usoPaso: UsoTokens = {
+      // promptTokenCount INCLUYE lo cacheado: se separa para cobrarlo bien
+      entrada: Math.max(0, (um?.promptTokenCount ?? 0) - cacheLeido),
+      salida: (um?.candidatesTokenCount ?? 0) + (um?.thoughtsTokenCount ?? 0),
+      cacheLectura: cacheLeido,
+    };
+    usoTotal = sumarUso(usoTotal, usoPaso);
     const partes = datos.candidates?.[0]?.content?.parts ?? [];
     const llamadas = partes.filter(
       (p): p is { functionCall: { name: string; args: Record<string, unknown> } } => "functionCall" in p,
     );
 
     if (llamadas.length === 0) {
-      opts.onEvento?.({ tipo: "paso", iteracion: iteracion + 1, msModelo, ops: [] });
+      opts.onEvento?.({ tipo: "paso", iteracion: iteracion + 1, msModelo, ops: [], uso: usoPaso });
       const texto = partes
         .filter((p): p is { text: string } => "text" in p)
         .map((p) => p.text)
         .join("\n")
         .trim();
-      return { ok: true, respuesta: texto || "Listo." };
+      return { ok: true, respuesta: texto || "Listo.", uso: usoTotal };
     }
 
     contents.push({ role: "model", parts: partes });
@@ -140,8 +157,8 @@ export async function loopGemini(opts: {
       });
     }
     contents.push({ role: "user", parts: respuestas });
-    opts.onEvento?.({ tipo: "paso", iteracion: iteracion + 1, msModelo, ops: opsIteracion });
+    opts.onEvento?.({ tipo: "paso", iteracion: iteracion + 1, msModelo, ops: opsIteracion, uso: usoPaso });
   }
 
-  return { ok: true, respuesta: "Corté acá para no seguir en bucle — revisá lo aplicado y pedime el siguiente paso." };
+  return { ok: true, respuesta: "Corté acá para no seguir en bucle — revisá lo aplicado y pedime el siguiente paso.", uso: usoTotal };
 }

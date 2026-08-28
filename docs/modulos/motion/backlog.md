@@ -13,6 +13,19 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Costo por dirección a la vista (2026-08-28, tanda 17)
+- **Hecho:** cada respuesta del director cierra con su META: «20 pasos ·
+  1:26 · 184k tokens · ~$0.031 · gemini-3.6-flash» — tokens acumulados de
+  las dos APIs (entrada/salida/cache por separado, que se cobran distinto)
+  × la tabla de precios de `costo-agente-puro.ts` (USD por millón, con
+  fecha de verificación; un modelo sin precio muestra los tokens y avisa,
+  jamás inventa). El log por paso también trae los tokens. Precios
+  cargados: opus-5/4-8 (5/25), sonnet-5 (2/10), haiku-4.5 (1/5),
+  gemini-3.6-flash (0.75/3.75 INTRO hasta 31/12/2026 — el 1/1/2027 pasa a
+  1.50/7.50: actualizar la tabla), gemini-2.5-flash. También quedó el fix
+  del 404 de modelo retirado de Gemini (default 3.6-flash + reintento con
+  el modelo que sugiere el error).
+
 ### [HECHO] Director multi-proveedor: Gemini Flash por costo (2026-08-28, tanda 16)
 - **Hecho:** el director habla con CUALQUIER modelo con function calling —
   el «entrenamiento» es el prompt-escuela + las herramientas, y viajan tal

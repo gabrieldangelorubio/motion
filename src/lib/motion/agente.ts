@@ -22,6 +22,7 @@ import {
   ejecutarHerramienta,
 } from "@/lib/motion/agente-herramientas";
 import { loopGemini, type DefHerramienta } from "@/lib/motion/agente-gemini";
+import { sumarUso, type UsoTokens } from "@/lib/motion/costo-agente-puro";
 
 /** Qué modelo dirige. MOTION_AGENTE_MODELO manda (claude-* → Anthropic,
     gemini-* → Gemini); sin él, tener GEMINI_API_KEY elige flash (mucho más
@@ -77,6 +78,8 @@ export type EventoAgente = {
   msModelo: number;
   /** resúmenes de las herramientas ejecutadas en esta iteración */
   ops: string[];
+  /** tokens de ESTA llamada al modelo (para el log y el costo) */
+  uso?: UsoTokens;
 };
 
 export type RespuestaAgente =
@@ -85,6 +88,10 @@ export type RespuestaAgente =
       respuesta: string;
       composicion: Composicion;
       ops: string[];
+      /** tokens totales del pedido + el modelo que dirigió: el costo se
+          calcula con costo-agente-puro */
+      uso?: UsoTokens;
+      modelo?: string;
     }
   | { ok: false; error: string };
 
@@ -127,7 +134,7 @@ export async function dirigirComposicion(
       },
       onEvento,
     });
-    return res.ok ? { ok: true, respuesta: res.respuesta, composicion: comp, ops } : res;
+    return res.ok ? { ok: true, respuesta: res.respuesta, composicion: comp, ops, uso: res.uso, modelo } : res;
   }
 
   // ——— proveedor ANTHROPIC (el camino de siempre) ———
@@ -139,6 +146,7 @@ export async function dirigirComposicion(
   }
   const cliente = new Anthropic();
 
+  let usoTotal: UsoTokens = { entrada: 0, salida: 0 };
   const mensajes: Anthropic.MessageParam[] = [
     ...historial.slice(-12).map<Anthropic.MessageParam>((turno) => ({
       role: turno.rol === "usuario" ? "user" : "assistant",
@@ -158,6 +166,13 @@ export async function dirigirComposicion(
     });
 
     const msModelo = Date.now() - t0;
+    const usoPaso: UsoTokens = {
+      entrada: respuesta.usage.input_tokens,
+      salida: respuesta.usage.output_tokens,
+      cacheLectura: respuesta.usage.cache_read_input_tokens ?? 0,
+      cacheEscritura: respuesta.usage.cache_creation_input_tokens ?? 0,
+    };
+    usoTotal = sumarUso(usoTotal, usoPaso);
 
     if (respuesta.stop_reason === "refusal") {
       return { ok: false, error: "El modelo declinó el pedido" };
@@ -168,13 +183,13 @@ export async function dirigirComposicion(
     );
 
     if (respuesta.stop_reason !== "tool_use" || usosDeTools.length === 0) {
-      onEvento?.({ tipo: "paso", iteracion: iteracion + 1, msModelo, ops: [] });
+      onEvento?.({ tipo: "paso", iteracion: iteracion + 1, msModelo, ops: [], uso: usoPaso });
       const texto = respuesta.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
         .map((b) => b.text)
         .join("\n")
         .trim();
-      return { ok: true, respuesta: texto || "Listo.", composicion: comp, ops };
+      return { ok: true, respuesta: texto || "Listo.", composicion: comp, ops, uso: usoTotal, modelo };
     }
 
     mensajes.push({ role: "assistant", content: respuesta.content });
@@ -193,7 +208,7 @@ export async function dirigirComposicion(
       });
     }
     mensajes.push({ role: "user", content: resultados });
-    onEvento?.({ tipo: "paso", iteracion: iteracion + 1, msModelo, ops: opsIteracion });
+    onEvento?.({ tipo: "paso", iteracion: iteracion + 1, msModelo, ops: opsIteracion, uso: usoPaso });
   }
 
   return {
@@ -201,5 +216,7 @@ export async function dirigirComposicion(
     respuesta: "Corté acá para no seguir en bucle — revisá lo aplicado y pedime el siguiente paso.",
     composicion: comp,
     ops,
+    uso: usoTotal,
+    modelo,
   };
 }

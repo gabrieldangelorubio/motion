@@ -16,12 +16,13 @@
 ----------------------------------------------------------------------------- */
 
 import { useRef, useState, useEffect } from "react";
+import { costoUSD, formatearCosto, formatearTokens, type UsoTokens } from "@/lib/motion/costo-agente-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
 import type { TurnoAgente } from "@/lib/motion/agente";
 
-type Mensaje = TurnoAgente & { ops?: string[] };
+type Mensaje = TurnoAgente & { ops?: string[]; meta?: string };
 
 export function PanelAgente({
   obtenerSnapshot,
@@ -143,7 +144,8 @@ export function PanelAgente({
       const lector = res.body.getReader();
       const dec = new TextDecoder();
       let resto = "";
-      let fin: { respuesta?: string; snapshot?: string; ops?: string[]; error?: string } | null = null;
+      let fin: { respuesta?: string; snapshot?: string; ops?: string[]; error?: string; uso?: UsoTokens; modelo?: string } | null = null;
+      let pasos = 0;
       for (;;) {
         const { done, value } = await lector.read();
         if (done) break;
@@ -152,7 +154,7 @@ export function PanelAgente({
         resto = lineas.pop() ?? "";
         for (const linea of lineas) {
           if (!linea.trim()) continue;
-          let evento: { tipo?: string; iteracion?: number; msModelo?: number; ops?: string[]; respuesta?: string; snapshot?: string; error?: string };
+          let evento: { tipo?: string; iteracion?: number; msModelo?: number; ops?: string[]; respuesta?: string; snapshot?: string; error?: string; uso?: UsoTokens; modelo?: string };
           try {
             evento = JSON.parse(linea);
           } catch {
@@ -160,8 +162,10 @@ export function PanelAgente({
           }
           const ts = ((performance.now() - t0) / 1000).toFixed(1);
           if (evento.tipo === "paso") {
+            pasos = evento.iteracion ?? pasos;
             const opsPaso = evento.ops ?? [];
-            log.push(`[+${ts}s] paso ${evento.iteracion} · modelo ${(((evento.msModelo ?? 0)) / 1000).toFixed(1)}s${opsPaso.length ? ` · ${opsPaso.join(" | ")}` : " · respuesta final"}`);
+            const tokensPaso = evento.uso ? ` · ${formatearTokens(evento.uso.entrada + evento.uso.salida + (evento.uso.cacheLectura ?? 0))}` : "";
+            log.push(`[+${ts}s] paso ${evento.iteracion} · modelo ${(((evento.msModelo ?? 0)) / 1000).toFixed(1)}s${tokensPaso}${opsPaso.length ? ` · ${opsPaso.join(" | ")}` : " · respuesta final"}`);
             setProgreso({ paso: evento.iteracion ?? 0, ultimaOp: opsPaso[opsPaso.length - 1] ?? null });
           } else if (evento.tipo === "fin") {
             log.push(`[+${ts}s] fin${evento.error ? ` con ERROR: ${evento.error}` : ` (${evento.ops?.length ?? 0} ops)`}`);
@@ -175,7 +179,18 @@ export function PanelAgente({
         return;
       }
       if (fin.ops && fin.ops.length > 0) onAplicar(fin.snapshot, fin.ops);
-      setMensajes((m) => [...m, { rol: "agente", texto: fin!.respuesta!, ops: fin.ops }]);
+      // la META del pedido: pasos · tiempo · tokens · costo (si hay precio)
+      let meta: string | undefined;
+      if (fin.uso && fin.modelo) {
+        const total = fin.uso.entrada + fin.uso.salida + (fin.uso.cacheLectura ?? 0) + (fin.uso.cacheEscritura ?? 0);
+        const costo = costoUSD(fin.modelo, fin.uso);
+        const seg = Math.round((performance.now() - t0) / 1000);
+        meta = `${pasos} pasos · ${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, "0")} · ${formatearTokens(total)} · ${
+          costo !== null ? `~${formatearCosto(costo)}` : t("precio de {modelo} no cargado", { modelo: fin.modelo })
+        } · ${fin.modelo}`;
+        log.push(`TOTAL: ${meta}`);
+      }
+      setMensajes((m) => [...m, { rol: "agente", texto: fin!.respuesta!, ops: fin.ops, meta }]);
       requestAnimationFrame(() => listaRef.current?.scrollTo({ top: 1e6 }));
     } catch {
       setError(t("No se pudo hablar con el agente (¿el servidor está corriendo?)"));
@@ -217,6 +232,9 @@ export function PanelAgente({
                   <li key={j}>· {op}</li>
                 ))}
               </ul>
+            )}
+            {m.meta && (
+              <div className="mt-1 font-mono text-[10px] text-foreground/40">{m.meta}</div>
             )}
           </div>
         ))}

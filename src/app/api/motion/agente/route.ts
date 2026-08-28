@@ -59,7 +59,7 @@ export async function POST(pedido: Request): Promise<Response> {
             emitir(evento);
           });
           if (!res.ok) emitir({ tipo: "fin", error: res.error });
-          else emitir({ tipo: "fin", respuesta: res.respuesta, snapshot: serializar(res.composicion), ops: res.ops });
+          else emitir({ tipo: "fin", respuesta: res.respuesta, snapshot: serializar(res.composicion), ops: res.ops, uso: res.uso, modelo: res.modelo });
         } catch (e) {
           emitir({ tipo: "fin", error: e instanceof Error ? e.message : "Error inesperado del agente" });
         }
