@@ -927,7 +927,7 @@ export function Editor({
   // Aplica un PAR de la biblioteca según el modo de sus tres botones:
   // «entrada» pone el in, «salida» el out, «ambas» los dos de una (con UN
   // paso de undo). Cada mitad conserva el timing existente de esa clase.
-  const aplicarPar = useCallback((par: { entrada?: string; salida?: string }, modo: "entrada" | "salida" | "ambas", division: "" | "caracteres" | "palabras" | "lineas" = "") => {
+  const aplicarPar = useCallback((par: { entrada?: string; salida?: string }, modo: "entrada" | "salida" | "ambas", division: "caracteres" | "palabras" | "lineas" | null = null) => {
     const id = seleccionRef.current;
     const nombreCorto = par.entrada ?? par.salida ?? "";
     if (!id || id === CAMARA_ID) {

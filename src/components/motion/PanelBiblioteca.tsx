@@ -34,7 +34,7 @@ import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
 
 export type ModoAplicar = "entrada" | "salida" | "ambas";
-export type DivisionAplicar = "" | "caracteres" | "palabras" | "lineas";
+export type DivisionAplicar = "caracteres" | "palabras" | "lineas";
 
 function Tarjeta({
   par,
@@ -125,7 +125,7 @@ export function PanelBiblioteca({
   abierto = true,
   onAlternar,
 }: {
-  onAplicar: (par: ParBiblioteca, modo: ModoAplicar, division: DivisionAplicar) => void;
+  onAplicar: (par: ParBiblioteca, modo: ModoAplicar, division: DivisionAplicar | null) => void;
   /** tipo de la capa seleccionada en el editor: la biblioteca salta sola a
       la familia que le corresponde (texto → Textos, trazo → Trazos, el
       resto → Gráficos); null = no tocar */
@@ -136,8 +136,9 @@ export function PanelBiblioteca({
   onAlternar?: () => void;
 }) {
   const [familia, setFamilia] = useState<FamiliaEfecto>("texto");
-  // cómo dividir el TEXTO al aplicar (letra/palabra/línea); «» = como está
-  const [division, setDivision] = useState<DivisionAplicar>("");
+  // cómo dividir el TEXTO al aplicar: letras, palabras o líneas — siempre
+  // una elegida (aplicar un efecto de texto FIJA esa división en la capa)
+  const [division, setDivision] = useState<DivisionAplicar>("caracteres");
   // la selección del editor manda: elegir una gráfica abre «Gráficos», etc.
   // (ajuste DURANTE el render con guard — el patrón de React para estado
   // derivado de props, sin cascada de effects)
@@ -170,29 +171,40 @@ export function PanelBiblioteca({
       </button>
       {abierto && (
         <>
-          <div className="px-3 pb-1.5 pt-0.5">
+          {/* flex-wrap: el panel es angosto (~240px) y pestañas + iconos de
+              división no siempre entran juntos — sin wrap los iconos caían
+              DEBAJO del lienzo, que les comía el click */}
+          <div className="flex flex-wrap items-center gap-1.5 px-3 pb-1.5 pt-0.5">
             <Segmentado
               opciones={FAMILIAS.map((f) => ({ valor: f.id, nombre: t(f.nombre) }))}
               valor={familia}
               onCambio={(v) => setFamilia(v as FamiliaEfecto)}
               etiquetaAria={t("Familia de efectos")}
             />
+            {familia === "texto" && (
+              <div
+                role="group"
+                aria-label={t("División del texto al aplicar el efecto")}
+                className="ml-auto flex shrink-0 items-center gap-0.5"
+              >
+                {([
+                  { valor: "caracteres", icono: "divisionLetras", nombre: t("Dividir por LETRAS al aplicar") },
+                  { valor: "palabras", icono: "divisionPalabras", nombre: t("Dividir por PALABRAS al aplicar") },
+                  { valor: "lineas", icono: "divisionLineas", nombre: t("Dividir por LÍNEAS al aplicar") },
+                ] as const).map((op) => (
+                  <BotonIcono
+                    key={op.valor}
+                    tam={24}
+                    etiqueta={op.nombre}
+                    activo={division === op.valor}
+                    onClick={() => setDivision(op.valor)}
+                  >
+                    <Icono nombre={op.icono} width={13} height={13} />
+                  </BotonIcono>
+                ))}
+              </div>
+            )}
           </div>
-          {familia === "texto" && (
-            <div className="px-3 pb-1.5">
-              <Segmentado
-                opciones={[
-                  { valor: "", nombre: t("como está") },
-                  { valor: "caracteres", nombre: t("letras") },
-                  { valor: "palabras", nombre: t("palabras") },
-                  { valor: "lineas", nombre: t("líneas") },
-                ]}
-                valor={division}
-                onCambio={(v) => setDivision(v as DivisionAplicar)}
-                etiquetaAria={t("División del texto al aplicar el efecto")}
-              />
-            </div>
-          )}
           <div className="px-3 pb-2 text-xs text-muted">
             {t("Hover para verlo · →| entrada · →|→ ambas · |→ salida, sobre la capa seleccionada.")}
           </div>
@@ -205,7 +217,7 @@ export function PanelBiblioteca({
                     key={`${familia}-${par.id}`}
                     par={par}
                     familia={familia}
-                    onAplicar={(p, modo) => onAplicar(p, modo, familia === "texto" ? division : "")}
+                    onAplicar={(p, modo) => onAplicar(p, modo, familia === "texto" ? division : null)}
                   />
                 ))}
               </div>

@@ -59,6 +59,24 @@ const ICONOS = {
       <path d="M15 12h6.5M18.5 9l3 3-3 3" />
     </svg>
   ),
+  // división del texto al aplicar un efecto: por LETRAS (celdas sueltas)
+  divisionLetras: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M4 8h3.6v8H4zM10.2 8h3.6v8h-3.6zM16.4 8H20v8h-3.6z" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  // por PALABRAS (dos bloques)
+  divisionPalabras: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M3 10h8.5v4H3zM14 10h7v4h-7z" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  // por LÍNEAS (renglones)
+  divisionLineas: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M4 7.5h16M4 12h16M4 16.5h12" />
+    </svg>
+  ),
   loop: (p: IconoProps) => (
     <svg {...base(p)} aria-hidden>
       <path d="M4.5 12a7.5 7.5 0 0 1 12.9-5.2l2.1 2" />

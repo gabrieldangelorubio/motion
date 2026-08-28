@@ -1,4 +1,4 @@
-# ENTREGA — módulo motion (estado al 2026-08-27)
+# ENTREGA — módulo motion (estado al 2026-08-28)
 
 > Contrato: `docs/kit-diosa-2026-08-26.md` (copia del kit recibido, sello `main=9a8e79ce`).
 
@@ -72,15 +72,21 @@ tipografía real),
 rotación, tracking, impacto y rebote, logos y gráficas, trazos — sobre
 dos capacidades de motor nuevas: rotación POR UNIDAD (dRotacion) y
 tracking (dx por índice desde el centro, la del medio quieta); el panel
-vive bajo el de capas ocupando la mitad inferior de esa columna, con chip
-in/out por carta; panel con todos los presets: cada carta corre el MOTOR REAL sobre una
-plantilla en un mini canvas — hover lo anima en bucle, quieto muestra el
-reposo; nunca un video grabado que envejece —; tocarla aplica el efecto a
-la capa seleccionada reemplazando su entrada o salida según la clase y
-CONSERVANDO el timing existente; los efectos de trazo avisan si la capa no
-es un trazo; el panel vive SIEMPRE abierto — sin botón de toggle ni de
-cerrar — y los controles de calidad y vista viven abajo a la izquierda
-del lienzo), **texto multilínea con revelado enmascarado** (`\n` real con interlineado
+vive bajo el de capas ocupando la mitad inferior de esa columna,
+organizado en FAMILIAS con pestañas — Textos, Gráficos y Trazos — y cada
+demo corre sobre la clase de capa que le toca (título, estrella vectorial,
+línea); seleccionar una capa en el editor salta solo a su familia; cada
+tarjeta es un PAR entrada/salida con TRES botones iconográficos al pie
+(→| entrada, →|→ ambas, |→ salida) que aplican la mitad que corresponde
+CONSERVANDO el timing existente; en Textos, junto a las pestañas van tres
+iconos de DIVISIÓN (letras / palabras / líneas — siempre una elegida, por
+defecto letras: aplicar un efecto de texto fija esa división en la capa; la
+fila hace wrap porque el panel es angosto y sin wrap los iconos caían
+debajo del lienzo); cada tarjeta corre el MOTOR REAL sobre una
+plantilla en un mini canvas compacto (240×84, recorte vertical centrado) —
+hover lo anima en bucle, quieto muestra el reposo; nunca un video grabado
+que envejece —; los controles de calidad y vista viven abajo a la
+izquierda del lienzo), **texto multilínea con revelado enmascarado** (`\n` real con interlineado
 propio, división por caracteres/palabras/**líneas**, presets
 `revelar`/`ocultar`: cada unidad sube dentro de su renglón recortada a su
 caja de reposo — el clásico reveal de SplitText con máscara, sin crear
