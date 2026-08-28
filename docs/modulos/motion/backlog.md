@@ -13,6 +13,13 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] UX del preview y del carril (pedidos 2026-08-28, tanda 3)
+- **Hecho:** (1) el preview PARA al final por defecto (play desde el final
+  rebobina); toggle ⟳ de loop en el transport, y al loopear el audio se
+  resincroniza y REANUDA (antes la vuelta quedaba muda). (2) las palabras
+  del carril son HITOS de entrada (tick del «in», sin caja de duración) y
+  se BORRAN con la × del hover (whisper inventa palabras); todo persiste.
+
 ### [HECHO] UX del timeline y del recorte (pedidos 2026-08-28, tanda 2)
 - **Hecho:** (1) el modal de recorte tiene TECLADO propio con captura —
   espacio ya no le da play al timeline de atrás: reproduce SIEMPRE desde

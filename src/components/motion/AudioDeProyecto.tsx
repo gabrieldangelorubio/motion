@@ -35,6 +35,7 @@ export function AudioDeProyecto({
   onRecortarAudio,
   onTranscribir,
   onMoverPalabra,
+  onBorrarPalabra,
   transcribiendo = null,
 }: {
   audio: AudioDecodificado;
@@ -53,6 +54,8 @@ export function AudioDeProyecto({
   /** corrige a mano DÓNDE cae una palabra: arrastrarla en el carril la
       corre entera (misma duración) y el ajuste persiste */
   onMoverPalabra?: (indice: number, desdeMs: number) => void;
+  /** borra una palabra que whisper inventó (la × al hover); persiste */
+  onBorrarPalabra?: (indice: number) => void;
   /** estado del STT en curso (null = quieto) */
   transcribiendo?: string | null;
 }) {
@@ -290,7 +293,11 @@ export function AudioDeProyecto({
               {unidades.map((u, i) => {
                 const enAjuste = ajuste?.indice === i;
                 const desdeVivo = enAjuste ? ajuste.desdeMs : u.desdeMs;
-                const sonando = globalPlayhead >= desdeVivo && globalPlayhead < desdeVivo + (u.hastaMs - u.desdeMs);
+                // cada palabra es un HITO de entrada (el «in» de la frase, sin
+                // caja de duración): el elemento se extiende hasta la próxima
+                // palabra solo para que el texto tenga dónde vivir sin pisarse
+                const siguienteDesde = i + 1 < unidades.length ? unidades[i + 1].desdeMs : total;
+                const sonando = globalPlayhead >= desdeVivo && globalPlayhead < (esPalabras ? siguienteDesde : desdeVivo + (u.hastaMs - u.desdeMs));
                 return (
                   <button
                     key={`${u.texto}-${i}`}
@@ -305,20 +312,37 @@ export function AudioDeProyecto({
                     onClick={esPalabras && onMoverPalabra ? undefined : () => onSaltar(u.desdeMs)}
                     title={
                       esPalabras && onMoverPalabra
-                        ? t("«{p}» · {s}s — click salta ahí; arrastrá para corregir dónde cae", { p: u.texto, s: (desdeVivo / 1000).toFixed(2) })
+                        ? t("«{p}» · {s}s — click salta ahí; arrastrá para corregir dónde cae; × la borra", { p: u.texto, s: (desdeVivo / 1000).toFixed(2) })
                         : `${u.texto} · ${(u.desdeMs / 1000).toFixed(2)}s`
                     }
                     style={{
                       left: `${(desdeVivo / total) * 100}%`,
-                      width: `${Math.max(0.2, ((u.hastaMs - u.desdeMs) / total) * 100)}%`,
+                      width: `${Math.max(0.2, ((esPalabras ? Math.max(siguienteDesde - desdeVivo, 120) : u.hastaMs - u.desdeMs) / total) * 100)}%`,
                     }}
                     className={[
-                      "absolute inset-y-0 overflow-hidden border-l border-(--panel-border) px-0.5 text-left text-[9px] leading-[17px] whitespace-nowrap",
-                      enAjuste ? "z-10 bg-acento/20 text-acento" : sonando ? "bg-acento/10 text-acento" : "text-foreground/55 hover:bg-ink/[0.06] hover:text-foreground",
+                      "group/palabra absolute inset-y-0 overflow-hidden px-0.5 text-left text-[9px] leading-[17px] whitespace-nowrap",
+                      esPalabras ? "border-l border-acento/40" : "border-l border-(--panel-border)",
+                      enAjuste ? "z-10 bg-acento/20 text-acento" : sonando ? "text-acento" : "text-foreground/55 hover:bg-ink/[0.06] hover:text-foreground",
                       esPalabras && onMoverPalabra ? "cursor-grab active:cursor-grabbing" : "",
                     ].join(" ")}
                   >
                     {u.texto}
+                    {esPalabras && onBorrarPalabra && (
+                      <span
+                        role="button"
+                        tabIndex={-1}
+                        aria-label={t("Borrar la palabra «{p}» (whisper la inventó)", { p: u.texto })}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onPointerUp={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onBorrarPalabra(i);
+                        }}
+                        className="ml-1 hidden px-0.5 text-[10px] text-foreground/40 hover:text-peligro group-hover/palabra:inline"
+                      >
+                        ×
+                      </span>
+                    )}
                   </button>
                 );
               })}

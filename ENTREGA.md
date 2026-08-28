@@ -253,11 +253,13 @@ donde está la animación, y ALT/OPTION arrastrando un keyframe o una pose
 de cámara DUPLICA (nace una copia con el mismo valor/easing/hold y el
 gesto la arrastra; el original no se toca; un paso de undo);
 «Re-transcribir» rehace una transcripción vieja (sin palabras o con el
-idioma forzado); las palabras se CORRIGEN A MANO: arrastrar una en el
-carril la corre entera (misma duración) y el ajuste PERSISTE junto al
-audio — y el carril comparte columna y ancho con la onda, así cada
-palabra cae exactamente debajo de su lugar (antes el carril era más
-ancho que la onda y todo quedaba corrido); click en la franja salta a ese punto —cambiando de
+idioma forzado); las palabras se CORRIGEN A MANO: cada una es un
+HITO de entrada (el «in» de la frase, un tick sin caja de duración) que
+se ARRASTRA para corregir dónde cae y se BORRA con la × del hover si
+whisper la inventó — ambos ajustes PERSISTEN junto al audio — y el
+carril comparte columna y ancho con la onda, así cada palabra cae
+exactamente debajo de su lugar (antes el carril era más ancho que la
+onda y todo quedaba corrido); click en la franja salta a ese punto —cambiando de
 escena si hace falta—, arrastrar un corte ajusta la duración de la
 escena que termina ahí (la activa con undo; una no activa se edita en su
 documento y el registro aprende la duración), y el preview reproduce el
@@ -371,7 +373,11 @@ bordes diagonales de un display grande dejan de escalonar; los radios de
 `ctx.filter` se compensan porque van en px de dispositivo, verificado por
 MSE contra un ground truth 4×), back-pressure del encoder y progreso en
 vivo. El editor arranca PARADO en 0 (sin autoplay) y con la línea de
-tiempo alta (340px). El chat del agente vive FIJO en la barra derecha,
+tiempo alta (340px). El preview SE PARA en el último frame al terminar
+(como un editor de video; play desde el final rebobina y arranca) — el
+toggle ⟳ del transport activa el LOOP, y al dar la vuelta el audio se
+resincroniza y SE REANUDA (antes loopeaba siempre y la vuelta quedaba
+muda). El chat del agente vive FIJO en la barra derecha,
 siempre abierto y abajo, con AGARRADERA propia (arranca compacto en 340px,
 lo estirás como al timeline); el inspector (la config de la capa) ocupa
 todo el resto con scroll — nada flota sobre el lienzo. El texto de Figma con ESTILOS MIXTOS (dos fuentes en

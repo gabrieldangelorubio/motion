@@ -302,6 +302,15 @@ export function Editor({
     requestAnimationFrame(() => lienzoRef.current?.encuadrar());
   }, []);
 
+  // Loop del preview: APAGADO por defecto — la escena se PARA en su último
+  // frame al terminar (como un editor de video); el toggle ⟳ del transport
+  // la hace dar la vuelta, y al dar la vuelta el audio vuelve a sonar.
+  const [loop, setLoop] = useState(false);
+  const loopRef = useRef(loop);
+  useEffect(() => {
+    loopRef.current = loop;
+  }, [loop]);
+
   // ——— Reloj: un solo rAF que avanza, pinta y avisa a React a baja frecuencia ———
   useEffect(() => {
     let vivo = true;
@@ -313,15 +322,29 @@ export function Editor({
       anterior = ahora;
       if (reproduciendo && !document.hidden) {
         const previo = tiempoRef.current;
-        tiempoRef.current = (tiempoRef.current + dt) % compRef.current.duracion;
-        // la escena dio la vuelta: el audio vuelve al inicio de su tramo
-        if (tiempoRef.current < previo) sincronizarAudio();
-        if (grabandoRef.current) {
-          if (tiempoRef.current < previo) {
-            detenerGrabacion(); // la composición dio la vuelta: la toma terminó
-          } else {
-            const vista = lienzoRef.current?.vistaActual();
-            if (vista) muestrasRef.current.push({ t: tiempoRef.current, ...vista });
+        const dur = compRef.current.duracion;
+        const avanzado = previo + dt;
+        if (avanzado >= dur && !loopRef.current) {
+          // fin de la escena, sin loop: clavado en el final y a pausa
+          tiempoRef.current = dur;
+          if (grabandoRef.current) detenerGrabacion();
+          setReproduciendo(false);
+        } else {
+          tiempoRef.current = avanzado % dur;
+          if (avanzado >= dur) {
+            // la escena dio la vuelta: el audio vuelve al inicio de su tramo
+            // y SE REANUDA (pudo haberse pausado al fin de su segmento)
+            sincronizarAudio();
+            const el = audioElRef.current;
+            if (el && el.paused) void el.play().catch(() => undefined);
+          }
+          if (grabandoRef.current) {
+            if (avanzado >= dur) {
+              detenerGrabacion(); // la composición dio la vuelta: la toma terminó
+            } else {
+              const vista = lienzoRef.current?.vistaActual();
+              if (vista) muestrasRef.current.push({ t: tiempoRef.current, ...vista });
+            }
           }
         }
       }
@@ -338,6 +361,18 @@ export function Editor({
       cancelAnimationFrame(id);
     };
   }, [reproduciendo, detenerGrabacion, sincronizarAudio]);
+
+  // Play con el playhead clavado en el final = volver a empezar (sin esto,
+  // tras parar al final, play pausaría al instante).
+  const alternarPlay = useCallback(() => {
+    setReproduciendo((r) => {
+      if (!r && tiempoRef.current >= compRef.current.duracion - 1) {
+        tiempoRef.current = 0;
+        setTiempoUI(0);
+      }
+      return !r;
+    });
+  }, []);
 
   // El <audio> es ESCLAVO del reloj del preview: play arranca su tramo en el
   // punto global exacto, pausa lo frena. Con la escena activa cambiando, el
@@ -676,6 +711,20 @@ export function Editor({
         const dur = p.hastaMs - p.desdeMs;
         const nuevas = palabras.map((x, i) => (i === indice ? { ...x, desdeMs, hastaMs: desdeMs + dur } : x));
         const transcripcion = { ...previo.transcripcion, palabras: nuevas };
+        void guardarTranscripcion(composicionId, transcripcion);
+        return { ...previo, transcripcion };
+      });
+    },
+    [composicionId],
+  );
+
+  // Borrar una palabra que whisper inventó (la × del carril): persiste.
+  const borrarPalabra = useCallback(
+    (indice: number) => {
+      setAudio((previo) => {
+        const palabras = previo?.transcripcion?.palabras;
+        if (!previo || !previo.transcripcion || !palabras?.[indice]) return previo;
+        const transcripcion = { ...previo.transcripcion, palabras: palabras.filter((_, i) => i !== indice) };
         void guardarTranscripcion(composicionId, transcripcion);
         return { ...previo, transcripcion };
       });
@@ -1378,7 +1427,7 @@ export function Editor({
       if (e.code === "Space") {
         if (enInput()) return;
         e.preventDefault();
-        setReproduciendo((r) => !r);
+        alternarPlay();
         return;
       }
       if (enInput()) return;
@@ -1416,7 +1465,7 @@ export function Editor({
     };
     window.addEventListener("keydown", alTeclear);
     return () => window.removeEventListener("keydown", alTeclear);
-  }, [deshacer, rehacer, saltarFrame, copiarKfSeleccionado, pegarKf, borrarKfSeleccionado, borrarSeleccionadas]);
+  }, [deshacer, rehacer, saltarFrame, copiarKfSeleccionado, pegarKf, borrarKfSeleccionado, borrarSeleccionadas, alternarPlay]);
 
   // Selección con las consecuencias juntas: al cambiar de capa, un keyframe
   // elegido de OTRA capa se suelta (borrar/copiar operan sobre lo que se ve
@@ -1819,6 +1868,7 @@ export function Editor({
             onRecortarAudio={() => setRecortando(true)}
             onTranscribir={() => void transcribirAudio()}
             onMoverPalabra={moverPalabra}
+            onBorrarPalabra={borrarPalabra}
             transcribiendo={transcribiendo}
           />
         )}
@@ -1845,7 +1895,9 @@ export function Editor({
           onDesplazarSeleccion={desplazarSeleccionEnVivo}
           onInicioEstirar={iniciarEstirar}
           onEstirarSeleccion={estirarSeleccionEnVivo}
-          onTogglePlay={() => setReproduciendo((r) => !r)}
+          onTogglePlay={alternarPlay}
+          loop={loop}
+          onLoop={() => setLoop((v) => !v)}
           onSaltarFrame={saltarFrame}
           onSeleccionar={seleccionar}
           onCheckpoint={registrar}

@@ -104,6 +104,8 @@ export function LineaDeTiempo({
   onScrub,
   onDuracion,
   onTogglePlay,
+  loop = false,
+  onLoop,
   onSaltarFrame,
   onSeleccionar,
   onCheckpoint,
@@ -139,6 +141,9 @@ export function LineaDeTiempo({
   /** cambia la duración TOTAL de la escena (ms) — el campo Dur con scrub */
   onDuracion?: (ms: number) => void;
   onTogglePlay: () => void;
+  /** loop del preview (apagado = la escena se para al final) */
+  loop?: boolean;
+  onLoop?: () => void;
   onSaltarFrame: (dir: 1 | -1) => void;
   onSeleccionar: (id: string) => void;
   onCheckpoint: () => void;
@@ -570,6 +575,13 @@ export function LineaDeTiempo({
             <Icono nombre="cuadroAdelante" width={14} height={14} />
           </BotonIcono>
         </ConPista>
+        {onLoop && (
+          <ConPista pista={loop ? t("Loop puesto: al terminar vuelve a empezar (con sonido)") : t("Sin loop: la escena se para en el último frame")}>
+            <BotonIcono tam={28} etiqueta={t("Loop del preview")} activo={loop} onClick={onLoop}>
+              <span aria-hidden className="text-[13px] leading-none">⟳</span>
+            </BotonIcono>
+          </ConPista>
+        )}
         <div className="ml-2">
           <Timecode ms={tiempo} fps={composicion.fps} />
           <span className="font-mono text-xs tabular-nums text-foreground/30"> / </span>
