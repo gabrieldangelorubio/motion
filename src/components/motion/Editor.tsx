@@ -927,7 +927,7 @@ export function Editor({
   // Aplica un PAR de la biblioteca según el modo de sus tres botones:
   // «entrada» pone el in, «salida» el out, «ambas» los dos de una (con UN
   // paso de undo). Cada mitad conserva el timing existente de esa clase.
-  const aplicarPar = useCallback((par: { entrada?: string; salida?: string }, modo: "entrada" | "salida" | "ambas") => {
+  const aplicarPar = useCallback((par: { entrada?: string; salida?: string }, modo: "entrada" | "salida" | "ambas", division: "" | "caracteres" | "palabras" | "lineas" = "") => {
     const id = seleccionRef.current;
     const nombreCorto = par.entrada ?? par.salida ?? "";
     if (!id || id === CAMARA_ID) {
@@ -938,6 +938,9 @@ export function Editor({
     const capa = comp.capas.find((c) => c.id === id);
     if (!capa) return;
 
+    // la división elegida en la biblioteca (letras/palabras/líneas) pisa la
+    // de la capa; «» respeta la que está
+    const divisionFinal = capa.tipo === "texto" && division ? division : capa.tipo === "texto" ? capa.division : "ninguna";
     const armarSegmento = (preset: string): Segmento | string => {
       const def = PRESETS[preset];
       if (!def) return t("no existe el preset «{preset}»", { preset });
@@ -957,8 +960,8 @@ export function Editor({
           : { preset, en: Math.max(0, comp.duracion - 900), duracion: 600, easing: "entradaCubic", escalonado: capa.tipo === "texto" ? 25 : undefined };
       // una capa dividida sin escalonado se anima como bloque entero: si el
       // timing heredado no traía, le va el default sano de su división
-      if (capa.tipo === "texto" && capa.division !== "ninguna" && !seg.escalonado) {
-        seg.escalonado = escalonadoSano(capa.division);
+      if (capa.tipo === "texto" && divisionFinal !== "ninguna" && !seg.escalonado) {
+        seg.escalonado = escalonadoSano(divisionFinal);
       }
       return seg;
     };
@@ -968,14 +971,17 @@ export function Editor({
     if ((modo === "salida" || modo === "ambas") && par.salida) presetes.push({ preset: par.salida, clase: "salida" });
     if (presetes.length === 0) return;
 
-    const cambios: Partial<Record<"entrada" | "salida", Segmento>> = {};
+    const cambios: Partial<Capa> = {};
+    if (capa.tipo === "texto" && division && capa.division !== division) {
+      (cambios as { division?: typeof division }).division = division;
+    }
     for (const { preset, clase } of presetes) {
       const seg = armarSegmento(preset);
       if (typeof seg === "string") {
         setAvisoGuardado(seg);
         return;
       }
-      cambios[clase] = seg;
+      (cambios as Record<"entrada" | "salida", Segmento>)[clase] = seg;
     }
     registrar();
     editarEnVivo(id, cambios);

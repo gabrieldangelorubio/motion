@@ -13,6 +13,20 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Biblioteca afinada: compacta, división al aplicar y curvas (2026-08-28, tanda 14)
+- **Hecho:** (1) tarjetas COMPACTAS (el preview recorta centrado en
+  vertical: misma demo, la mitad del alto). (2) en «Textos» un segmentado
+  elige la DIVISIÓN al aplicar — letras / palabras / líneas / como está —
+  y aplicar el efecto también divide la capa (con su escalonado sano).
+  (3) el easing del Inspector dejó de ser una lista de nombres: es un
+  SELECTOR DE CURVAS — cada easing dibujado sampleando su función real
+  (los overshoots del back/elástico se VEN salir del carril), popover con
+  las 35 curvas en grilla, click elige. Verificado (verificar42, 8/8).
+- **Anotado (pedido):** editor de curva bezier CUSTOM (arrastrar los
+  puntos de control — extiende Segmento.easing a un bezier libre, toca
+  motor + export AE); contador de números y swap de texto con estilo
+  clonado (propuesta charlada aparte).
+
 ### [HECHO] Import fiel: logo espejado, placa negra y rotados (2026-08-28, tanda 13)
 - **Hecho (plugin v8):** (1) las piezas de un grupo rotado se exportan VIA
   CLON con la transform ABSOLUTA compuesta (`rasterizarComoSeVe`):

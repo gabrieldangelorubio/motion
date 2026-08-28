@@ -34,6 +34,7 @@ import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
 
 export type ModoAplicar = "entrada" | "salida" | "ambas";
+export type DivisionAplicar = "" | "caracteres" | "palabras" | "lineas";
 
 function Tarjeta({
   par,
@@ -57,7 +58,10 @@ function Tarjeta({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const escala = canvas.width / plantilla.ancho;
-    ctx.setTransform(escala, 0, 0, escala, 0, 0);
+    // tarjeta COMPACTA: el canvas es más bajo que el 16:9 de la plantilla —
+    // se recorta centrado en vertical (la demo vive en el medio del frame)
+    const recorteY = (plantilla.alto * escala - canvas.height) / 2;
+    ctx.setTransform(escala, 0, 0, escala, 0, -recorteY);
     pintar(estadoEn(plantilla, tiempo), ctx as unknown as Contexto2D);
   };
 
@@ -94,7 +98,7 @@ function Tarjeta({
       onPointerLeave={frenar}
       className="group/carta mb-2 w-full rounded-control p-1.5 shadow-control hover:bg-ink/[0.06]"
     >
-      <canvas ref={canvasRef} width={240} height={135} className="block w-full rounded-[9px]" />
+      <canvas ref={canvasRef} width={240} height={84} className="block w-full rounded-[9px]" />
       <div className="mt-1.5 flex items-center gap-1 px-0.5">
         <span className="min-w-0 flex-1 truncate text-[13px] text-foreground/85" title={par.salida && par.entrada ? `${par.entrada} / ${par.salida}` : undefined}>
           {par.id}
@@ -121,7 +125,7 @@ export function PanelBiblioteca({
   abierto = true,
   onAlternar,
 }: {
-  onAplicar: (par: ParBiblioteca, modo: ModoAplicar) => void;
+  onAplicar: (par: ParBiblioteca, modo: ModoAplicar, division: DivisionAplicar) => void;
   /** tipo de la capa seleccionada en el editor: la biblioteca salta sola a
       la familia que le corresponde (texto → Textos, trazo → Trazos, el
       resto → Gráficos); null = no tocar */
@@ -132,6 +136,8 @@ export function PanelBiblioteca({
   onAlternar?: () => void;
 }) {
   const [familia, setFamilia] = useState<FamiliaEfecto>("texto");
+  // cómo dividir el TEXTO al aplicar (letra/palabra/línea); «» = como está
+  const [division, setDivision] = useState<DivisionAplicar>("");
   // la selección del editor manda: elegir una gráfica abre «Gráficos», etc.
   // (ajuste DURANTE el render con guard — el patrón de React para estado
   // derivado de props, sin cascada de effects)
@@ -172,6 +178,21 @@ export function PanelBiblioteca({
               etiquetaAria={t("Familia de efectos")}
             />
           </div>
+          {familia === "texto" && (
+            <div className="px-3 pb-1.5">
+              <Segmentado
+                opciones={[
+                  { valor: "", nombre: t("como está") },
+                  { valor: "caracteres", nombre: t("letras") },
+                  { valor: "palabras", nombre: t("palabras") },
+                  { valor: "lineas", nombre: t("líneas") },
+                ]}
+                valor={division}
+                onCambio={(v) => setDivision(v as DivisionAplicar)}
+                etiquetaAria={t("División del texto al aplicar el efecto")}
+              />
+            </div>
+          )}
           <div className="px-3 pb-2 text-xs text-muted">
             {t("Hover para verlo · →| entrada · →|→ ambas · |→ salida, sobre la capa seleccionada.")}
           </div>
@@ -180,7 +201,12 @@ export function PanelBiblioteca({
               <div key={categoria.id}>
                 <Etiqueta className="mb-1.5 mt-2 px-1">{t(categoria.nombre)}</Etiqueta>
                 {pares.map((par) => (
-                  <Tarjeta key={`${familia}-${par.id}`} par={par} familia={familia} onAplicar={onAplicar} />
+                  <Tarjeta
+                    key={`${familia}-${par.id}`}
+                    par={par}
+                    familia={familia}
+                    onAplicar={(p, modo) => onAplicar(p, modo, familia === "texto" ? division : "")}
+                  />
                 ))}
               </div>
             ))}

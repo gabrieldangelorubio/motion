@@ -9,8 +9,8 @@
    muestran en ms (dígitos: no pasan por el idioma, kit §2.6).
 ----------------------------------------------------------------------------- */
 
-import { MEZCLAS, type Capa, type MezclaCapa, type NombreEasing, type OrdenEscalonado, type Segmento } from "@/lib/motion/modelo";
-import { EASINGS } from "@/lib/motion/easings-puro";
+import { MEZCLAS, type Capa, type MezclaCapa, type OrdenEscalonado, type Segmento } from "@/lib/motion/modelo";
+import { SelectorEasing } from "@/components/motion/SelectorEasing";
 import { nombresPresets, escalonadoSano } from "@/lib/motion/presets-puro";
 import { t } from "@/lib/i18n/stub";
 import { Etiqueta } from "@/components/ui/Etiqueta";
@@ -18,7 +18,6 @@ import { CampoNumero } from "@/components/ui/CampoNumero";
 import { Desplegable } from "@/components/ui/Desplegable";
 import { MasAjustes } from "@/components/ui/MasAjustes";
 
-const OPCIONES_EASING = Object.keys(EASINGS).map((n) => ({ valor: n, nombre: n }));
 const OPCIONES_ORDEN: { valor: OrdenEscalonado; nombre: string }[] = [
   { valor: "inicio", nombre: "desde el inicio" },
   { valor: "fin", nombre: "desde el fin" },
@@ -77,11 +76,10 @@ function SeccionSegmento({
             onCambio={(duracion) => onEditar({ duracion })}
           />
         </div>
-        <Desplegable
+        <SelectorEasing
           etiqueta={t("Easing")}
           valor={segmento.easing ?? "suave"}
-          opciones={OPCIONES_EASING}
-          onCambio={(easing) => conCheckpoint({ easing: easing as NombreEasing })}
+          onCambio={(easing) => conCheckpoint({ easing })}
         />
         <MasAjustes>
           <div className="grid grid-cols-2 gap-2">
