@@ -23,6 +23,7 @@ import { estadoEn } from "@/lib/motion/evaluar-puro";
 import { pintar, type Contexto2D } from "@/lib/motion/pintar";
 import { t } from "@/lib/i18n/stub";
 import { Etiqueta } from "@/components/ui/Etiqueta";
+import { Icono } from "@/components/icons";
 
 function Tarjeta({ efecto, onAplicar }: { efecto: EfectoBiblioteca; onAplicar: (nombre: string) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -93,27 +94,53 @@ function Tarjeta({ efecto, onAplicar }: { efecto: EfectoBiblioteca; onAplicar: (
   );
 }
 
-export function PanelBiblioteca({ onAplicar }: { onAplicar: (nombre: string) => void }) {
+export function PanelBiblioteca({
+  onAplicar,
+  abierto = true,
+  onAlternar,
+}: {
+  onAplicar: (nombre: string) => void;
+  /** plegado, la biblioteca es solo su fila-tab (como «Cámara»); el estado
+      lo guarda el Editor para que sobreviva a recargar */
+  abierto?: boolean;
+  onAlternar?: () => void;
+}) {
   const secciones = efectosPorCategoria();
 
   return (
     <div className="flex h-full min-h-0 flex-col border-t border-(--glass-border) bg-(--chrome-bg)">
-      <div className="flex items-center gap-2 px-3 pb-1 pt-2.5">
-        <div className="min-w-0 flex-1 text-[13px] font-semibold text-foreground">{t("Efectos")}</div>
-      </div>
-      <div className="px-3 pb-2 text-xs text-muted">
-        {t("Hover para verlo; click se lo pone a la capa seleccionada.")}
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        {secciones.map(({ categoria, efectos }) => (
-          <div key={categoria.id}>
-            <Etiqueta className="mb-1.5 mt-2 px-1">{t(categoria.nombre)}</Etiqueta>
-            {efectos.map((efecto) => (
-              <Tarjeta key={efecto.nombre} efecto={efecto} onAplicar={onAplicar} />
+      <button
+        type="button"
+        onClick={onAlternar}
+        aria-expanded={abierto}
+        className="flex w-full shrink-0 items-center gap-2 px-3 pb-1 pt-2.5 text-left hover:bg-ink/[0.04]"
+      >
+        <Icono nombre="biblioteca" width={14} height={14} className="shrink-0 text-foreground/60" />
+        <span className="min-w-0 flex-1 text-[13px] font-semibold text-foreground">{t("Efectos")}</span>
+        <Icono
+          nombre="chevronAbajo"
+          width={13}
+          height={13}
+          className={`shrink-0 text-foreground/50 transition-transform duration-200 ${abierto ? "" : "-rotate-90"}`}
+        />
+      </button>
+      {abierto && (
+        <>
+          <div className="px-3 pb-2 text-xs text-muted">
+            {t("Hover para verlo; click se lo pone a la capa seleccionada.")}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+            {secciones.map(({ categoria, efectos }) => (
+              <div key={categoria.id}>
+                <Etiqueta className="mb-1.5 mt-2 px-1">{t(categoria.nombre)}</Etiqueta>
+                {efectos.map((efecto) => (
+                  <Tarjeta key={efecto.nombre} efecto={efecto} onAplicar={onAplicar} />
+                ))}
+              </div>
             ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
     </div>
   );
 }

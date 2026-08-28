@@ -12,7 +12,7 @@
    de marca; tiempos en font-mono tabular-nums.
 ----------------------------------------------------------------------------- */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CanalCamara, Capa, Composicion, NombrePropiedad, Segmento } from "@/lib/motion/modelo";
 import { CAMARA_ID, filasDeCapas, rangoAnimacionCapas } from "@/lib/motion/herramientas-puro";
 import { t } from "@/lib/i18n/stub";
@@ -69,6 +69,8 @@ type GestoKeyframe = {
   tActual: number;
   x0: number;
   activo: boolean;
+  /** Alt/Option al agarrar: el original queda y se arrastra una COPIA */
+  duplicar?: boolean;
 };
 type GestoPoseCamara = {
   tipo: "poseCamara";
@@ -76,6 +78,8 @@ type GestoPoseCamara = {
   tActual: number;
   x0: number;
   activo: boolean;
+  /** Alt/Option al agarrar: la pose original queda y se arrastra una COPIA */
+  duplicar?: boolean;
 };
 
 /** Un keyframe seleccionado en la timeline: de una pista de capa, o una POSE
@@ -105,7 +109,9 @@ export function LineaDeTiempo({
   onCheckpoint,
   onRetimarSegmento,
   onMoverKeyframe,
+  onDuplicarKeyframe,
   onMoverPoseCamara,
+  onDuplicarPoseCamara,
   seleccionKf,
   onSeleccionarKf,
   tiemposDeSnap,
@@ -138,7 +144,12 @@ export function LineaDeTiempo({
   onCheckpoint: () => void;
   onRetimarSegmento: (capaId: string, clave: "entrada" | "salida", nuevoEn: number, nuevaDuracion?: number) => void;
   onMoverKeyframe: (capaId: string, propiedad: NombrePropiedad, tActual: number, nuevoT: number) => void;
+  /** Alt-drag: nace una copia del keyframe `tFuente` en `nuevoT` (el gesto
+      la sigue arrastrando a ella; el original no se toca) */
+  onDuplicarKeyframe?: (capaId: string, propiedad: NombrePropiedad, tFuente: number, nuevoT: number) => void;
   onMoverPoseCamara: (tActual: number, nuevoT: number) => void;
+  /** Alt-drag sobre una pose de cámara: nace una copia en `nuevoT` */
+  onDuplicarPoseCamara?: (tFuente: number, nuevoT: number) => void;
   seleccionKf: SeleccionKeyframe | null;
   onSeleccionarKf: (sel: SeleccionKeyframe | null) => void;
   /** tiempos LOCALES (ms) con imán al arrastrar spans/keyframes — los
@@ -160,6 +171,41 @@ export function LineaDeTiempo({
     compRef.current = composicion;
   }, [composicion]);
 
+  // SHIFT durante el scrub = imán a los KEYFRAMES: el playhead se pega al
+  // keyframe más cercano (pistas de capas + poses de cámara) — pararse
+  // exacto donde está la animación, sin puntería
+  const tiemposDeKeyframes = useMemo(() => {
+    const ts = new Set<number>();
+    for (const capa of composicion.capas) {
+      for (const pista of Object.values(capa.pistas ?? {})) {
+        for (const k of pista ?? []) ts.add(k.t);
+      }
+    }
+    for (const pista of Object.values(composicion.camara?.pistas ?? {})) {
+      for (const k of pista ?? []) ts.add(k.t);
+    }
+    return [...ts];
+  }, [composicion]);
+  const imanKfRef = useRef(tiemposDeKeyframes);
+  useEffect(() => {
+    imanKfRef.current = tiemposDeKeyframes;
+  }, [tiemposDeKeyframes]);
+  const imanAKeyframe = (ms: number) => {
+    const rect = pistaRef.current?.getBoundingClientRect();
+    // shift es un pedido EXPLÍCITO de imán: alcance generoso (~25px)
+    const iman = (rect ? compRef.current.duracion / rect.width : 1) * 25;
+    let mejor = ms;
+    let dist = iman;
+    for (const t0 of imanKfRef.current) {
+      const d = Math.abs(ms - t0);
+      if (d < dist) {
+        dist = d;
+        mejor = t0;
+      }
+    }
+    return mejor;
+  };
+
   // S mantenida = el playhead SIGUE al mouse (scrub sin agarrar la barra):
   // el clientX se mapea por la barra de scrub, desde cualquier lado.
   const sostenidaRef = useRef(false);
@@ -178,7 +224,8 @@ export function LineaDeTiempo({
       const rect = pistaRef.current?.getBoundingClientRect();
       if (!rect) return;
       const f = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-      onScrub(f * compRef.current.duracion);
+      const ms = f * compRef.current.duracion;
+      onScrub(e.shiftKey ? imanAKeyframe(ms) : ms);
     };
     window.addEventListener("keydown", alTecla);
     window.addEventListener("keyup", alTecla);
@@ -282,6 +329,13 @@ export function LineaDeTiempo({
       if (nuevoT === gesto.tActual || !pistasCam) return;
       // no pisar otra pose
       if ((["x", "y", "zoom"] as CanalCamara[]).some((c) => pistasCam[c]?.some((k) => k.t === nuevoT))) return;
+      if (gesto.duplicar) {
+        // Alt-drag: nace una copia de la pose y el gesto la arrastra a ella
+        gesto.duplicar = false;
+        gesto.tActual = nuevoT;
+        onDuplicarPoseCamara?.(gesto.tOriginal, nuevoT);
+        return;
+      }
       onMoverPoseCamara(gesto.tActual, nuevoT);
       gesto.tActual = nuevoT;
     } else {
@@ -290,6 +344,14 @@ export function LineaDeTiempo({
       const nuevoT = Math.min(comp.duracion, Math.max(0, snapear(gesto.tOriginal + dt)));
       if (nuevoT === gesto.tActual || !pista) return;
       if (pista.some((k) => k.t === nuevoT)) return; // no pisar otro keyframe
+      if (gesto.duplicar) {
+        // Alt-drag: la COPIA nace recién acá (el original no se movió ni un
+        // frame) y el resto del gesto la arrastra a ella
+        gesto.duplicar = false;
+        gesto.tActual = nuevoT;
+        onDuplicarKeyframe?.(gesto.capaId, gesto.propiedad, gesto.tOriginal, nuevoT);
+        return;
+      }
       onMoverKeyframe(gesto.capaId, gesto.propiedad, gesto.tActual, nuevoT);
       gesto.tActual = nuevoT;
     }
@@ -452,7 +514,7 @@ export function LineaDeTiempo({
                           e.stopPropagation();
                           onSeleccionar(capa.id);
                           onSeleccionarKf({ tipo: "capa", capaId: capa.id, propiedad, t: kf.t });
-                          iniciarGesto({ tipo: "keyframe", capaId: capa.id, propiedad, tOriginal: kf.t, tActual: kf.t, x0: e.clientX, activo: false });
+                          iniciarGesto({ tipo: "keyframe", capaId: capa.id, propiedad, tOriginal: kf.t, tActual: kf.t, x0: e.clientX, activo: false, duplicar: e.altKey });
                         }}
                         className={[
                           "absolute top-1/2 z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-grab rounded-[2px] active:cursor-grabbing",
@@ -547,10 +609,13 @@ export function LineaDeTiempo({
         onPointerDown={(e) => {
           escrubeando.current = true;
           e.currentTarget.setPointerCapture(e.pointerId);
-          onScrub(tiempoDeEvento(e.clientX));
+          const ms = tiempoDeEvento(e.clientX);
+          onScrub(e.shiftKey ? imanAKeyframe(ms) : ms);
         }}
         onPointerMove={(e) => {
-          if (escrubeando.current) onScrub(tiempoDeEvento(e.clientX));
+          if (!escrubeando.current) return;
+          const ms = tiempoDeEvento(e.clientX);
+          onScrub(e.shiftKey ? imanAKeyframe(ms) : ms);
         }}
         onPointerUp={() => (escrubeando.current = false)}
       >
@@ -770,7 +835,7 @@ export function LineaDeTiempo({
                       e.stopPropagation();
                       onSeleccionar(CAMARA_ID);
                       onSeleccionarKf({ tipo: "camara", t: tPose });
-                      iniciarGesto({ tipo: "poseCamara", tOriginal: tPose, tActual: tPose, x0: e.clientX, activo: false });
+                      iniciarGesto({ tipo: "poseCamara", tOriginal: tPose, tActual: tPose, x0: e.clientX, activo: false, duplicar: e.altKey });
                     }}
                     className={[
                       "absolute top-1/2 z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-grab rounded-[2px] active:cursor-grabbing",

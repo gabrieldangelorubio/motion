@@ -5,11 +5,13 @@
 
    Aparece al importar la música/voz (y desde «Recortar» en la franja): la
    forma de onda COMPLETA del archivo con dos manijas — arrastrás desde/hasta
-   y te quedás con el pedazo que va. Tiene REPRODUCTOR: play/pausa y scrub
-   sobre la onda (click o arrastre fuera de las manijas mueve el cursor de
-   escucha) para encontrar el corte con la oreja, no a ojo. La reproducción
-   frena sola al llegar al fin del segmento. «Usar todo» = sin recorte;
-   la «×» sale sin tocar nada.
+   y te quedás con el pedazo que va. Tiene REPRODUCTOR con teclado PROPIO
+   (mientras el modal está abierto, el editor de atrás no recibe teclas):
+   ESPACIO reproduce SIEMPRE desde el in (preview del segmento, como en un
+   editor de video), I / O fijan in/out en el cursor de escucha, Escape
+   sale; click o arrastre fuera de las manijas = escuchar desde ahí. La
+   reproducción frena sola al llegar al fin del segmento. «Usar todo» =
+   sin recorte; la «×» sale sin tocar nada.
 ----------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -84,13 +86,50 @@ export function RecorteAudio({
       setSonando(false);
       return;
     }
-    // arranca en el cursor; si quedó fuera del segmento, desde el principio
-    const inicio = cursor >= desde && cursor < hasta ? cursor : desde;
-    el.currentTime = inicio / 1000;
-    setCursor(inicio);
+    // play = SIEMPRE desde el in (preview del segmento, como en un editor de
+    // video); escuchar desde otro punto es el click/arrastre sobre la onda
+    el.currentTime = desde / 1000;
+    setCursor(desde);
     void el.play().catch(() => undefined);
     setSonando(true);
-  }, [cursor, desde, hasta]);
+  }, [desde]);
+
+  // ——— teclado del panel: mientras el modal está abierto, EL MODAL manda —
+  // espacio acá NO puede darle play al timeline de abajo (capture + stop).
+  // Espacio = escuchar desde el in · I/O = fijar in/out en el cursor ———
+  const cursorRef = useRef(cursor);
+  const desdeRef = useRef(desde);
+  const onCerrarRef = useRef(onCerrar);
+  useEffect(() => {
+    cursorRef.current = cursor;
+    desdeRef.current = desde;
+    onCerrarRef.current = onCerrar;
+  }, [cursor, desde, onCerrar]);
+  useEffect(() => {
+    const alTecla = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const tecla = e.key.toLowerCase();
+      if (![" ", "i", "o", "escape"].includes(tecla)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === " ") alternarPlay();
+      else if (tecla === "i") setDesde(Math.min(cursorRef.current, hastaRef.current - 500));
+      else if (tecla === "o") {
+        setHasta(Math.max(cursorRef.current, desdeRef.current + 500));
+        // el out en el cursor suele cerrar la escucha: si venía sonando, frena
+        const el = reproductorRef.current;
+        if (el && !el.paused && cursorRef.current <= el.currentTime * 1000) {
+          el.pause();
+          setSonando(false);
+        }
+      } else {
+        reproductorRef.current?.pause();
+        onCerrarRef.current();
+      }
+    };
+    window.addEventListener("keydown", alTecla, { capture: true });
+    return () => window.removeEventListener("keydown", alTecla, { capture: true });
+  }, [alternarPlay]);
 
   useEffect(() => {
     const lienzo = lienzoRef.current;
@@ -193,7 +232,7 @@ export function RecorteAudio({
         </div>
         <div className="text-[15px] font-semibold text-foreground">{t("Recortá la locución")}</div>
         <p className="mt-1 pr-8 text-[12px] leading-snug text-muted">
-          {t("Manijas = el segmento que va. Click en la onda = escuchar desde ahí. «{nombre}» dura {s}s entero.", {
+          {t("Manijas = el segmento que va. Espacio = escuchar desde el in · I / O = fijar in/out en el cursor · click en la onda = escuchar desde ahí. «{nombre}» dura {s}s entero.", {
             nombre: audio.nombre,
             s: (total / 1000).toFixed(1),
           })}
@@ -218,7 +257,7 @@ export function RecorteAudio({
           <span className="flex items-center gap-2">
             <BotonIcono
               tam={30}
-              etiqueta={sonando ? t("Pausar la escucha") : t("Escuchar desde el cursor")}
+              etiqueta={sonando ? t("Pausar la escucha (espacio)") : t("Escuchar desde el in (espacio)")}
               onClick={alternarPlay}
             >
               <Icono nombre={sonando ? "pausa" : "play"} width={13} height={13} />

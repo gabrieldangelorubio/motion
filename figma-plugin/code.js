@@ -420,10 +420,16 @@ async function nodoAIR(nodo, marco, salida) {
   }
 
   if (nodo.type === "FRAME" || nodo.type === "GROUP" || nodo.type === "COMPONENT" || nodo.type === "INSTANCE") {
-    if (rotado || tieneEfectos(nodo) || ("clipsContent" in nodo && nodo.clipsContent === false && nodo.type !== "GROUP" && false)) {
-      salida.push(await rasterizar(nodo, marco, rotado ? "grupo rotado: se rasterizó entero" : "grupo con efectos: se rasterizó entero"));
+    // Solo la ROTACIÓN rasteriza el grupo entero (un hijo de grupo rotado no
+    // se exporta fiel por separado). Un grupo CON EFECTOS igual se abre en
+    // sus hijos — tres estrellas dentro de un grupo tienen que llegar como
+    // TRES capas animables, no como un solo bitmap — y el efecto del grupo
+    // queda avisado (no viaja por partes).
+    if (rotado) {
+      salida.push(await rasterizar(nodo, marco, "grupo rotado: se rasterizó entero"));
       return;
     }
+    var conEfectos = tieneEfectos(nodo);
     // el fondo sólido del frame entra como rect propio, después sus hijos
     var desdeSubgrupo = salida.length;
     if (nodo.type !== "GROUP") {

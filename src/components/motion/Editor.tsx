@@ -664,6 +664,25 @@ export function Editor({
     }
   }, [composicionId]);
 
+  // Corregir a mano DÓNDE cae una palabra de la transcripción (whisper a
+  // veces la corre): se mueve entera (misma duración) y PERSISTE junto al
+  // audio — los imanes del timeline se actualizan solos.
+  const moverPalabra = useCallback(
+    (indice: number, desdeMs: number) => {
+      setAudio((previo) => {
+        const palabras = previo?.transcripcion?.palabras;
+        if (!previo || !previo.transcripcion || !palabras?.[indice]) return previo;
+        const p = palabras[indice];
+        const dur = p.hastaMs - p.desdeMs;
+        const nuevas = palabras.map((x, i) => (i === indice ? { ...x, desdeMs, hastaMs: desdeMs + dur } : x));
+        const transcripcion = { ...previo.transcripcion, palabras: nuevas };
+        void guardarTranscripcion(composicionId, transcripcion);
+        return { ...previo, transcripcion };
+      });
+    },
+    [composicionId],
+  );
+
   // El PCM para el export: se decodifica del registro EN el momento (la UI
   // solo guarda picos). desdeMs global = inicio de la activa + rango local.
   const obtenerAudioExport = useCallback(async (todas: boolean, desdeMsLocal: number) => {
@@ -772,6 +791,31 @@ export function Editor({
         if (sel?.tipo === "capa" && sel.capaId === capaId && sel.propiedad === propiedad && sel.t === tActual) {
           setSeleccionKf({ tipo: "capa", capaId, propiedad, t: nuevoT });
         }
+      }
+    },
+    [],
+  );
+
+  // Alt-drag sobre una POSE de cámara: copia los keyframes de x/y/zoom de la
+  // pose fuente en nuevoT — la pose original no se toca.
+  const duplicarPoseCamaraEnVivo = useCallback((tFuente: number, nuevoT: number) => {
+    const pose = poseCamaraEn(compRef.current, tFuente);
+    if (Object.keys(pose).length === 0) return;
+    setComposicion(agregarKeyframeCamara(compRef.current, nuevoT, pose));
+    setSeleccionKf({ tipo: "camara", t: nuevoT });
+  }, []);
+
+  // Alt-drag sobre un keyframe: nace una COPIA (mismo valor, easing y hold)
+  // en nuevoT y el gesto sigue arrastrándola; el original queda intacto.
+  const duplicarKeyframeEnVivo = useCallback(
+    (capaId: string, propiedad: NombrePropiedad, tFuente: number, nuevoT: number) => {
+      const capa = compRef.current.capas.find((c) => c.id === capaId);
+      const kf = capa?.pistas?.[propiedad]?.find((k) => k.t === tFuente);
+      if (!kf) return;
+      const res = ponerKeyframe(compRef.current, capaId, propiedad, { ...kf, t: nuevoT });
+      if (res.ok) {
+        setComposicion(res.valor);
+        setSeleccionKf({ tipo: "capa", capaId, propiedad, t: nuevoT });
       }
     },
     [],
@@ -1408,12 +1452,33 @@ export function Editor({
   }, []);
 
 
+  // El panel de Efectos es un TAB plegable (como la fila «Cámara»): el
+  // estado sobrevive a recargar — plegado, el panel de capas gana el alto.
+  const [efectosAbiertos, setEfectosAbiertos] = useState(() => {
+    try {
+      return typeof localStorage === "undefined" || localStorage.getItem("motion-efectos") !== "plegado";
+    } catch {
+      return true; // sin storage: queda abierto
+    }
+  });
+  const alternarEfectos = useCallback(() => {
+    setEfectosAbiertos((v) => {
+      const nuevo = !v;
+      try {
+        localStorage.setItem("motion-efectos", nuevo ? "abierto" : "plegado");
+      } catch {
+        /* sin storage */
+      }
+      return nuevo;
+    });
+  }, []);
+
   const capaSeleccionada = composicion.capas.find((c) => c.id === seleccionId) ?? null;
 
   return (
     <div className="grid h-dvh grid-cols-[240px_1fr_300px] overflow-hidden">
       <div className="flex min-h-0 flex-col">
-        <div className="h-1/2 min-h-0">
+        <div className={efectosAbiertos ? "h-1/2 min-h-0" : "min-h-0 flex-1"}>
           <Capas
             composicion={composicion}
             seleccionId={seleccionId}
@@ -1428,8 +1493,8 @@ export function Editor({
             onBorrarCapa={borrarCapa}
           />
         </div>
-        <div className="h-1/2 min-h-0 border-r border-(--glass-border)">
-          <PanelBiblioteca onAplicar={aplicarEfecto} />
+        <div className={`${efectosAbiertos ? "h-1/2 min-h-0" : "shrink-0"} border-r border-(--glass-border)`}>
+          <PanelBiblioteca onAplicar={aplicarEfecto} abierto={efectosAbiertos} onAlternar={alternarEfectos} />
         </div>
       </div>
       <div className="flex min-h-0 flex-col">
@@ -1753,6 +1818,7 @@ export function Editor({
             onQuitar={quitarAudio}
             onRecortarAudio={() => setRecortando(true)}
             onTranscribir={() => void transcribirAudio()}
+            onMoverPalabra={moverPalabra}
             transcribiendo={transcribiendo}
           />
         )}
@@ -1785,7 +1851,9 @@ export function Editor({
           onCheckpoint={registrar}
           onRetimarSegmento={retimarSegmento}
           onMoverKeyframe={moverKeyframeEnVivo}
+          onDuplicarKeyframe={duplicarKeyframeEnVivo}
           onMoverPoseCamara={moverPoseCamaraEnVivo}
+          onDuplicarPoseCamara={duplicarPoseCamaraEnVivo}
           seleccionKf={seleccionKf}
           onSeleccionarKf={setSeleccionKf}
           tiemposDeSnap={tiemposDePalabras}

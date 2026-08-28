@@ -215,6 +215,9 @@ la coreografía llega exacta igual; el comentario de la capa dice cuál de
 los dos viajó; un texto con división va
 como bloque (letra por letra = text animators, pendiente) y la máscara
 del revelado no viaja, avisada en el comentario),
+**el panel de Efectos como TAB plegable** (la cabecera «Efectos» pliega
+la biblioteca a una fila compacta, como la fila «Cámara»; el estado
+persiste en localStorage y plegado el panel de capas gana el alto),
 **audio de proyecto** (la voz en off / música que
 estructura las escenas: UN audio por proyecto —botón ♪ en la barra de
 escenas, acepta audio y el sonido de un mp4/webm—, guardado ENTERO en el
@@ -223,10 +226,13 @@ con panel de RECORTE al importar
 —la onda completa con dos manijas: te quedás con el segmento que va
 (mínimo 0.5s) o «Usar todo»; la escena vacía toma el largo DEL SEGMENTO
 (+10%); preview, export y transcripción usan solo ese pedazo, y cambiar
-el recorte descarta la transcripción vieja; el panel tiene REPRODUCTOR:
-play/pausa y scrub sobre la onda (click fuera de las manijas = escuchar
-desde ahí, frena solo al fin del segmento) para cortar con la oreja, y
-la «×» sale sin tocar nada; «Recortar» en la franja lo
+el recorte descarta la transcripción vieja; el panel tiene REPRODUCTOR
+con TECLADO PROPIO (mientras el modal está abierto el editor de atrás no
+recibe teclas — antes espacio le daba play al timeline de abajo): ESPACIO
+reproduce SIEMPRE desde el in (preview del segmento, como en un editor de
+video), I / O fijan in/out en el cursor de escucha, Escape sale; click o
+arrastre fuera de las manijas = escuchar desde ahí, frena solo al fin del
+segmento; la «×» sale sin tocar nada; «Recortar» en la franja lo
 reabre— y decodificado a una franja de FORMA DE ONDA arriba del timeline
 en DOS CARRILES (rediseño 2026-08-28): la onda con lo YA REPRODUCIDO en
 acento (el progreso se lee de un vistazo) y los CORTES de escena encima
@@ -241,8 +247,17 @@ se agrupan por puntuación y pausas (oracionesDePalabras), y los INICIOS
 de palabra se vuelven IMANES del timeline: al arrastrar spans y
 keyframes, dentro de ~8px de una palabra gana la palabra (los imanes se
 ven como marquitas en la regla) — la animación se recuesta sobre la voz;
+además SHIFT durante el scrub imanta el playhead a los KEYFRAMES
+(pistas de capas y poses de cámara, alcance ~25px) para pararse exacto
+donde está la animación, y ALT/OPTION arrastrando un keyframe o una pose
+de cámara DUPLICA (nace una copia con el mismo valor/easing/hold y el
+gesto la arrastra; el original no se toca; un paso de undo);
 «Re-transcribir» rehace una transcripción vieja (sin palabras o con el
-idioma forzado); click en la franja salta a ese punto —cambiando de
+idioma forzado); las palabras se CORRIGEN A MANO: arrastrar una en el
+carril la corre entera (misma duración) y el ajuste PERSISTE junto al
+audio — y el carril comparte columna y ancho con la onda, así cada
+palabra cae exactamente debajo de su lugar (antes el carril era más
+ancho que la onda y todo quedaba corrido); click en la franja salta a ese punto —cambiando de
 escena si hace falta—, arrastrar un corte ajusta la duración de la
 escena que termina ahí (la activa con undo; una no activa se edita en su
 documento y el registro aprende la duración), y el preview reproduce el
@@ -510,7 +525,11 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   AE) → falló exacto el test de horneado denso. (24) corte por pausa de
   oracionesDePalabras quitado y (25) puntuación de cierre sin comillas →
   cayó exacto el test del agrupador en ambos. Restaurados, 206/206
-  verdes.
+  verdes. La tanda de UX del timeline (teclado del modal de recorte,
+  imán shift, Alt-dup, drag de palabra, Efectos plegable) se verificó por
+  Playwright end-to-end (verificar32/33) — sus checks mostraron rojo
+  GENUINO durante el desarrollo (el imán con alcance corto, el carril
+  desalineado de la onda) antes de quedar verdes: discriminan.
 
 ## Qué necesita cablearse de su lado
 

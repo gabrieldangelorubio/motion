@@ -13,6 +13,21 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] UX del timeline y del recorte (pedidos 2026-08-28, tanda 2)
+- **Hecho:** (1) el modal de recorte tiene TECLADO propio con captura —
+  espacio ya no le da play al timeline de atrás: reproduce SIEMPRE desde
+  el in; I/O fijan in/out en el cursor; Escape sale. (2) SHIFT en el
+  scrub imanta el playhead a los keyframes (capas + poses de cámara).
+  (3) ALT/OPTION arrastrando un keyframe o pose de cámara lo DUPLICA.
+  (4) el panel de Efectos es un tab plegable persistente (como «Cámara»).
+  (5) las PALABRAS de la transcripción se corrigen a mano (drag en el
+  carril, persiste) y el carril quedó alineado 1:1 con la onda (bug de
+  ancho). (6) plugin de Figma: un grupo CON EFECTOS ya no se rasteriza
+  entero — se abre en sus hijos (tres estrellas = tres capas animables,
+  subgrupo marcado) con el aviso de que el efecto del grupo no viaja;
+  solo la rotación sigue rasterizando entero. OJO: re-copiar code.js en
+  el plugin de Figma para que aplique.
+
 ### [HECHO] Rediseño de la franja de audio + transcripción por PALABRA (2026-08-28)
 - **Hecho:** dos carriles (onda con progreso en acento + carril de
   transcripción separado abajo con cada palabra en su tiempo, clickeable y
