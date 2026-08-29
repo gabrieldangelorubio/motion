@@ -33,6 +33,7 @@ type FinAgente = { respuesta?: string; snapshot?: string; ops?: string[]; error?
 export function PanelAgente({
   obtenerSnapshot,
   obtenerContextoAudio,
+  obtenerContextoEstilo,
   composicionId,
   onAplicar,
   renderizarFrames,
@@ -41,6 +42,9 @@ export function PanelAgente({
   /** la locución de la escena (palabra@ms por línea) para que el director
       SINCRONICE la animación con la voz; undefined = sin transcripción */
   obtenerContextoAudio?: () => string | undefined;
+  /** el registro de la pieza (la perilla de sensación): el director dirige
+      en ese carácter; undefined = neutro */
+  obtenerContextoEstilo?: () => string | undefined;
   composicionId: string;
   /** aplica la composición devuelta (el caller registra el undo) */
   onAplicar: (snapshot: string, ops: string[]) => void;
@@ -231,6 +235,7 @@ export function PanelAgente({
           mensaje: pedido,
           historial,
           contextoAudio: obtenerContextoAudio?.(),
+          contextoEstilo: obtenerContextoEstilo?.(),
           nivel,
         },
         log,

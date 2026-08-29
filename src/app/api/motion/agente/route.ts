@@ -33,6 +33,8 @@ export async function POST(pedido: Request): Promise<Response> {
       /** nivel del panel: «fino» = Opus para el planteo, «rapido» = el
           modelo económico del entorno (default) */
       nivel?: string;
+      /** el registro de la pieza (perilla de sensación), opcional */
+      contextoEstilo?: string;
     };
     if (!cuerpo.snapshot || !cuerpo.mensaje) {
       return Response.json({ error: "Faltan snapshot o mensaje" }, { status: 400 });
@@ -58,6 +60,8 @@ export async function POST(pedido: Request): Promise<Response> {
       )
       .slice(0, 6);
     const nivel = cuerpo.nivel === "fino" || cuerpo.nivel === "rapido" ? cuerpo.nivel : undefined;
+    const contextoEstilo =
+      typeof cuerpo.contextoEstilo === "string" && cuerpo.contextoEstilo ? cuerpo.contextoEstilo.slice(0, 600) : undefined;
 
     // STREAM NDJSON: un evento {tipo:"paso"} por iteración del loop (el panel
     // muestra el progreso EN VIVO y arma el log con tiempos — un pedido
@@ -81,6 +85,7 @@ export async function POST(pedido: Request): Promise<Response> {
             },
             imagenes.length ? imagenes : undefined,
             nivel,
+            contextoEstilo,
           );
           if (!res.ok) emitir({ tipo: "fin", error: res.error });
           else emitir({ tipo: "fin", respuesta: res.respuesta, snapshot: serializar(res.composicion), ops: res.ops, uso: res.uso, modelo: res.modelo });

@@ -39,6 +39,8 @@ import {
 import { camaraEn, estadoEn } from "@/lib/motion/evaluar-puro";
 import { pintar, type Contexto2D } from "@/lib/motion/pintar";
 import type { ImagenRevision } from "@/lib/motion/revision-puro";
+import { aplicarSensacion, descripcionSensacion, type Sensacion } from "@/lib/motion/sensacion-puro";
+import { Deslizador } from "@/components/ui/Deslizador";
 import { cajaMundoDeCapa } from "@/lib/motion/cajas-puro";
 import { cargarComposicionAction, guardarComposicionAction } from "@/app/(app)/(modulos)/motion/acciones";
 import { escenaDuplicada, escenaNueva, idDeEscena, quitarEscena, type EscenaInfo } from "@/lib/motion/escenas-puro";
@@ -1205,6 +1207,33 @@ export function Editor({
     },
   }), []);
 
+  // ——— SENSACIÓN de la pieza: la perilla snappy ↔ suave, arriba del chat.
+  // Arrastrar = PREVIEW en vivo (el Lienzo lee por getter y repinta solo);
+  // «Aplicar» = la transformación de verdad, como UN paso de undo. El
+  // registro elegido viaja además al director en cada pedido. ———
+  const [sensacion, setSensacion] = useState<Sensacion>(0);
+  // espejo en ref para los getters (contexto del director): se actualiza
+  // en el handler, nunca durante el render (regla react-hooks/refs)
+  const sensacionRef = useRef<Sensacion>(0);
+  const previewSensacionRef = useRef<Composicion | null>(null);
+  const previsualizarSensacion = (s: Sensacion) => {
+    setSensacion(s);
+    sensacionRef.current = s;
+    previewSensacionRef.current = Math.abs(s) < 0.02 ? null : aplicarSensacion(compRef.current, s);
+  };
+  const soltarSensacion = () => {
+    // soltar el deslizador NO aplica: vuelve al estado real (probar ≠ comprometer)
+    previewSensacionRef.current = null;
+  };
+  const aplicarSensacionAPieza = () => {
+    const s = sensacionRef.current;
+    previewSensacionRef.current = null;
+    if (Math.abs(s) < 0.02) return;
+    registrar();
+    const marca = Math.max(0, ...compRef.current.capas.map((c) => c.v ?? 0)) + 1;
+    setComposicion(aplicarSensacion(compRef.current, s, marca));
+  };
+
   // ——— Frames para la REVISIÓN VISUAL del director: el motor es
   // determinista, así que pintar acá (cámara incluida, con la media ya
   // cacheada del preview) ES lo que ve el usuario. 768px de ancho: legible
@@ -1633,7 +1662,7 @@ export function Editor({
         <div className="relative min-h-0 flex-1">
           <Lienzo
             ref={lienzoRef}
-            obtenerComposicion={() => compRef.current}
+            obtenerComposicion={() => previewSensacionRef.current ?? compRef.current}
             obtenerSeleccionId={() => seleccionRef.current}
             obtenerSeleccionIds={() => seleccionIdsRef.current}
             obtenerMedia={obtenerMedia}
@@ -2073,6 +2102,28 @@ export function Editor({
             >
               <div className="absolute inset-x-0 top-0.5 mx-auto h-0.5 w-10 rounded-full bg-foreground/15 transition-colors duration-200 group-hover:bg-acento" />
             </div>
+            {/* la SENSACIÓN vive arriba del chat: es el registro de la
+                pieza, y el director lo respeta en cada pedido */}
+            <div className="flex shrink-0 items-center gap-2 border-t border-(--glass-border) bg-(--chrome-bg) px-3 py-1.5">
+              <span className="shrink-0 text-[11px] text-muted">{t("snappy")}</span>
+              <Deslizador
+                valor={sensacion}
+                min={-1}
+                max={1}
+                etiqueta={t("Sensación de la pieza: snappy (izquierda) a suave (derecha) — arrastrá para previsualizar, Aplicar la esculpe")}
+                onCambio={previsualizarSensacion}
+                onSoltar={soltarSensacion}
+              />
+              <span className="shrink-0 text-[11px] text-muted">{t("suave")}</span>
+              <button
+                type="button"
+                onClick={aplicarSensacionAPieza}
+                disabled={Math.abs(sensacion) < 0.02}
+                className="shrink-0 rounded-control px-2 py-0.5 text-[11px] text-foreground shadow-control hover:bg-ink/[0.06] disabled:opacity-30"
+              >
+                {t("Aplicar")}
+              </button>
+            </div>
             <div className="min-h-0 shrink-0" style={{ height: altoChat }}>
               <PanelAgente
                 obtenerSnapshot={() => serializar(compRef.current)}
@@ -2089,6 +2140,7 @@ export function Editor({
                   return locales.map((p) => `«${p.texto}» @ ${p.ms}ms`).join("\n");
                 }}
                 composicionId={escenaActiva}
+                obtenerContextoEstilo={() => descripcionSensacion(sensacionRef.current) ?? undefined}
                 renderizarFrames={renderizarFramesRevision}
                 onAplicar={(snapshot) => {
                   registrar();

@@ -423,7 +423,16 @@ de undo) y responde APROBADO cuando quedó; el ojo del header del panel
 la prende/apaga —prendida por defecto—, `revision-puro.ts` decide QUÉ
 instantes mirar —final de cada entrada, arranque de cada salida, medio
 y casi-final, deduplicados— y el log copiable registra cada ronda con
-frames, veredicto y costo), y **export a MP4 frame-exacto** (WebCodecs + `mp4-muxer`, decisión aprobada por Fran
+frames, veredicto y costo), **perilla de SENSACIÓN de la pieza**
+(arriba del chat del director: snappy ↔ suave — arrastrar PREVISUALIZA
+en vivo sobre el lienzo y soltar revierte; «Aplicar» esculpe de verdad
+como UN paso de undo: `sensacion-puro.ts` escala duraciones y
+escalonados (0.7×–1.4×) y corre los easings DENTRO de su familia por la
+escalera sine→expo —los de carácter (back/elástico/pique) no se pisan—,
+sin tocar jamás los «en» (la sincronización con la locución es sagrada)
+ni las pistas crudas; el registro elegido viaja además al director en
+cada pedido como «SENSACIÓN de la pieza» para que las direcciones
+nuevas nazcan en ese carácter), y **export a MP4 frame-exacto** (WebCodecs + `mp4-muxer`, decisión aprobada por Fran
 2026-08-26): la misma `pintar()` del preview frame a frame, H.264 con
 fallback a VP9-en-MP4 (Chromium sin codecs propietarios), **supersampling
 temporal 4×** para motion blur real (media móvil exacta sobre frames

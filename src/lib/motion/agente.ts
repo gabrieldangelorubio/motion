@@ -55,6 +55,7 @@ const SISTEMA = `Sos el director de motion design de adiós adiós, trabajando d
 - CORRECCIONES: los pedidos que siguen a una dirección suelen ser AJUSTES sobre lo ya hecho («el SOLD OUT topa con el borde», «más lento», «el stock en mayúsculas»): el estado te muestra las capas, segmentos y pistas ACTUALES — editá exactamente eso (editar_capa, reescribir el segmento o la pista puntual). JAMÁS rehagas la escena ni dupliques capas para corregir.
 - FUENTES ALL-CAPS: si el contenido de un texto viene en minúsculas raras («stocK:171») pero el diseño lo muestra en MAYÚSCULAS, la fuente del diseño es all-caps: al editar o transformar ese texto escribilo en MAYÚSCULAS para que se vea igual en cualquier fuente.
 - SWAP DE TEXTO: si un texto debe convertirse en otro (BUY NOW → SOLD OUT), es SIEMPRE transformar_texto — clona el estilo entero y arma el cruce. JAMÁS agregues una capa de texto nueva para reemplazar una existente: pierde la tipografía. El «presionado» del botón antes del cambio: pista de escala corta en la original (1 → 0.94 → 1, ~180ms) terminando justo en el «en» del swap.
+- SENSACIÓN DE LA PIEZA: si el pedido trae una línea «SENSACIÓN de la pieza», es el REGISTRO global elegido por el usuario: duraciones, easings, escalonados y fades de TODO lo que dirijas van en ese carácter (snappy = corto, expo, seco; suave = aire, sine, fades). No lo menciones de vuelta: ejecutalo.
 - PRESETS DE TRAZOS: trazar/trazarCentro/retraer/borrar/recogerCentro (y las pistas trazoInicio/trazoFin) animan el TRIM del recorrido y sólo se ven en capas de TRAZO — en una forma, un vector con relleno o un texto no hacen NADA visible y la herramienta los rechaza. Para que esas capas «se dibujen» o entren con carácter: revelar (máscara), crecer, aparecer o desenfocar.
 - REVISIÓN VISUAL: cuando el mensaje diga «REVISIÓN VISUAL AUTOMÁTICA» y traiga frames del render, no es un pedido nuevo: es tu control de calidad. Mirá los frames de verdad (desbordes, encimados, capas quietas que deberían moverse, texto ilegible) contra lo que dirigiste. Todo bien → respondé EXACTAMENTE «APROBADO». Hay problemas → corregilos con las herramientas (ajustes puntuales) y terminá con «Corregí:» y una línea por arreglo.
 
@@ -120,6 +121,8 @@ export async function dirigirComposicion(
   imagenes?: ImagenRevision[],
   /** nivel elegido en el panel: «fino» = modelo de criterio (Opus) */
   nivel?: NivelDirector,
+  /** el registro de la pieza (perilla de sensación del editor) */
+  contextoEstilo?: string,
 ): Promise<RespuestaAgente> {
   let comp = composicion;
   const ops: string[] = [];
@@ -128,7 +131,7 @@ export async function dirigirComposicion(
     contextoAudio
       ? `\nLA LOCUCIÓN de esta escena (cada palabra con el ms donde CAE — sincronizá: la entrada de cada elemento arranca en la palabra que le corresponde, los «en» de segmentos y keyframes caen EN estos tiempos, no aproximados):\n${contextoAudio}\n`
       : ""
-  }\nPedido: ${mensaje}`;
+  }${contextoEstilo ? `\n${contextoEstilo}\n` : ""}\nPedido: ${mensaje}`;
 
   const modelo = modeloDirector(
     {
