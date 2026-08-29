@@ -69,6 +69,15 @@ export function PanelAgente({
   // «fino» = Opus para el planteo creativo — la revisión visual y las
   // correcciones siguen yendo al barato aunque el planteo sea fino
   const [nivel, setNivel] = useState<NivelDirector>("rapido");
+  // gasto ACUMULADO de la sesión (direcciones + revisiones, todos los
+  // modelos): en memoria a propósito — sin localStorage de estado (§2.10);
+  // se reinicia al recargar, como un taxímetro de la sentada
+  const [gasto, setGasto] = useState(0);
+  const registrarGasto = (fin: FinAgente) => {
+    if (!fin.uso || !fin.modelo) return;
+    const costo = costoUSD(fin.modelo, fin.uso);
+    if (costo !== null) setGasto((g) => g + costo);
+  };
   const listaRef = useRef<HTMLDivElement>(null);
 
   // ——— Voz al chat: apretás el mic, hablás el pedido, Whisper LOCAL lo
@@ -233,6 +242,7 @@ export function PanelAgente({
         return;
       }
       if (fin.ops && fin.ops.length > 0) onAplicar(fin.snapshot, fin.ops);
+      registrarGasto(fin);
       const meta = metaDe(fin, pasos, t0);
       if (meta) log.push(`TOTAL: ${meta}`);
       setMensajes((m) => [...m, { rol: "agente", texto: fin.respuesta!, ops: fin.ops, meta }]);
@@ -271,6 +281,7 @@ export function PanelAgente({
             log.push(`revisión ${ronda}: ERROR ${finR?.error ?? ""}`);
             break;
           }
+          registrarGasto(finR);
           const aprobado = esAprobado(finR.respuesta);
           if (finR.ops && finR.ops.length > 0) {
             onAplicar(finR.snapshot, finR.ops);
@@ -310,6 +321,14 @@ export function PanelAgente({
     <div className="flex h-full min-h-0 flex-col border-t border-(--glass-border) bg-(--chrome-bg)">
       <div className="flex items-center border-b border-(--glass-border) px-3 py-2">
         <span className="min-w-0 flex-1 text-[13px] font-semibold text-foreground">{t("Director de motion")}</span>
+        {gasto > 0 && (
+          <span
+            className="mr-1.5 shrink-0 cursor-default font-mono text-[10px] text-foreground/50"
+            title={t("Gastado con el director en esta sesión (direcciones + revisiones; se reinicia al recargar)")}
+          >
+            Σ {formatearCosto(gasto)}
+          </span>
+        )}
         <span className="mr-1.5 shrink-0">
           <Segmentado
             opciones={[
