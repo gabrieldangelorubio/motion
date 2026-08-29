@@ -325,3 +325,28 @@ test("configGeneracion: pensamiento dinámico para los Gemini que lo soportan, n
   assert.equal(configGeneracion("gemini-2.0-flash"), undefined);
   assert.equal(configGeneracion("gemini-1.5-pro"), undefined);
 });
+
+test("modeloDirector con nivel «fino» sube a Opus (o al MODELO_FINO del entorno)", async () => {
+  const { modeloDirector } = await import("@/lib/motion/agente");
+  // fino manda por encima de todo, incluso del override rápido
+  assert.equal(modeloDirector({ GEMINI_API_KEY: "x" }, "fino"), "claude-opus-5");
+  assert.equal(modeloDirector({ GEMINI_API_KEY: "x", MOTION_AGENTE_MODELO: "gemini-3.6-flash" }, "fino"), "claude-opus-5");
+  assert.equal(modeloDirector({ MOTION_AGENTE_MODELO_FINO: "claude-sonnet-5" }, "fino"), "claude-sonnet-5");
+  // rápido (o sin nivel) sigue el camino de siempre
+  assert.equal(modeloDirector({ GEMINI_API_KEY: "x" }, "rapido"), "gemini-3.6-flash");
+  assert.equal(modeloDirector({ GEMINI_API_KEY: "x" }), "gemini-3.6-flash");
+});
+
+test("sumarUso acumula el pensamiento y sigue siendo informativo (ya está dentro de salida)", async () => {
+  const { sumarUso, costoUSD } = await import("@/lib/motion/costo-agente-puro");
+  const total = sumarUso(
+    { entrada: 100, salida: 50, pensamiento: 30 },
+    { entrada: 200, salida: 80, pensamiento: 60 },
+  );
+  assert.equal(total.pensamiento, 90);
+  assert.equal(total.salida, 130);
+  // el costo NO suma el pensamiento aparte: se factura como salida, donde ya vive
+  const conP = costoUSD("gemini-3.6-flash", { entrada: 1000, salida: 500, pensamiento: 400 });
+  const sinP = costoUSD("gemini-3.6-flash", { entrada: 1000, salida: 500 });
+  assert.equal(conP, sinP);
+});

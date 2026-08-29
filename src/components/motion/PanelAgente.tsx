@@ -22,7 +22,8 @@ import { deserializar } from "@/lib/motion/serializar-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
-import type { TurnoAgente } from "@/lib/motion/agente";
+import { Segmentado } from "@/components/ui/Segmentado";
+import type { NivelDirector, TurnoAgente } from "@/lib/motion/agente";
 
 type Mensaje = TurnoAgente & { ops?: string[]; meta?: string };
 
@@ -64,6 +65,10 @@ export function PanelAgente({
   // revisión visual automática: al terminar, el director mira frames del
   // render y se corrige (prendida por defecto; el ojo del header la apaga)
   const [autoRevision, setAutoRevision] = useState(true);
+  // nivel del director: «rapido» = el modelo económico del entorno (Flash),
+  // «fino» = Opus para el planteo creativo — la revisión visual y las
+  // correcciones siguen yendo al barato aunque el planteo sea fino
+  const [nivel, setNivel] = useState<NivelDirector>("rapido");
   const listaRef = useRef<HTMLDivElement>(null);
 
   // ——— Voz al chat: apretás el mic, hablás el pedido, Whisper LOCAL lo
@@ -160,7 +165,12 @@ export function PanelAgente({
         if (evento.tipo === "paso") {
           pasos = evento.iteracion ?? pasos;
           const opsPaso = evento.ops ?? [];
-          const tokensPaso = evento.uso ? ` · ${formatearTokens(evento.uso.entrada + evento.uso.salida + (evento.uso.cacheLectura ?? 0))}` : "";
+          // el razonamiento a la vista: «¿pensó o no pensó?» se responde acá
+          const tokensPaso = evento.uso
+            ? ` · ${formatearTokens(evento.uso.entrada + evento.uso.salida + (evento.uso.cacheLectura ?? 0))}${
+                evento.uso.pensamiento ? ` (pensó ${formatearTokens(evento.uso.pensamiento)})` : ""
+              }`
+            : "";
           log.push(`[+${ts}s] paso ${evento.iteracion} · modelo ${(((evento.msModelo ?? 0)) / 1000).toFixed(1)}s${tokensPaso}${opsPaso.length ? ` · ${opsPaso.join(" | ")}` : " · respuesta final"}`);
           setProgreso({ paso: evento.iteracion ?? 0, ultimaOp: opsPaso[opsPaso.length - 1] ?? null });
         } else if (evento.tipo === "fin") {
@@ -178,7 +188,8 @@ export function PanelAgente({
     const total = fin.uso.entrada + fin.uso.salida + (fin.uso.cacheLectura ?? 0) + (fin.uso.cacheEscritura ?? 0);
     const costo = costoUSD(fin.modelo, fin.uso);
     const seg = Math.round((performance.now() - t0) / 1000);
-    return `${pasos} pasos · ${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, "0")} · ${formatearTokens(total)} · ${
+    const penso = fin.uso.pensamiento ? ` · ${t("pensó")} ${formatearTokens(fin.uso.pensamiento)}` : "";
+    return `${pasos} pasos · ${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, "0")} · ${formatearTokens(total)}${penso} · ${
       costo !== null ? `~${formatearCosto(costo)}` : t("precio de {modelo} no cargado", { modelo: fin.modelo })
     } · ${fin.modelo}`;
   };
@@ -211,6 +222,7 @@ export function PanelAgente({
           mensaje: pedido,
           historial,
           contextoAudio: obtenerContextoAudio?.(),
+          nivel,
         },
         log,
         t0,
@@ -248,6 +260,8 @@ export function PanelAgente({
           const ts = ((performance.now() - t0) / 1000).toFixed(1);
           log.push(`[+${ts}s] revisión ${ronda}: mirando ${frames.length} frames (${tiempos.map((x) => `${x}ms`).join(", ")})`);
           setProgreso({ paso: 0, ultimaOp: t("revisión visual {n}: mirando el render…", { n: ronda }) });
+          // la revisión NO manda nivel: mirar frames y hacer retoques es
+          // tarea del modelo barato, aunque el planteo haya sido fino
           const { fin: finR, pasos: pasosR } = await pedirAlAgente(
             { composicionId, snapshot: snapshotVivo, mensaje: mensajeDeRevision(tiempos), historial: historialVivo, imagenes: frames },
             log,
@@ -296,6 +310,17 @@ export function PanelAgente({
     <div className="flex h-full min-h-0 flex-col border-t border-(--glass-border) bg-(--chrome-bg)">
       <div className="flex items-center border-b border-(--glass-border) px-3 py-2">
         <span className="min-w-0 flex-1 text-[13px] font-semibold text-foreground">{t("Director de motion")}</span>
+        <span className="mr-1.5 shrink-0">
+          <Segmentado
+            opciones={[
+              { valor: "rapido", nombre: t("rápido") },
+              { valor: "fino", nombre: t("fino") },
+            ]}
+            valor={nivel}
+            onCambio={(v) => setNivel(v as NivelDirector)}
+            etiquetaAria={t("Nivel del director: rápido (Flash, barato) o fino (Opus, criterio)")}
+          />
+        </span>
         {renderizarFrames && (
           <span className="mr-1 shrink-0">
             <BotonIcono

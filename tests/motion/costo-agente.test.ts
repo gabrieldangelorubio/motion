@@ -21,7 +21,7 @@ test("costoUSD: la cuenta del director (entrada+salida+cache) da lo que tiene qu
 
 test("sumarUso acumula todos los campos y los formatos son legibles", () => {
   const total = sumarUso({ entrada: 100, salida: 50 }, { entrada: 200, salida: 25, cacheLectura: 1000 });
-  assert.deepEqual(total, { entrada: 300, salida: 75, cacheLectura: 1000, cacheEscritura: 0 });
+  assert.deepEqual(total, { entrada: 300, salida: 75, cacheLectura: 1000, cacheEscritura: 0, pensamiento: 0 });
   assert.equal(formatearCosto(0.01234), "$0.012");
   assert.equal(formatearCosto(0.00005), "<$0.0001");
   assert.equal(formatearTokens(1_234_567), "1.2M tokens");

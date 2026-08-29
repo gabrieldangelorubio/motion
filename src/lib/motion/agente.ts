@@ -25,10 +25,20 @@ import { loopGemini, type DefHerramienta } from "@/lib/motion/agente-gemini";
 import { sumarUso, type UsoTokens } from "@/lib/motion/costo-agente-puro";
 import type { ImagenRevision } from "@/lib/motion/revision-puro";
 
-/** Qué modelo dirige. MOTION_AGENTE_MODELO manda (claude-* → Anthropic,
+/** El nivel del pedido, elegido en el panel: «rapido» dirige con el modelo
+    económico de siempre; «fino» sube al modelo de criterio (Opus) para el
+    planteo creativo de una pieza. */
+export type NivelDirector = "rapido" | "fino";
+
+/** Qué modelo dirige. Con nivel «fino» manda MOTION_AGENTE_MODELO_FINO (u
+    Opus). Si no: MOTION_AGENTE_MODELO manda (claude-* → Anthropic,
     gemini-* → Gemini); sin él, tener GEMINI_API_KEY elige flash (mucho más
     barato por pedido) y si no, opus. Pura: testeable. */
-export function modeloDirector(env: { MOTION_AGENTE_MODELO?: string; GEMINI_API_KEY?: string }): string {
+export function modeloDirector(
+  env: { MOTION_AGENTE_MODELO?: string; MOTION_AGENTE_MODELO_FINO?: string; GEMINI_API_KEY?: string },
+  nivel?: NivelDirector,
+): string {
+  if (nivel === "fino") return env.MOTION_AGENTE_MODELO_FINO || "claude-opus-5";
   if (env.MOTION_AGENTE_MODELO) return env.MOTION_AGENTE_MODELO;
   return env.GEMINI_API_KEY ? "gemini-3.6-flash" : "claude-opus-5";
 }
@@ -108,6 +118,8 @@ export async function dirigirComposicion(
   onEvento?: (evento: EventoAgente) => void,
   /** frames de la revisión visual: el director MIRA el render (multimodal) */
   imagenes?: ImagenRevision[],
+  /** nivel elegido en el panel: «fino» = modelo de criterio (Opus) */
+  nivel?: NivelDirector,
 ): Promise<RespuestaAgente> {
   let comp = composicion;
   const ops: string[] = [];
@@ -118,7 +130,14 @@ export async function dirigirComposicion(
       : ""
   }\nPedido: ${mensaje}`;
 
-  const modelo = modeloDirector({ MOTION_AGENTE_MODELO: process.env.MOTION_AGENTE_MODELO, GEMINI_API_KEY: process.env.GEMINI_API_KEY });
+  const modelo = modeloDirector(
+    {
+      MOTION_AGENTE_MODELO: process.env.MOTION_AGENTE_MODELO,
+      MOTION_AGENTE_MODELO_FINO: process.env.MOTION_AGENTE_MODELO_FINO,
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    },
+    nivel,
+  );
 
   // ——— proveedor GEMINI (mismo prompt, mismas herramientas, otro loop) ———
   if (modelo.startsWith("gemini")) {

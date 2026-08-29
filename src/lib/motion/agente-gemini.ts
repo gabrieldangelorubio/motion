@@ -160,6 +160,9 @@ export async function loopGemini(opts: {
       entrada: Math.max(0, (um?.promptTokenCount ?? 0) - cacheLeido),
       salida: (um?.candidatesTokenCount ?? 0) + (um?.thoughtsTokenCount ?? 0),
       cacheLectura: cacheLeido,
+      // el razonamiento aparte (ya está DENTRO de salida): el log muestra
+      // cuánto pensó cada paso — «¿se bajó el thinking?» se responde mirando
+      pensamiento: um?.thoughtsTokenCount ?? 0,
     };
     usoTotal = sumarUso(usoTotal, usoPaso);
     const partes = datos.candidates?.[0]?.content?.parts ?? [];

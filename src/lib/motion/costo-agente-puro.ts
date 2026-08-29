@@ -15,6 +15,10 @@ export type UsoTokens = {
   cacheLectura?: number;
   /** tokens escritos al cache (Anthropic: ~1.25× la entrada) */
   cacheEscritura?: number;
+  /** tokens de RAZONAMIENTO (Gemini thoughts) — informativo: ya están
+      INCLUIDOS en `salida` (así se facturan), acá viajan aparte para que
+      el log muestre cuánto pensó de verdad cada paso */
+  pensamiento?: number;
 };
 
 type Precio = { entrada: number; salida: number; cacheLectura?: number; cacheEscritura?: number };
@@ -47,6 +51,7 @@ export function sumarUso(a: UsoTokens, b: UsoTokens): UsoTokens {
     salida: a.salida + b.salida,
     cacheLectura: (a.cacheLectura ?? 0) + (b.cacheLectura ?? 0),
     cacheEscritura: (a.cacheEscritura ?? 0) + (b.cacheEscritura ?? 0),
+    pensamiento: (a.pensamiento ?? 0) + (b.pensamiento ?? 0),
   };
 }
 

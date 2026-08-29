@@ -30,6 +30,9 @@ export async function POST(pedido: Request): Promise<Response> {
       contextoAudio?: string;
       /** frames de la revisión visual (JPEG/PNG/WebP base64, opcional) */
       imagenes?: { mime?: string; datosBase64?: string }[];
+      /** nivel del panel: «fino» = Opus para el planteo, «rapido» = el
+          modelo económico del entorno (default) */
+      nivel?: string;
     };
     if (!cuerpo.snapshot || !cuerpo.mensaje) {
       return Response.json({ error: "Faltan snapshot o mensaje" }, { status: 400 });
@@ -54,6 +57,7 @@ export async function POST(pedido: Request): Promise<Response> {
           im.datosBase64.length < 3_000_000,
       )
       .slice(0, 6);
+    const nivel = cuerpo.nivel === "fino" || cuerpo.nivel === "rapido" ? cuerpo.nivel : undefined;
 
     // STREAM NDJSON: un evento {tipo:"paso"} por iteración del loop (el panel
     // muestra el progreso EN VIVO y arma el log con tiempos — un pedido
@@ -76,6 +80,7 @@ export async function POST(pedido: Request): Promise<Response> {
               emitir(evento);
             },
             imagenes.length ? imagenes : undefined,
+            nivel,
           );
           if (!res.ok) emitir({ tipo: "fin", error: res.error });
           else emitir({ tipo: "fin", respuesta: res.respuesta, snapshot: serializar(res.composicion), ops: res.ops, uso: res.uso, modelo: res.modelo });

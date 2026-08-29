@@ -509,6 +509,13 @@ Nada más: cero librerías de animación, canvas o UI.
   selector de proveedor: `claude-*` → Anthropic, `gemini-*` → Gemini.
   Default: `gemini-3.6-flash` si hay GEMINI_API_KEY, si no
   `claude-opus-5`.
+- `MOTION_AGENTE_MODELO_FINO` (opcional) — el modelo del nivel «fino» del
+  panel (default `claude-opus-5`). El panel del director tiene un selector
+  rápido/fino: «rápido» usa el modelo económico de arriba, «fino» sube a
+  este para el planteo creativo; la revisión visual y los retoques siguen
+  yendo al barato aunque el planteo sea fino. Los tokens de RAZONAMIENTO
+  de Gemini se muestran aparte en el log y la meta («pensó 12k tokens») —
+  ya están incluidos en salida para el costo.
 
 ## Migración (SQL aditivo) + fragmento de schema
 
