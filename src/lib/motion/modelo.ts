@@ -265,6 +265,10 @@ export type Composicion = {
   ancho: number;
   alto: number;
   fps: number;
+  /** fps DE LA ANIMACIÓN, para el look stop-motion/dibujado a mano: el
+      tiempo se cuantiza a esta grilla (12 = animar «en doses» de un render
+      a 24). Ausente = movimiento suave a los fps del render. */
+  fpsAnimacion?: number;
   /** duración total, ms */
   duracion: number;
   fondo: string;

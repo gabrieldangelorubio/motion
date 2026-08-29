@@ -157,3 +157,29 @@ test("la pista «numero» produce textoVivo interpolado en el estado (el contado
   const quieta = { ...comp, capas: [{ ...comp.capas[0], pistas: {} } as CapaTexto] };
   assert.equal(estadoEn(quieta, 500).capas[0].textoVivo, undefined);
 });
+
+test("fpsAnimacion cuantiza el movimiento: dentro del mismo paso, el estado es idéntico", async () => {
+  const { cuantizarTiempo, estadoEn } = await import("@/lib/motion/evaluar-puro");
+  // la grilla de 12fps: pasos de 83.33ms
+  assert.equal(cuantizarTiempo(0, 12), 0);
+  assert.equal(cuantizarTiempo(84, 12), cuantizarTiempo(160, 12));
+  assert.notEqual(cuantizarTiempo(84, 12), cuantizarTiempo(170, 12));
+  assert.equal(cuantizarTiempo(500, undefined), 500); // sin fpsAnimacion no toca
+  const comp = {
+    version: 1 as const, nombre: "fps", ancho: 1920, alto: 1080, fps: 30, duracion: 4000, fondo: "#000",
+    fpsAnimacion: 12,
+    capas: [{
+      id: "a", nombre: "A", tipo: "forma" as const, forma: "rectangulo" as const, ancho: 100, alto: 100,
+      color: "#fff", x: 0, y: 0,
+      pistas: { x: [{ t: 0, v: 0 }, { t: 1000, v: 1000 }] },
+    }],
+  };
+  const en90 = estadoEn(comp, 90).capas[0].x;
+  const en160 = estadoEn(comp, 160).capas[0].x;
+  const en170 = estadoEn(comp, 170).capas[0].x;
+  assert.equal(en90, en160); // mismo paso de 12fps → mismo cuadro
+  assert.notEqual(en160, en170); // paso siguiente → salta
+  // sin fpsAnimacion el mismo par se mueve suave
+  const suave = { ...comp, fpsAnimacion: undefined };
+  assert.notEqual(estadoEn(suave, 90).capas[0].x, estadoEn(suave, 160).capas[0].x);
+});

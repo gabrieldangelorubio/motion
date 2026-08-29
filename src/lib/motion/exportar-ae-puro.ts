@@ -544,7 +544,9 @@ function filtrarCanales(canales: Required<ClavesHorneadas>, capa: Capa): ClavesH
  */
 function clavesHorneadas(comp: Composicion, capa: Capa, desplazarY: number): ClavesHorneadas | null {
   if ((!capa.entrada && !capa.salida) || capa.oculta) return null;
-  const paso = 1000 / comp.fps;
+  // con fpsAnimacion la comp de AE vive en esa grilla: hornear más denso
+  // solo apilaría keyframes repetidos entre pasos
+  const paso = 1000 / (comp.fpsAnimacion ?? comp.fps);
 
   const ventanas: [number, number][] = [];
   for (const seg of [capa.entrada, capa.salida]) {
@@ -1317,7 +1319,10 @@ export function generarScriptAE(
     const varEscena = `esc${i + 1}`;
     varsEscena.push(varEscena);
     const dur = num(escena.duracion / 1000);
-    const dims = `${num(escena.ancho)}, ${num(escena.alto)}, 1, ${dur}, ${num(escena.fps)}`;
+    // con fpsAnimacion la COMP de AE se crea a esos fps: es el idioma de la
+    // casa para animar «en doses» (trabajás a 12, anidás/rendereás a lo que
+    // quieras) y el movimiento queda en la misma grilla que el preview
+    const dims = `${num(escena.ancho)}, ${num(escena.alto)}, 1, ${dur}, ${num(escena.fpsAnimacion ?? escena.fps)}`;
     const conCamara = Boolean(escena.camara) && !sinAnimacion;
     totalCapas += escena.capas.length;
 

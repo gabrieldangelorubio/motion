@@ -783,3 +783,11 @@ test("figma v10: el estilo de la cara viaja del plugin a la capa", async () => {
   const capa = res.composicion.capas.find((c) => c.tipo === "texto") as CapaTexto;
   assert.equal(capa.fuente.estilo, "Condensed Heavy");
 });
+
+test("fpsAnimacion: la comp de AE se crea a los fps de la animación (idioma «en doses»)", () => {
+  const comp = base({ fpsAnimacion: 12, capas: [titulo()] });
+  const jsx = generarScriptAE([comp]);
+  assert.match(jsx, /addComp\("Prueba AE", 1920, 1080, 1, 4, 12\)/);
+  // sin fpsAnimacion, a los fps del render
+  assert.match(generarScriptAE([base({ capas: [titulo()] })]), /addComp\("Prueba AE", 1920, 1080, 1, 4, 30\)/);
+});

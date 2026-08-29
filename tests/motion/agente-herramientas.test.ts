@@ -350,3 +350,14 @@ test("sumarUso acumula el pensamiento y sigue siendo informativo (ya está dentr
   const sinP = costoUSD("gemini-3.6-flash", { entrada: 1000, salida: 500 });
   assert.equal(conP, sinP);
 });
+
+test("ajustar_composicion maneja fpsAnimacion: setear, clampear y apagar con 0", () => {
+  const comp = base();
+  let res = ejecutarHerramienta(comp, "ajustar_composicion", { fpsAnimacion: 12 });
+  assert.equal(res.comp.fpsAnimacion, 12);
+  assert.match(res.resultado, /12fps/);
+  res = ejecutarHerramienta(res.comp, "ajustar_composicion", { fpsAnimacion: 1 });
+  assert.equal(res.comp.fpsAnimacion, 2); // clamp abajo
+  res = ejecutarHerramienta(res.comp, "ajustar_composicion", { fpsAnimacion: 0 });
+  assert.equal(res.comp.fpsAnimacion, undefined); // 0 apaga
+});

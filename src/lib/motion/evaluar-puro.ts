@@ -330,7 +330,18 @@ export function desplazamientoTemblor(
   return { dx: onda(fase) * amp, dy: onda(fase + 4.7) * amp * 0.85 };
 }
 
-export function estadoEn(comp: Composicion, t: number): EstadoComposicion {
+/** El tiempo cuantizado a la grilla de fps de animación: el look
+    stop-motion («en doses»: 12 fps de movimiento en un render a 24). */
+export function cuantizarTiempo(t: number, fpsAnimacion?: number): number {
+  if (!fpsAnimacion || fpsAnimacion <= 0) return t;
+  const paso = 1000 / fpsAnimacion;
+  return Math.floor(t / paso) * paso;
+}
+
+export function estadoEn(comp: Composicion, tReal: number): EstadoComposicion {
+  // los BAJOS FPS son del motor, no del render: preview, export MP4 y
+  // frames de revisión heredan el mismo escalonado por venir todos de acá
+  const t = cuantizarTiempo(tReal, comp.fpsAnimacion);
   const camara = camaraEn(comp, t);
   const temblor = comp.camara?.temblor;
   if (temblor && (temblor.intensidad ?? 1) > 0) {

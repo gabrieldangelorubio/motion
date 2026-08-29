@@ -454,7 +454,9 @@ export function moverKeyframeCamara(
 /** Resumen legible de la composición — el contexto que un tool le da al asistente. */
 export function describir(comp: Composicion): string {
   const lineas = [
-    `«${comp.nombre}» — ${comp.ancho}×${comp.alto} @ ${comp.fps}fps, ${(comp.duracion / 1000).toFixed(2)}s, ${comp.capas.length} capas`,
+    `«${comp.nombre}» — ${comp.ancho}×${comp.alto} @ ${comp.fps}fps${
+      comp.fpsAnimacion ? ` (animación cuantizada a ${comp.fpsAnimacion}fps, look stop-motion)` : ""
+    }, ${(comp.duracion / 1000).toFixed(2)}s, ${comp.capas.length} capas`,
   ];
   if (comp.camara) {
     // los keyframes van CON valores y easings: el asistente los reanima

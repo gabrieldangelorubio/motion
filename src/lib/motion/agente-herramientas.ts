@@ -105,8 +105,15 @@ export function ejecutarHerramienta(
         duracion: input.duracion === undefined ? comp.duracion : clamp(numero(input.duracion, comp.duracion), 500, 120000),
         fondo: typeof input.fondo === "string" ? input.fondo : comp.fondo,
         nombre: typeof input.nombre === "string" ? input.nombre : comp.nombre,
+        // look stop-motion: 0 (o null) lo apaga y vuelve el movimiento suave
+        fpsAnimacion:
+          input.fpsAnimacion === undefined
+            ? comp.fpsAnimacion
+            : input.fpsAnimacion === null || numero(input.fpsAnimacion, 0) <= 0
+              ? undefined
+              : clamp(Math.round(numero(input.fpsAnimacion, 12)), 2, 60),
       };
-      return exito(nueva, "composición ajustada");
+      return exito(nueva, `composición ajustada${nueva.fpsAnimacion !== comp.fpsAnimacion ? ` (animación a ${nueva.fpsAnimacion ?? "fps suaves"}${nueva.fpsAnimacion ? "fps" : ""})` : ""}`);
     }
 
     case "agregar_capa_texto": {
@@ -425,13 +432,14 @@ export const DEFINICIONES_HERRAMIENTAS = [
   },
   {
     name: "ajustar_composicion",
-    description: "Cambia duración total (ms), color de fondo o nombre de la composición.",
+    description: "Cambia duración total (ms), color de fondo, nombre o fpsAnimacion de la composición. fpsAnimacion = look STOP-MOTION/dibujado a mano: cuantiza TODO el movimiento a esa grilla (12 = animar «en doses», 8 = más marcado); 0 lo apaga y vuelve el movimiento suave.",
     input_schema: {
       type: "object",
       properties: {
         duracion: { type: "number" },
         fondo: { type: "string", description: "color CSS, ej #0c0c11" },
         nombre: { type: "string" },
+        fpsAnimacion: { type: "number", description: "fps del MOVIMIENTO (2-60; 12 = stop-motion clásico); 0 = apagar" },
       },
       additionalProperties: false,
       required: [],

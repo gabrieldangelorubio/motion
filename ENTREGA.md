@@ -432,7 +432,13 @@ escalera sine→expo —los de carácter (back/elástico/pique) no se pisan—,
 sin tocar jamás los «en» (la sincronización con la locución es sagrada)
 ni las pistas crudas; el registro elegido viaja además al director en
 cada pedido como «SENSACIÓN de la pieza» para que las direcciones
-nuevas nazcan en ese carácter), y **export a MP4 frame-exacto** (WebCodecs + `mp4-muxer`, decisión aprobada por Fran
+nuevas nazcan en ese carácter), **bajos fps / look stop-motion**
+(`fpsAnimacion` en la composición: el motor cuantiza TODO el tiempo de
+animación a esa grilla —12 = animar «en doses», 8 = más marcado— así que
+preview, export MP4 y frames de revisión escalonan igual; el director lo
+setea con ajustar_composicion ante «stop-motion / dibujado a mano / a 12
+fps» y la comp de AE se crea a esos fps, el idioma clásico para anidar),
+y **export a MP4 frame-exacto** (WebCodecs + `mp4-muxer`, decisión aprobada por Fran
 2026-08-26): la misma `pintar()` del preview frame a frame, H.264 con
 fallback a VP9-en-MP4 (Chromium sin codecs propietarios), **supersampling
 temporal 4×** para motion blur real (media móvil exacta sobre frames
