@@ -171,40 +171,44 @@ export function PanelBiblioteca({
       </button>
       {abierto && (
         <>
-          {/* flex-wrap: el panel es angosto (~240px) y pestañas + iconos de
-              división no siempre entran juntos — sin wrap los iconos caían
-              DEBAJO del lienzo, que les comía el click */}
-          <div className="flex flex-wrap items-center gap-1.5 px-3 pb-1.5 pt-0.5">
+          <div className="flex items-center gap-1.5 px-3 pb-1.5 pt-0.5">
             <Segmentado
               opciones={FAMILIAS.map((f) => ({ valor: f.id, nombre: t(f.nombre) }))}
               valor={familia}
               onCambio={(v) => setFamilia(v as FamiliaEfecto)}
               etiquetaAria={t("Familia de efectos")}
             />
-            {familia === "texto" && (
-              <div
-                role="group"
-                aria-label={t("División del texto al aplicar el efecto")}
-                className="ml-auto flex shrink-0 items-center gap-0.5"
-              >
-                {([
-                  { valor: "caracteres", icono: "divisionLetras", nombre: t("Dividir por LETRAS al aplicar") },
-                  { valor: "palabras", icono: "divisionPalabras", nombre: t("Dividir por PALABRAS al aplicar") },
-                  { valor: "lineas", icono: "divisionLineas", nombre: t("Dividir por LÍNEAS al aplicar") },
-                ] as const).map((op) => (
-                  <BotonIcono
-                    key={op.valor}
-                    tam={24}
-                    etiqueta={op.nombre}
-                    activo={division === op.valor}
-                    onClick={() => setDivision(op.valor)}
-                  >
-                    <Icono nombre={op.icono} width={13} height={13} />
-                  </BotonIcono>
-                ))}
-              </div>
-            )}
           </div>
+          {/* la división al aplicar: fila PROPIA a lo ancho — ícono + palabra
+              (13px de ícono solo no se explicaban; la palabra sí) */}
+          {familia === "texto" && (
+            <div
+              role="group"
+              aria-label={t("División del texto al aplicar el efecto")}
+              className="mx-3 mb-1.5 flex rounded-control p-0.5 shadow-hueco"
+            >
+              {([
+                { valor: "caracteres", icono: "divisionLetras", nombre: t("Letras"), etiqueta: t("Dividir por LETRAS al aplicar") },
+                { valor: "palabras", icono: "divisionPalabras", nombre: t("Palabras"), etiqueta: t("Dividir por PALABRAS al aplicar") },
+                { valor: "lineas", icono: "divisionLineas", nombre: t("Líneas"), etiqueta: t("Dividir por LÍNEAS al aplicar") },
+              ] as const).map((op) => (
+                <button
+                  key={op.valor}
+                  type="button"
+                  aria-label={op.etiqueta}
+                  aria-pressed={division === op.valor}
+                  onClick={() => setDivision(op.valor)}
+                  className={[
+                    "boton flex h-7 flex-1 items-center justify-center gap-1.5 rounded-[8px] text-[11px] transition-colors",
+                    division === op.valor ? "bg-ink/[0.10] text-foreground" : "text-foreground/55 hover:text-foreground/80",
+                  ].join(" ")}
+                >
+                  <Icono nombre={op.icono} width={14} height={14} className="shrink-0" />
+                  {op.nombre}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="px-3 pb-2 text-xs text-muted">
             {t("Hover para verlo · →| entrada · →|→ ambas · |→ salida, sobre la capa seleccionada.")}
           </div>

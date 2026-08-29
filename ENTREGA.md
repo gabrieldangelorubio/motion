@@ -78,11 +78,11 @@ demo corre sobre la clase de capa que le toca (título, estrella vectorial,
 línea); seleccionar una capa en el editor salta solo a su familia; cada
 tarjeta es un PAR entrada/salida con TRES botones iconográficos al pie
 (→| entrada, →|→ ambas, |→ salida) que aplican la mitad que corresponde
-CONSERVANDO el timing existente; en Textos, junto a las pestañas van tres
-iconos de DIVISIÓN (letras / palabras / líneas — siempre una elegida, por
-defecto letras: aplicar un efecto de texto fija esa división en la capa; la
-fila hace wrap porque el panel es angosto y sin wrap los iconos caían
-debajo del lienzo); cada tarjeta corre el MOTOR REAL sobre una
+CONSERVANDO el timing existente; en Textos, bajo las pestañas va la fila
+de DIVISIÓN a lo ancho del panel — ícono + palabra: Letras / Palabras /
+Líneas (siempre una elegida, por defecto letras: aplicar un efecto de
+texto fija esa división en la capa; fueron iconitos de 13px sueltos y no
+se entendían); cada tarjeta corre el MOTOR REAL sobre una
 plantilla en un mini canvas compacto (240×84, recorte vertical centrado) —
 hover lo anima en bucle, quieto muestra el reposo; nunca un video grabado
 que envejece —; los controles de calidad y vista viven abajo a la
