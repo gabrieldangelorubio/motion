@@ -169,6 +169,10 @@ export type CapaTexto = CapaBase & {
         por familia+estilo antes de adivinar nombres PostScript */
     estilo?: string;
   };
+  /** estirados por letra (la O ancha de un logo): rangos sobre los
+      caracteres NO BLANCOS (la convención de los tramos) con escala
+      no uniforme — el ancho de la letra estirada empuja a las demás */
+  deformaciones?: { desde: number; hasta: number; escalaX?: number; escalaY?: number }[];
   color: string;
   /** corridas de estilo (rich text); editar el CONTENIDO del texto las
       descarta — quedan indexadas a otros caracteres (degradar, no romper) */

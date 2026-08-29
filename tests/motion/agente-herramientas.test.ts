@@ -361,3 +361,30 @@ test("ajustar_composicion maneja fpsAnimacion: setear, clampear y apagar con 0",
   res = ejecutarHerramienta(res.comp, "ajustar_composicion", { fpsAnimacion: 0 });
   assert.equal(res.comp.fpsAnimacion, undefined); // 0 apaga
 });
+
+test("rangoDeLetras encuentra la letra sin importar mayúsculas y salta los espacios", async () => {
+  const { rangoDeLetras } = await import("@/lib/motion/agente-herramientas");
+  assert.deepEqual(rangoDeLetras("SNOG", "o"), [2, 3]);
+  assert.deepEqual(rangoDeLetras("BUY NOW", "NOW"), [3, 6]); // el espacio no cuenta
+  assert.deepEqual(rangoDeLetras("SNOG", "NOG"), [1, 4]);
+  assert.equal(rangoDeLetras("SNOG", "X"), null);
+});
+
+test("estirar_letras estira la O, reemplaza el estirado del mismo rango y quitar limpia", () => {
+  let comp = base();
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "logo", texto: "SNOG" }).comp;
+  let res = ejecutarHerramienta(comp, "estirar_letras", { capaId: "logo", letras: "O", escalaX: 2 });
+  assert.ok(!res.esError, res.resultado);
+  const capa = () => res.comp.capas.find((c) => c.id === "logo") as CapaTexto;
+  assert.deepEqual(capa().deformaciones, [{ desde: 2, hasta: 3, escalaX: 2, escalaY: undefined }]);
+  // el mismo rango se REEMPLAZA, no se apila
+  res = ejecutarHerramienta(res.comp, "estirar_letras", { capaId: "logo", letras: "O", escalaX: 3 });
+  assert.equal(capa().deformaciones!.length, 1);
+  assert.equal(capa().deformaciones![0].escalaX, 3);
+  // errores legibles
+  assert.ok(ejecutarHerramienta(res.comp, "estirar_letras", { capaId: "logo", letras: "Z", escalaX: 2 }).esError);
+  assert.ok(ejecutarHerramienta(res.comp, "estirar_letras", { capaId: "logo", letras: "O" }).esError);
+  // quitar
+  res = ejecutarHerramienta(res.comp, "estirar_letras", { capaId: "logo", quitar: true });
+  assert.equal(capa().deformaciones, undefined);
+});

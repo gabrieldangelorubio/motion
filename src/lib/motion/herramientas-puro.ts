@@ -480,6 +480,11 @@ export function describir(comp: Composicion): string {
   for (const capa of comp.capas) {
     const partes = [`  · [${capa.tipo}] «${capa.nombre}» en (${Math.round(capa.x)}, ${Math.round(capa.y)})`];
     if (capa.tipo === "texto" && capa.division !== "ninguna") partes.push(`división ${capa.division}`);
+    if (capa.tipo === "texto" && capa.deformaciones?.length) {
+      partes.push(
+        `estiradas: ${capa.deformaciones.map((d) => `${d.desde}-${d.hasta} ×${d.escalaX ?? 1}/${d.escalaY ?? 1}`).join(", ")}`,
+      );
+    }
     if (capa.tipo === "texto" && capa.texto.includes("\n")) partes.push(`${capa.texto.split("\n").length} líneas`);
     if (capa.tipo === "trazo") partes.push(`largo ${Math.round(capa.largo)}px`);
     if (capa.tipo === "vector") partes.push(capa.relleno ? `vector con relleno ${capa.relleno}` : "vector solo borde");

@@ -169,3 +169,20 @@ test("figma-puro: los tramos del plugin viajan a la capa de texto", async () => 
   assert.ok(texto && texto.tipo === "texto");
   assert.deepEqual(texto.tramos, [{ desde: 2, hasta: 4, familia: "Otra" }]);
 });
+
+test("una letra estirada escala desde la baseline y EMPUJA a las que siguen", () => {
+  const comp = fixture();
+  comp.capas = [{
+    id: "logo", nombre: "Logo", tipo: "texto", texto: "SNOG", x: 0, y: 0,
+    fuente: { familia: "Arial", tamano: 60, peso: 700 },
+    color: "#fff", division: "ninguna", alineacion: "izquierda",
+    deformaciones: [{ desde: 2, hasta: 3, escalaX: 2 }],
+  }];
+  const { ctx, llamadas } = contextoFalso();
+  pintar(estadoEn(comp, 0), ctx);
+  // la O se pinta con scale(2,1)
+  assert.ok(llamadas.some((l) => l.startsWith("scale(2.000,1.000)")), `sin scale: ${llamadas.filter((l) => l.startsWith("scale")).join(" ")}`);
+  // el ancho total creció: SN(20) + O estirada(20) + G(10) = 50 — la G
+  // arranca en x=40 (con el stub de 10px por letra)
+  assert.ok(llamadas.some((l) => l === "fillText(G,40.000,0.000)"), `la G no se corrió: ${llamadas.filter((l) => l.startsWith("fillText")).join(" ")}`);
+});

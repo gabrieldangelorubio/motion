@@ -463,7 +463,22 @@ Figma —«Condensed Heavy»—) y solo si eso no está cae a la adivinanza
 PostScript de siempre; los eases de keyframes usan las dimensiones REALES
 de cada propiedad (Escala puede ser [x,y,z]: un array corto tiraba «Value
 array does not have 3 elements» en AE 2026 y esos keyframes quedaban SIN
-ease — de ahí «los blurs/movimientos no se sienten igual»). El texto de Figma con ESTILOS MIXTOS (dos fuentes en
+ease — de ahí «los blurs/movimientos no se sienten igual»). Un texto con
+DIVISIÓN ahora viaja a AE como **TEXT ANIMATOR NATIVO** (ya no como
+bloque): propiedades del estado corrido (Position/Opacity/Scale/Rotation/
+Tracking/Blur desde el preset compilado) + Range Selector con Based On
+según la división y el borde animado barriendo 0→100% (Start en entradas
+—la selección se achica y cada unidad queda en reposo—, End en salidas),
+con el escalonado como ventana total y el easing del segmento en el
+selector; MUY editable (ajustás el stagger tocando el selector). Lo que
+no cabe degrada CON AVISO en el comentario de la capa: la máscara del
+revelado se aproxima con opacidad por unidad, los overshoots internos del
+preset (pop) barren directo, orden centro/bordes queda desde el inicio
+(azar sí viaja: Randomize Order). Y los **estirados por letra**
+(`estirar_letras` del director: «estirá la O» — escala no uniforme por
+rango de caracteres, la letra ancha EMPUJA a las demás, pintada desde la
+baseline) viajan como Scale animator con el selector clavado en la letra.
+El texto de Figma con ESTILOS MIXTOS (dos fuentes en
 un título, un color por palabra) ya no se rasteriza NI pierde estilos: es
 RICH TEXT real — el plugin exporta el estilo dominante como base más
 «tramos» (corridas de fuente/peso/tamaño/color indexadas por carácter NO

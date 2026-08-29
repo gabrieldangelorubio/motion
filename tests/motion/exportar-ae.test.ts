@@ -166,10 +166,12 @@ test("temblor: la expresion lleva la misma suma de senos con amplitud escalada a
 });
 
 test("presets simples → keyframes RALOS: un in y un out por segmento, con el ease del easing", () => {
+  // SIN división: el bloque entero sigue viajando como keyframes ralos
+  // (con división ahora viaja como TEXT ANIMATOR — test aparte)
   const comp = base({
     capas: [
       titulo({
-        division: "palabras",
+        division: "ninguna",
         entrada: { preset: "revelar", en: 200, duracion: 600, escalonado: 40 },
       }),
     ],
@@ -177,7 +179,6 @@ test("presets simples → keyframes RALOS: un in y un out por segmento, con el e
   const jsx = generarScriptAE([comp]);
   // el comentario informa que la animación viajó editable
   assert.match(jsx, /animacion en keyframes editables \(entrada revelar\)/);
-  assert.match(jsx, /division por palabras: horneada como bloque/);
   assert.ok(!jsx.includes("pendiente de traducir: entrada revelar ("), "ya no queda como pendiente");
   // la posición son DOS keyframes (in y out) con temporal ease, no un muro
   const posicion = /__pista\(__t\(capa, "ADBE Position"\), (\[.*?\]), 1\);/.exec(jsx);

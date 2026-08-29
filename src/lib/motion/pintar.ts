@@ -79,7 +79,15 @@ function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
     for (const tramo of tramos) if (k >= tramo.desde && k < tramo.hasta) return tramo;
     return null;
   };
-  type Corrida = { texto: string; font: string; color: string; ancho: number };
+  // deformaciones por letra (estirados tipo logo): misma indexación que los
+  // tramos — cada rango deformado corta su propia corrida
+  const defs = capa.deformaciones ?? [];
+  type Def = (typeof defs)[number];
+  const defEn = (k: number): Def | null => {
+    for (const d of defs) if (k >= d.desde && k < d.hasta) return d;
+    return null;
+  };
+  type Corrida = { texto: string; font: string; color: string; ancho: number; escalaX: number; escalaY: number };
   const esBlanco = (letra: string) => /\s/.test(letra);
   const noBlancos = (s: string) => {
     let n = 0;
@@ -88,23 +96,33 @@ function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
   };
   // parte `texto` (cuyo primer carácter no blanco es el índice k0) en corridas
   const corridasDe = (texto: string, k0: number): Corrida[] => {
-    const brutas: { tramo: TramoTexto | null; texto: string }[] = [];
+    const brutas: { tramo: TramoTexto | null; def: Def | null; texto: string }[] = [];
     let k = k0;
     for (const letra of texto) {
       const blanco = esBlanco(letra);
       const previa = brutas[brutas.length - 1];
       // el blanco no tiene estilo propio: viaja con la corrida anterior
       const tramo = blanco ? (previa ? previa.tramo : null) : estiloEn(k);
-      if (previa && previa.tramo === tramo) previa.texto += letra;
-      else brutas.push({ tramo, texto: letra });
+      const def = blanco ? (previa ? previa.def : null) : defEn(k);
+      if (previa && previa.tramo === tramo && previa.def === def) previa.texto += letra;
+      else brutas.push({ tramo, def, texto: letra });
       if (!blanco) k++;
     }
-    const corridas = brutas.map(({ tramo, texto: tx }) => {
+    const corridas = brutas.map(({ tramo, def, texto: tx }) => {
       const font = tramo
         ? `${tramo.peso ?? peso} ${tramo.tamano ?? tamano}px ${tramo.familia ?? familia}`
         : fuenteBase;
       ctx.font = font;
-      return { texto: tx, font, color: tramo?.color ?? capa.color, ancho: ctx.measureText(tx).width };
+      const escalaX = def?.escalaX ?? 1;
+      return {
+        texto: tx,
+        font,
+        color: tramo?.color ?? capa.color,
+        // el ancho YA estirado: la letra ancha empuja a las que siguen
+        ancho: ctx.measureText(tx).width * escalaX,
+        escalaX,
+        escalaY: def?.escalaY ?? 1,
+      };
     });
     ctx.font = fuenteBase;
     return corridas;
@@ -147,7 +165,17 @@ function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
     for (const corrida of corridas) {
       ctx.font = corrida.font;
       ctx.fillStyle = corrida.color;
-      ctx.fillText(corrida.texto, cursorCorrida, 0);
+      if (corrida.escalaX !== 1 || corrida.escalaY !== 1) {
+        // el estirado escala desde la BASELINE (la letra crece hacia arriba
+        // y a lo ancho, como en un logo): el avance ya viene estirado
+        ctx.save();
+        ctx.translate(cursorCorrida, 0);
+        ctx.scale(corrida.escalaX, corrida.escalaY);
+        ctx.fillText(corrida.texto, 0, 0);
+        ctx.restore();
+      } else {
+        ctx.fillText(corrida.texto, cursorCorrida, 0);
+      }
       cursorCorrida += corrida.ancho;
     }
     ctx.font = fuenteBase;

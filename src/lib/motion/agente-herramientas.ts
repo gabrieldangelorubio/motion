@@ -39,6 +39,20 @@ function ordenValido(v: unknown): OrdenEscalonado | undefined {
   return v === "inicio" || v === "fin" || v === "centro" || v === "bordes" || v === "azar" ? v : undefined;
 }
 
+/** La PRIMERA aparición de `letras` en el texto, como rango [desde, hasta)
+    sobre los caracteres NO BLANCOS (la indexación de tramos/deformaciones).
+    Exacta primero, sin mayúsculas después («la o» encuentra la O). */
+export function rangoDeLetras(texto: string, letras: string): [number, number] | null {
+  const limpiar = (s: string) => s.replace(/\s+/g, "");
+  const pajar = limpiar(texto);
+  const aguja = limpiar(letras);
+  if (!aguja) return null;
+  let i = pajar.indexOf(aguja);
+  if (i < 0) i = pajar.toLowerCase().indexOf(aguja.toLowerCase());
+  if (i < 0) return null;
+  return [i, i + aguja.length];
+}
+
 function fallo(comp: Composicion, mensaje: string): ResultadoHerramienta {
   return { comp, resultado: `ERROR: ${mensaje}`, esError: true };
 }
@@ -292,6 +306,40 @@ export function ejecutarHerramienta(
         : fallo(comp, res.error);
     }
 
+    case "estirar_letras": {
+      const capa = capaDe(input.capaId);
+      if (!capa) return fallo(comp, `no hay ninguna capa «${String(input.capaId)}»; ids: ${comp.capas.map((c) => c.id).join(", ")}`);
+      if (capa.tipo !== "texto") {
+        return fallo(comp, `«${capa.nombre}» es ${capa.tipo}: estirar_letras trabaja sobre capas de TEXTO. Para deformar un vector/logo entero usá editar_capa con escala (uniforme por ahora).`);
+      }
+      if (input.quitar === true) {
+        const res = editarCapa(comp, capa.id, { deformaciones: undefined } as Partial<CapaTexto>, marca);
+        return res.ok ? exito(res.valor, `estirados de «${capa.nombre}» quitados`) : fallo(comp, res.error);
+      }
+      const rango =
+        typeof input.letras === "string" && input.letras
+          ? rangoDeLetras(capa.texto, input.letras)
+          : input.desde !== undefined && input.hasta !== undefined
+            ? ([clamp(Math.round(numero(input.desde, 0)), 0, 9999), clamp(Math.round(numero(input.hasta, 0)), 0, 9999)] as [number, number])
+            : null;
+      if (!rango || rango[1] <= rango[0]) {
+        return fallo(comp, `no encontré «${String(input.letras ?? "")}» en «${capa.texto}» (pasá letras, o desde/hasta sobre los caracteres sin espacios)`);
+      }
+      const escalaX = clamp(numero(input.escalaX, 1), 0.2, 8);
+      const escalaY = clamp(numero(input.escalaY, 1), 0.2, 8);
+      if (escalaX === 1 && escalaY === 1) return fallo(comp, "sin escalaX ni escalaY distintos de 1 no hay estirado que aplicar");
+      // un estirado nuevo sobre el mismo rango REEMPLAZA al viejo
+      const quedan = (capa.deformaciones ?? []).filter((d) => d.hasta <= rango[0] || d.desde >= rango[1]);
+      const deformaciones = [
+        ...quedan,
+        { desde: rango[0], hasta: rango[1], escalaX: escalaX !== 1 ? escalaX : undefined, escalaY: escalaY !== 1 ? escalaY : undefined },
+      ].sort((a, b) => a.desde - b.desde);
+      const res = editarCapa(comp, capa.id, { deformaciones } as Partial<CapaTexto>, marca);
+      return res.ok
+        ? exito(res.valor, `letras ${rango[0]}-${rango[1]} de «${capa.nombre}» estiradas ×${escalaX}${escalaY !== escalaX ? `/${escalaY}` : ""}`)
+        : fallo(comp, res.error);
+    }
+
     case "quitar_segmento": {
       const capa = capaDe(input.capaId);
       if (!capa) return fallo(comp, `no hay ninguna capa «${String(input.capaId)}»`);
@@ -538,6 +586,25 @@ export const DEFINICIONES_HERRAMIENTAS = [
     name: "definir_salida",
     description: `Define CÓMO SALE una capa. Presets de salida: ${nombresPresets("salida").join(", ")}.`,
     input_schema: { type: "object", properties: PROPS_SEGMENTO, additionalProperties: false, required: ["capaId", "preset", "en", "duracion"] },
+  },
+  {
+    name: "estirar_letras",
+    description:
+      "Estira LETRAS PUNTUALES de una capa de texto con escala no uniforme (la O ancha de un logo: escalaX 2 la duplica a lo ancho y empuja a las demás; escalaY estira hacia arriba desde la baseline). `letras` busca la PRIMERA aparición («O», «NOG»); alternativamente desde/hasta sobre los caracteres sin espacios. quitar=true borra todos los estirados de la capa.",
+    input_schema: {
+      type: "object",
+      properties: {
+        capaId: { type: "string" },
+        letras: { type: "string", description: "la letra o subcadena a estirar (primera aparición, sin distinguir mayúsculas)" },
+        desde: { type: "number" },
+        hasta: { type: "number" },
+        escalaX: { type: "number", description: "1 = normal, 2 = doble de ancho (0.2-8)" },
+        escalaY: { type: "number", description: "1 = normal, 1.5 = 50% más alta (0.2-8)" },
+        quitar: { type: "boolean" },
+      },
+      additionalProperties: false,
+      required: ["capaId"],
+    },
   },
   {
     name: "quitar_segmento",

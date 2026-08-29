@@ -30,6 +30,7 @@
 
 import type {
   Capa,
+  CapaTexto,
   Composicion,
   Keyframe,
   MezclaCapa,
@@ -42,6 +43,7 @@ import { filasDeCapas, type FilaCapas } from "@/lib/motion/herramientas-puro";
 import { familiaPrincipal } from "@/lib/motion/fuentes-puro";
 import { compilarSegmento } from "@/lib/motion/presets-puro";
 import { desplazarSubrutas, subrutasDeSvg } from "@/lib/motion/ruta-puro";
+import { animadoresDeCapa, estiradosDeCapa, type AnimadorAE } from "@/lib/motion/animadores-ae-puro";
 
 /* ——— Números y strings deterministas ————————————————————————————— */
 
@@ -426,6 +428,7 @@ function comentarioPendientes(
   sinAnimacion: boolean,
   conAsset = false,
   animacion: AnimacionAE | null = null,
+  animadores: AnimadorAE[] = [],
 ): string | null {
   const pendientes: string[] = [];
   if (!sinAnimacion) {
@@ -437,20 +440,35 @@ function comentarioPendientes(
         .join(" + ");
       if (animacion.ralas) pendientes.push(`animacion en keyframes editables (${partes})`);
       else pendientes.push(`animacion horneada a keyframes (${partes}) — la coreografia se edita en motion`);
-      if (capa.tipo === "texto" && capa.division !== "ninguna") {
+      if (capa.tipo === "texto" && capa.division !== "ninguna" && animadores.length === 0) {
         pendientes.push(`division por ${capa.division}: horneada como bloque (letra por letra pendiente)`);
       }
       // el recorte del revelado (la máscara por renglón) no se puede hornear
-      // en keyframes de transform: en AE hay que enmascarar a mano (pendiente)
-      if ([capa.entrada, capa.salida].some((seg) => seg && compilarSegmento(seg).recorte)) {
+      // en keyframes de transform (los segmentos que viajan como ANIMATOR
+      // llevan su propia aproximación avisada)
+      const cubiertos = new Set(animadores.map((a) => a.clase));
+      if (
+        ([["entrada", capa.entrada], ["salida", capa.salida]] as const).some(
+          ([clase, seg]) => seg && !cubiertos.has(clase) && compilarSegmento(seg).recorte,
+        )
+      ) {
         pendientes.push("la MASCARA del revelado no viaja: agregala en AE (pendiente)");
       }
-    } else {
+    } else if (animadores.length === 0) {
       if (capa.entrada) pendientes.push(describirSegmento("entrada", capa.entrada));
       if (capa.salida) pendientes.push(describirSegmento("salida", capa.salida));
       if (capa.tipo === "texto" && capa.division !== "ninguna") {
         pendientes.push(`division: ${capa.division}`);
       }
+    }
+    // los TEXT ANIMATORS emitidos: informa qué viajo nativo y sus
+    // aproximaciones (mascara→opacidad, overshoot directo, orden)
+    for (const a of animadores) {
+      pendientes.push(
+        `${a.nombre} como TEXT ANIMATOR nativo (${a.unidades} ${capa.tipo === "texto" ? capa.division : "unidades"})${
+          a.avisos.length ? ` — ${a.avisos.join("; ")}` : ""
+        }`,
+      );
     }
   }
   if (capa.tipo === "media" && !conAsset) pendientes.push(`relinkear asset (${capa.mediaId.slice(0, 40)})`);
@@ -770,13 +788,14 @@ function emitirComunes(
   sinAnimacion: boolean,
   conAsset = false,
   animacion: AnimacionAE | null = null,
+  animadores: AnimadorAE[] = [],
 ): void {
   L.push(`capa.name = ${cadena(capa.nombre)};`);
   if (capa.oculta) L.push("capa.enabled = false;");
   if (capa.mezcla && MEZCLA_AE[capa.mezcla]) {
     L.push(`try { capa.blendingMode = BlendingMode.${MEZCLA_AE[capa.mezcla]}; } catch (e) {}`);
   }
-  const comentario = comentarioPendientes(capa, sinAnimacion, conAsset, animacion);
+  const comentario = comentarioPendientes(capa, sinAnimacion, conAsset, animacion, animadores);
   if (comentario) L.push(`capa.comment = ${cadena(comentario)};`);
 }
 
@@ -841,8 +860,40 @@ function emitirCapa(
       const expr = `${JSON.stringify(capa.texto)}.replace(/\\d[\\d.,]*/, "" + Math.round(effect("Contador")("ADBE Slider Control-0001")))`;
       L.push(`capa.property("ADBE Text Properties").property("ADBE Text Document").expression = ${cadena(expr)};`);
     }
-    const animTexto = hornearCon(desplazarY);
-    emitirComunes(L, capa, sinAnimacion, false, animTexto);
+    // TEXT ANIMATORS: un texto con división anima por unidad NATIVO en AE
+    // (antes se horneaba como bloque). Los segmentos traducidos a animador
+    // no se hornean — lo que quede (el otro segmento, pistas crudas) sigue
+    // el camino de siempre sobre la capa recortada.
+    const animadores = sinAnimacion ? [] : animadoresDeCapa(capa);
+    const capaHorneo: CapaTexto = animadores.length
+      ? {
+          ...capa,
+          entrada: animadores.some((a) => a.clase === "entrada") ? undefined : capa.entrada,
+          salida: animadores.some((a) => a.clase === "salida") ? undefined : capa.salida,
+        }
+      : capa;
+    const animTexto = !sinAnimacion && compHorneo ? animacionDeCapa(compHorneo, capaHorneo, desplazarY) : null;
+    emitirComunes(L, capa, sinAnimacion, false, animTexto, animadores);
+    for (const a of animadores) {
+      const dt = (a.claves[1].t - a.claves[0].t) / 1000;
+      const ease = easeDeTramo(a.easing, 100, dt);
+      const claves: ClaveAE[] = [
+        { t: a.claves[0].t / 1000, v: 0, ...(ease ? { eo: ease.salida } : {}) },
+        { t: a.claves[1].t / 1000, v: 100, ...(ease ? { ei: ease.entrada } : {}) },
+      ];
+      const propsLit = `[${a.props
+        .map(([nombre, valor]) => `[${cadena(nombre)}, ${Array.isArray(valor) ? `[${valor.map(num).join(", ")}]` : num(valor)}]`)
+        .join(", ")}]`;
+      L.push(
+        `__animador(capa, ${cadena(ascii(a.nombre))}, ${a.basadoEn}, ${a.azar ? "true" : "false"}, ${cadena(a.canalSelector)}, ${propsLit}, ${clavesLit(claves)});`,
+      );
+    }
+    // los ESTIRADOS por letra (siempre, con o sin animación: son diseño)
+    for (const e of estiradosDeCapa(capa)) {
+      L.push(
+        `__estirar(capa, ${cadena(ascii(e.nombre))}, ${num(e.desdePct)}, ${num(e.hastaPct)}, [${num(e.escala[0])}, ${num(e.escala[1])}]);`,
+      );
+    }
     // DESPUÉS del comentario: si la fuente no aparece, el helper le anexa
     // «tipografia original: …» y la suma al resumen final de faltantes.
     // OJO: la familia del import viene como STACK CSS entero («'Yamantaka',
@@ -871,7 +922,7 @@ function emitirCapa(
       if (candidatos === "null" && tam === "null" && color === "null") continue;
       L.push(`__tramo(capa, ${ini}, ${fin}, ${candidatos}, ${baseTramo}, ${cadena(etiqueta)}, ${tam}, ${color});`);
     }
-    emitirTransform(L, capa, desplazarY, sinAnimacion, false, animTexto?.claves ?? null);
+    emitirTransform(L, capaHorneo, desplazarY, sinAnimacion, false, animTexto?.claves ?? null);
     return;
   }
 
@@ -1167,6 +1218,42 @@ function __fijarFuente(capaTexto, candidatos, base, original, familia, estilos) 
   __avisar("fuente " + original + ": ningun candidato existe; AE resolvio " + primero + " para " + candidatos[0]);
 }
 function __t(capa, nombre) { return capa.property("ADBE Transform Group").property(nombre); }
+// TEXT ANIMATOR nativo: propiedades del estado corrido + Range Selector
+// barriendo (Start en entradas, End en salidas): el idioma de AE para
+// animar por letras/palabras/lineas, editable como cualquier template.
+function __animador(capaTexto, nombre, basadoEn, azar, canalSelector, props, claves) {
+  try {
+    var anim = capaTexto.property("ADBE Text Properties").property("ADBE Text Animators").addProperty("ADBE Text Animator");
+    anim.name = nombre;
+    var sel = anim.property("ADBE Text Selectors").addProperty("ADBE Text Selector");
+    var adv = sel.property("ADBE Text Range Advanced");
+    try { adv.property("ADBE Text Range Type2").setValue(basadoEn); } catch (e1) { __avisar("animator basado-en", e1); }
+    try { adv.property("ADBE Text Selector Shape").setValue(2); } catch (e2) {}
+    try { adv.property("ADBE Text Selector Smoothness").setValue(100); } catch (e3) {}
+    if (azar) { try { adv.property("ADBE Text Randomize Order").setValue(1); } catch (e4) {} }
+    for (var i = 0; i < props.length; i++) {
+      try {
+        anim.property("ADBE Text Animator Properties").addProperty(props[i][0]).setValue(props[i][1]);
+      } catch (e5) { __avisar("animator prop " + props[i][0], e5); }
+    }
+    __pista(sel.property(canalSelector), claves, 1);
+  } catch (e) { __avisar("text animator " + nombre, e); }
+}
+// Estirado FIJO de letras (la O ancha de un logo): Scale animator con el
+// selector cuadrado clavado sobre el rango de la letra.
+function __estirar(capaTexto, nombre, desdePct, hastaPct, escala) {
+  try {
+    var anim = capaTexto.property("ADBE Text Properties").property("ADBE Text Animators").addProperty("ADBE Text Animator");
+    anim.name = nombre;
+    var sel = anim.property("ADBE Text Selectors").addProperty("ADBE Text Selector");
+    sel.property("ADBE Text Percent Start").setValue(desdePct);
+    sel.property("ADBE Text Percent End").setValue(hastaPct);
+    var adv = sel.property("ADBE Text Range Advanced");
+    try { adv.property("ADBE Text Range Type2").setValue(2); } catch (e1) {}
+    try { adv.property("ADBE Text Selector Shape").setValue(1); } catch (e2) {}
+    anim.property("ADBE Text Animator Properties").addProperty("ADBE Text Scale 3D").setValue(escala);
+  } catch (e) { __avisar("estirar " + nombre, e); }
+}
 function __eases(par, n) {
   var e = par ? new KeyframeEase(par[0], __clamp(par[1], 0.1, 100)) : new KeyframeEase(0, 33.3333);
   var lista = [];
