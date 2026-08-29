@@ -89,7 +89,7 @@ test("genera la comp con formato y fondo; la capa de texto con fuente, leading y
   // la fuente se fija con candidatos VERIFICADOS (AE sustituye en silencio):
   // primero el peso pedido, después la escalera de vecinos, y la base para
   // el chequeo de familia + la etiqueta original para el comentario
-  assert.match(jsx, /__fijarFuente\(capa, \["SpaceGrotesk-Bold", "SpaceGroteskBold", "SpaceGrotesk-ExtraBold",.*\], "SpaceGrotesk", "Space Grotesk \(peso 700\)"\)/);
+  assert.match(jsx, /__fijarFuente\(capa, \["SpaceGrotesk-Bold", "SpaceGroteskBold", "SpaceGrotesk-ExtraBold",.*\], "SpaceGrotesk", "Space Grotesk \(peso 700\)", "Space Grotesk", \[/);
   assert.match(jsx, /doc\.fontSize = 120;/);
   assert.match(jsx, /doc\.leading = 138;/); // 120 × 1.15
   assert.match(jsx, /LEFT_JUSTIFY/);
@@ -264,7 +264,7 @@ test("la familia CSS con stack va LIMPIA a AE (la fuente real, no el chorizo)", 
     ],
   });
   const jsx = generarScriptAE([comp]);
-  assert.match(jsx, /__fijarFuente\(capa, \["Yamantaka-Bold", "YamantakaBold", .*\], "Yamantaka", "Yamantaka \(peso 700\)"\)/);
+  assert.match(jsx, /__fijarFuente\(capa, \["Yamantaka-Bold", "YamantakaBold", .*\], "Yamantaka", "Yamantaka \(peso 700\)", "Yamantaka", \[/);
   assert.ok(!jsx.includes("apple-system"), "el stack CSS no viaja");
 });
 
@@ -735,4 +735,51 @@ test("el CONTADOR exporta como Slider + expression en el Source Text", () => {
   assert.match(jsx, /expression = /);
   assert.match(jsx, /STOCK:171/);
   assert.match(jsx, /Math\.round\(effect\(/);
+});
+
+/* ——— la fuente por app.fonts (AE 24+): familia+estilo real, sin adivinar — */
+
+test("estilosDeFuente: el estilo EXACTO de Figma primero, después la escalera del peso", async () => {
+  const { estilosDeFuente } = await import("@/lib/motion/exportar-ae-puro");
+  const conEstilo = estilosDeFuente(700, "Condensed Heavy");
+  assert.equal(conEstilo[0], "Condensed Heavy");
+  assert.ok(conEstilo.includes("Bold"));
+  assert.ok(conEstilo.includes("Regular"));
+  // sin estilo: arranca por el peso pedido, sin duplicados
+  const sinEstilo = estilosDeFuente(400);
+  assert.equal(sinEstilo[0], "Regular");
+  assert.equal(new Set(sinEstilo).size, sinEstilo.length);
+});
+
+test("el .jsx busca la fuente MODERNA (fontObject por familia+estilo) y el ease usa las dimensiones REALES", () => {
+  const comp = base({
+    capas: [titulo({ fuente: { familia: "'Yamantaka', sans-serif", tamano: 60, peso: 700, estilo: "Heavy" } })],
+  });
+  const jsx = generarScriptAE([comp]);
+  // el helper moderno con su fallback
+  assert.match(jsx, /getFontsByFamilyNameAndStyleName/);
+  assert.match(jsx, /fontObject/);
+  assert.match(jsx, /allFonts/);
+  // la llamada lleva la FAMILIA con espacios reales y el estilo exacto primero
+  assert.match(jsx, /__fijarFuente\(capa, \[[^\]]*\], "Yamantaka", "Yamantaka \(peso 700\)", "Yamantaka", \["Heavy", "Bold"/);
+  // el ease por dimensiones reales de la propiedad (Escala [x,y,z] en AE 2026)
+  assert.match(jsx, /__nEases/);
+  assert.match(jsx, /dimsReales/);
+});
+
+test("figma v10: el estilo de la cara viaja del plugin a la capa", async () => {
+  const { normalizarFigma, PLUGIN_ESPERADO } = await import("@/lib/motion/figma-puro");
+  assert.equal(PLUGIN_ESPERADO, 10);
+  const res = normalizarFigma({
+    origen: "figma",
+    version: 1,
+    plugin: 10,
+    frame: { nombre: "F", ancho: 400, alto: 300, fondo: "#000" },
+    nodos: [{
+      tipo: "texto", nombre: "T", x: 10, y: 10, ancho: 200, alto: 40,
+      texto: { contenido: "HOLA", familia: "Yamantaka", estilo: "Condensed Heavy", peso: 800, tamano: 30, alineacion: "centro", color: "#fff" },
+    }],
+  } as never);
+  const capa = res.composicion.capas.find((c) => c.tipo === "texto") as CapaTexto;
+  assert.equal(capa.fuente.estilo, "Condensed Heavy");
 });

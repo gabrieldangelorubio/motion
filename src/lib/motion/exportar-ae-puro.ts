@@ -334,6 +334,22 @@ export function candidatosDeFuente(familia: string, peso: number): string[] {
   return candidatos;
 }
 
+/** CANDIDATOS de NOMBRE DE ESTILO para la búsqueda por app.fonts (AE 24+):
+    el estilo EXACTO que trajo Figma primero — es el nombre real de la cara,
+    sin adivinar — y después las variantes de la escalera de pesos. */
+export function estilosDeFuente(peso: number, estilo?: string): string[] {
+  const estilos: string[] = [];
+  const sumar = (n: string) => {
+    if (n && !estilos.includes(n)) estilos.push(n);
+  };
+  if (estilo) sumar(estilo);
+  for (const p of escaleraDePesos(peso)) {
+    for (const sufijo of SUFIJOS_POR_PESO[p]) sumar(sufijo);
+  }
+  sumar("Regular");
+  return estilos;
+}
+
 /** Índices REALES [ini, fin) en el string para un tramo de rich text: los
     tramos cuentan caracteres NO BLANCOS (sobreviven al re-wrap), pero el
     characterRange de AE cuenta todos. Un tramo fuera del texto da [0, 0). */
@@ -831,7 +847,9 @@ function emitirCapa(
     // -apple-system, …») — a AE va SOLO la familia real.
     const familiaReal = familiaPrincipal(capa.fuente.familia) ?? capa.fuente.familia;
     const baseFamilia = familiaReal.replace(/\s+/g, "");
-    L.push(`__fijarFuente(capa, [${candidatosDeFuente(familiaReal, capa.fuente.peso).map(cadena).join(", ")}], ${cadena(baseFamilia)}, ${cadena(`${familiaReal} (peso ${capa.fuente.peso})`)});`);
+    L.push(
+      `__fijarFuente(capa, [${candidatosDeFuente(familiaReal, capa.fuente.peso).map(cadena).join(", ")}], ${cadena(baseFamilia)}, ${cadena(`${familiaReal} (peso ${capa.fuente.peso})`)}, ${cadena(familiaReal)}, [${estilosDeFuente(capa.fuente.peso, capa.fuente.estilo).map(cadena).join(", ")}]);`,
+    );
     // TRAMOS de rich text (dos tipografías en un título, un color por
     // palabra): estilos por RANGO de caracteres, DESPUÉS de la fuente base
     // para que no los pise. AE viejo (sin characterRange) degrada avisado.
@@ -1078,9 +1096,51 @@ function __importar(rel) {
 // Regular, p. ej.), nos quedamos con esa y la capa lo anota; si ni eso,
 // la capa recuerda la original y el resumen final lista las faltantes.
 var __fuentesFaltantes = [];
-function __fijarFuente(capaTexto, candidatos, base, original) {
+// AE 24+: app.fonts busca la CARA por familia visible + nombre de estilo:
+// el nombre real, sin adivinar PostScript (un "Yamantaka" cualquiera no
+// respondia a ninguna adivinanza y la capa quedaba en la fuente default).
+function __fuentePorFamilia(familia, estilos) {
+  try {
+    if (!app.fonts) return null;
+    var i, c, e;
+    if (app.fonts.getFontsByFamilyNameAndStyleName) {
+      for (i = 0; i < estilos.length; i++) {
+        var lista = app.fonts.getFontsByFamilyNameAndStyleName(familia, estilos[i]);
+        if (lista && lista.length) return lista[0];
+      }
+    }
+    if (app.fonts.allFonts) {
+      var famMin = String(familia).toLowerCase();
+      var grupos = app.fonts.allFonts;
+      for (i = 0; i < grupos.length; i++) {
+        var caras = grupos[i];
+        if (!caras || !caras.length) continue;
+        if (String(caras[0].familyName).toLowerCase() !== famMin) continue;
+        for (e = 0; e < estilos.length; e++) {
+          for (c = 0; c < caras.length; c++) {
+            if (String(caras[c].styleName).toLowerCase() === String(estilos[e]).toLowerCase()) return caras[c];
+          }
+        }
+        return caras[0];
+      }
+    }
+  } catch (err) {}
+  return null;
+}
+function __fijarFuente(capaTexto, candidatos, base, original, familia, estilos) {
   var prop = capaTexto.property("ADBE Text Properties").property("ADBE Text Document");
   var baseMin = base.toLowerCase();
+  // primero la busqueda MODERNA (fontObject); si el AE es viejo o no la
+  // encuentra, cae a la adivinanza PostScript de siempre
+  try {
+    var cara = familia ? __fuentePorFamilia(familia, estilos || []) : null;
+    if (cara) {
+      var vf = prop.value;
+      vf.fontObject = cara;
+      prop.setValue(vf);
+      if (String(prop.value.font).toLowerCase() === String(cara.postScriptName).toLowerCase()) return;
+    }
+  } catch (eFont) {}
   var mejor = null;
   var primero = null;
   for (var i = 0; i < candidatos.length; i++) {
@@ -1199,9 +1259,23 @@ function __tramo(capaTexto, ini, fin, candidatos, base, original, tamano, color)
     }
   } catch (e) { __avisar("tramo " + original, e); }
 }
+// El ease necesita UN KeyframeEase POR DIMENSION del valor (y exactamente 1
+// en las espaciales), y la dimension REAL la sabe la propiedad, no el
+// caller: Escala puede venir [x,y,z] segun capa/version y un array corto
+// tira "Value array does not have 3 elements" (visto en AE 2026).
+function __nEases(prop, defecto) {
+  try {
+    var t = prop.propertyValueType;
+    if (t === PropertyValueType.TwoD_SPATIAL || t === PropertyValueType.ThreeD_SPATIAL) return 1;
+    var v = prop.value;
+    if (v instanceof Array) return v.length;
+    return 1;
+  } catch (e) { return defecto || 1; }
+}
 function __pista(prop, claves, dims) {
   var i;
   for (i = 0; i < claves.length; i++) prop.setValueAtTime(claves[i].t, claves[i].v);
+  var dimsReales = __nEases(prop, dims);
   for (i = 0; i < claves.length; i++) {
     var c = claves[i];
     if (c.hold) {
@@ -1210,7 +1284,7 @@ function __pista(prop, claves, dims) {
       // BEZIER explicito ANTES del ease: sin esto algunas versiones dejan
       // el keyframe lineal en silencio (visto en AE real)
       try { prop.setInterpolationTypeAtKey(i + 1, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER); } catch (e) { __avisar("bezier", e); }
-      try { prop.setTemporalEaseAtKey(i + 1, __eases(c.ei, dims), __eases(c.eo, dims)); } catch (e) { __avisar("ease", e); }
+      try { prop.setTemporalEaseAtKey(i + 1, __eases(c.ei, dimsReales), __eases(c.eo, dimsReales)); } catch (e) { __avisar("ease", e); }
     }
   }
 }`;

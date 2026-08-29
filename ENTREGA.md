@@ -449,7 +449,15 @@ resincroniza y SE REANUDA (antes loopeaba siempre y la vuelta quedaba
 muda). El chat del agente vive FIJO en la barra derecha,
 siempre abierto y abajo, con AGARRADERA propia (arranca compacto en 340px,
 lo estirás como al timeline); el inspector (la config de la capa) ocupa
-todo el resto con scroll — nada flota sobre el lienzo. El texto de Figma con ESTILOS MIXTOS (dos fuentes en
+todo el resto con scroll — nada flota sobre el lienzo. La FUENTE en el
+export a AE se fija primero por la API moderna de AE 24+ (`app.fonts`
+busca la cara por FAMILIA visible + nombre de ESTILO y se asigna por
+`fontObject`, probando primero el estilo EXACTO que el plugin v10 trae de
+Figma —«Condensed Heavy»—) y solo si eso no está cae a la adivinanza
+PostScript de siempre; los eases de keyframes usan las dimensiones REALES
+de cada propiedad (Escala puede ser [x,y,z]: un array corto tiraba «Value
+array does not have 3 elements» en AE 2026 y esos keyframes quedaban SIN
+ease — de ahí «los blurs/movimientos no se sienten igual»). El texto de Figma con ESTILOS MIXTOS (dos fuentes en
 un título, un color por palabra) ya no se rasteriza NI pierde estilos: es
 RICH TEXT real — el plugin exporta el estilo dominante como base más
 «tramos» (corridas de fuente/peso/tamaño/color indexadas por carácter NO

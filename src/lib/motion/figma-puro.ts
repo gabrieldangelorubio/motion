@@ -34,6 +34,8 @@ export type NodoFigma = {
   texto?: {
     contenido: string;
     familia: string;
+    /** el estilo exacto de la cara en la fuente («Bold», «Condensed Heavy») */
+    estilo?: string;
     peso: number;
     tamano: number;
     interletrado?: number;
@@ -189,7 +191,7 @@ export function validarImportFigma(datos: unknown): datos is ImportFigma {
 /** La versión del plugin que este build espera: el JSON exportado lleva el
     sello `plugin: N` y un sello menor delata un plugin desactualizado en
     Figma (la causa clásica de «el fix no anda»: el code.js viejo). */
-export const PLUGIN_ESPERADO = 9;
+export const PLUGIN_ESPERADO = 10;
 
 /** El aviso de plugin viejo, o null si el sello está al día. */
 export function avisoDePluginViejo(datos: unknown): string | null {
@@ -359,6 +361,7 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
           familia: `'${t.familia}', -apple-system, 'Segoe UI', Roboto, sans-serif`,
           tamano: t.tamano,
           peso: t.peso,
+          estilo: t.estilo,
           interletrado: t.interletrado,
           interlineado: t.interlineado,
         },

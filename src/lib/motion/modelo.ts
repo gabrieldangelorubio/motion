@@ -164,6 +164,10 @@ export type CapaTexto = CapaBase & {
     interletrado?: number;
     /** alto de línea en px; ausente = tamano × 1.15 */
     interlineado?: number;
+    /** el ESTILO exacto de la cara como lo nombra la fuente («Bold»,
+        «Condensed Heavy») — viene de Figma; el export AE busca la cara
+        por familia+estilo antes de adivinar nombres PostScript */
+    estilo?: string;
   };
   color: string;
   /** corridas de estilo (rich text); editar el CONTENIDO del texto las

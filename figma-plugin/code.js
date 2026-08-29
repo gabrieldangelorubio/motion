@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 9;
+var VERSION_PLUGIN = 10;
 
 function aHex(color) {
   var c = function (v) {
@@ -446,6 +446,9 @@ async function nodoAIR(nodo, marco, salida) {
       texto: {
         contenido: contenido,
         familia: nombreFuente.family,
+        // el estilo EXACTO de la cara ("Bold", "Condensed Heavy"): AE busca
+        // la fuente por familia+estilo, sin adivinar nombres PostScript
+        estilo: nombreFuente.style || undefined,
         peso: peso,
         tamano: tamano,
         interletrado: Math.abs(espaciado) > 0.01 ? Math.round(espaciado * 100) / 100 : undefined,
