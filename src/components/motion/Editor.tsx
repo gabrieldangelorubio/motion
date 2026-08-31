@@ -1933,6 +1933,13 @@ export function Editor({
                   >
                     {t("Subir una imagen")}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => entradaVideoRef.current?.click()}
+                    className="flex h-8 items-center justify-center rounded-control px-2 text-[12px] text-foreground/80 shadow-control hover:bg-ink/[0.06]"
+                  >
+                    {t("Subir el video de referencia (fondo, no se exporta)")}
+                  </button>
                 </div>
               </div>
             </div>
@@ -1969,6 +1976,15 @@ export function Editor({
                 ]}
               />
             </ConPista>
+            {/* la VERSIÓN corriendo (SHA corto del commit, next.config):
+                «¿estoy en la build correcta?» se responde acá */}
+            {process.env.NEXT_PUBLIC_MOTION_REV && (
+              <ConPista pista={t("La versión que está corriendo (el commit del build)")}>
+                <span className="select-text rounded-control px-1.5 py-1 font-mono text-[10px] leading-none text-foreground/40 shadow-control">
+                  {process.env.NEXT_PUBLIC_MOTION_REV}
+                </span>
+              </ConPista>
+            )}
           </div>
           <div className="absolute right-3 top-3 flex items-start gap-2">
             <ConPista pista={t("Importar pantalla de Figma")}>

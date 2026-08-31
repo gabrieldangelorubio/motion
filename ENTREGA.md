@@ -86,7 +86,9 @@ se entendían); cada tarjeta corre el MOTOR REAL sobre una
 plantilla en un mini canvas compacto (240×84, recorte vertical centrado) —
 hover lo anima en bucle, quieto muestra el reposo; nunca un video grabado
 que envejece —; los controles de calidad y vista viven abajo a la
-izquierda del lienzo), **texto multilínea con revelado enmascarado** (`\n` real con interlineado
+izquierda del lienzo, junto al CHIP DE VERSIÓN — el SHA corto del commit
+del build (lo inyecta next.config): «¿estoy en la versión correcta?» se
+responde mirando la esquina, no adivinando; sin git no se muestra), **texto multilínea con revelado enmascarado** (`\n` real con interlineado
 propio, división por caracteres/palabras/**líneas**, presets
 `revelar`/`ocultar`: cada unidad sube dentro de su renglón recortada a su
 caja de reposo — el clásico reveal de SplitText con máscara, sin crear

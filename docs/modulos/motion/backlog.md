@@ -13,6 +13,16 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Chip de versión + el video en la tarjeta de arranque (2026-08-31, tanda 19b)
+- **Hecho (pedido de Gabriel probando en su máquina):** (1) CHIP DE
+  VERSIÓN abajo a la izquierda del lienzo — el SHA corto del commit del
+  build (next.config lo saca de git al levantar; reiniciar el dev server
+  tras un checkout): se acabó el «¿estoy en la versión correcta?». (2) la
+  tarjeta de arranque del proyecto vacío ofrece también «Subir el video
+  de referencia» (estaba solo en la toolbar y no se encontraba — y el
+  botón ♪ confunde: ese saca el AUDIO de un mp4, la claqueta lo pone de
+  FONDO). Verificado en Chromium real (chip con el SHA + botón).
+
 ### [HECHO] VIDEO DE REFERENCIA: el fondo que no se exporta (2026-08-31, tanda 19)
 - **Hecho (la decisión «los videos acá son solo referencia»):** capa
   `video` con `referencia: true` — botón en la toolbar, cae de FONDO
