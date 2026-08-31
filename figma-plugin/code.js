@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 10;
+var VERSION_PLUGIN = 11;
 
 function aHex(color) {
   var c = function (v) {
@@ -466,10 +466,16 @@ async function nodoAIR(nodo, marco, salida) {
     return;
   }
 
-  // Vectores y líneas con stroke sólido y SIN fill → capa de trazo animable
-  // con trim (el caso «líneas decorativas» de las referencias). Todo lo demás
-  // vectorial sigue cayendo al rasterizado de siempre.
-  if ((nodo.type === "VECTOR" || nodo.type === "LINE") && !rotado && !tieneEfectos(nodo)) {
+  // TODO LO SOLO-BORDE es un TRAZO dibujable con trim: vectores, líneas,
+  // rects/elipses contorno, estrellas, polígonos y booleans — ROTADOS
+  // incluidos (el path viaja sin rotar y la rotación va aparte, como los
+  // vectores rotados de la v8). Antes solo VECTOR/LINE derechos entraban
+  // acá y los contornos caían a capa vector: «trazar» los rechazaba y el
+  // director no podía dibujarlos (visto en la ronda de Gabriel). Con FLIP
+  // no hay equivalente: sigue el camino de siempre.
+  if ((nodo.type === "VECTOR" || nodo.type === "LINE" || nodo.type === "RECTANGLE" ||
+       nodo.type === "ELLIPSE" || nodo.type === "STAR" || nodo.type === "POLYGON" ||
+       nodo.type === "BOOLEAN_OPERATION") && !tieneFlip(nodo) && !tieneEfectos(nodo)) {
     var sinFill = nodo.fills !== figma.mixed && (!nodo.fills || !nodo.fills.some(function (f) { return f.visible !== false; }));
     var borde = nodo.strokes !== figma.mixed && Array.isArray(nodo.strokes)
       ? nodo.strokes.filter(function (s) { return s.visible !== false; })
@@ -478,16 +484,35 @@ async function nodoAIR(nodo, marco, salida) {
     if (nodo.type === "LINE") {
       // LineNode no expone vectorPaths: es un segmento horizontal de su ancho
       pathVector = "M 0 0 L " + Math.round(nodo.width * 100) / 100 + " 0";
+    } else if (nodo.fillGeometry && nodo.fillGeometry.length > 0) {
+      // el CONTORNO computado (esquinas redondeadas, booleans resueltas):
+      // para un rect/elipse sin fill es la línea central del borde
+      pathVector = nodo.fillGeometry.map(function (p) { return p.data; }).join(" ");
     } else if (nodo.vectorPaths && nodo.vectorPaths.length > 0) {
       pathVector = nodo.vectorPaths.map(function (p) { return p.data; }).join(" ");
     }
     if (sinFill && borde.length === 1 && borde[0].type === "SOLID" && typeof nodo.strokeWeight === "number" && pathVector) {
-      var ct = caja(nodo, marco);
       var mezclaTrazo = mezclaDe(nodo);
+      var ct;
+      if (rotado) {
+        // caja SIN rotar centrada en el centro del bbox rotado (misma
+        // cuenta que los vectores rotados); Figma rota antihorario positivo
+        var bt = nodo.absoluteBoundingBox;
+        var mt = marco.absoluteBoundingBox;
+        ct = {
+          x: Math.round((bt.x + bt.width / 2 - mt.x - nodo.width / 2) * 100) / 100,
+          y: Math.round((bt.y + bt.height / 2 - mt.y - nodo.height / 2) * 100) / 100,
+          ancho: Math.round(nodo.width * 100) / 100,
+          alto: Math.round(nodo.height * 100) / 100,
+        };
+      } else {
+        ct = caja(nodo, marco);
+      }
       salida.push({
         tipo: "trazo",
         nombre: nodo.name,
         x: ct.x, y: ct.y, ancho: ct.ancho, alto: ct.alto,
+        rotacion: rotado ? Math.round(-nodo.rotation * 100) / 100 : undefined,
         opacidad: nodo.opacity < 1 ? nodo.opacity : undefined,
         mezcla: mezclaTrazo.mezcla,
         aviso: mezclaTrazo.aviso || undefined,

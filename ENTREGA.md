@@ -572,9 +572,13 @@ indexados a otros caracteres): degradar, no romper.
 - **La cámara es 2D** (paneo + zoom): sin rotación ni parallax 2.5D por
   capa (P2 del backlog). El modo grabación captura lo que hagas con el
   viewport; el zoom grabado es relativo al ancho de la composición.
-- **Vectores de Figma con fill** siguen rasterizando: sólo stroke-sin-fill
-  se vuelve trazo animable (es el caso «línea decorativa»; un shape relleno
-  animado con trim no tiene equivalente fiel en canvas barato).
+- **Un shape CON relleno no se anima con trim** (no tiene equivalente fiel
+  en canvas barato). Pero TODO lo solo-borde SÍ es trazo dibujable desde el
+  plugin v11 (2026-08-31): vectores, LINEs, rects/elipses contorno,
+  estrellas y booleans, rotados incluidos — antes solo VECTOR/LINE derechos
+  calificaban y los contornos caían a capa vector, donde «trazar» no existe
+  (visto en la ronda de Gabriel: sus recuadros no se dibujaban). OJO:
+  re-copiar code.js y re-exportar la pantalla para que aplique.
 - **Audio**: no hay pista de audio en esta versión.
 - **El video de referencia vive solo en el navegador** (IndexedDB): no
   viaja entre máquinas hasta el catálogo de diosa (P2, como las fuentes).
@@ -675,7 +679,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **321
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **322
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;

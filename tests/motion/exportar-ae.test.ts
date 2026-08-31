@@ -767,11 +767,13 @@ test("el .jsx busca la fuente MODERNA (fontObject por familia+estilo) y el ease 
 
 test("figma v10: el estilo de la cara viaja del plugin a la capa", async () => {
   const { normalizarFigma, PLUGIN_ESPERADO } = await import("@/lib/motion/figma-puro");
-  assert.equal(PLUGIN_ESPERADO, 10);
+  // el sello vivo lo ata figma.test (code.js ↔ PLUGIN_ESPERADO); acá solo
+  // que no retroceda de la v10 que introdujo el estilo
+  assert.ok(PLUGIN_ESPERADO >= 10);
   const res = normalizarFigma({
     origen: "figma",
     version: 1,
-    plugin: 10,
+    plugin: PLUGIN_ESPERADO,
     frame: { nombre: "F", ancho: 400, alto: 300, fondo: "#000" },
     nodos: [{
       tipo: "texto", nombre: "T", x: 10, y: 10, ancho: 200, alto: 40,

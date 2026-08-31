@@ -13,6 +13,21 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Todo lo solo-borde es TRAZO dibujable (2026-08-31, tanda 22, plugin v11)
+- **Hecho (ronda de Gabriel: «las líneas deberían dibujarse como path»):**
+  sus recuadros contorno (RECT sin fill), elipses y LINEs verticales no
+  traceaban — los rect/elipse solo-borde caían a capa VECTOR (donde
+  «trazar» no existe y el director degradaba a revelar con máscara) y las
+  LINE rotadas (una línea vertical ES una LINE a 90°) caían a raster
+  porque la branch de trazo excluía rotados. Plugin v11: TODO nodo
+  solo-borde con un stroke sólido (VECTOR/LINE/RECT/ELLIPSE/STAR/POLYGON/
+  BOOLEAN) viaja como capa TRAZO — path del contorno computado
+  (fillGeometry: esquinas y booleans resueltas) o vectorPaths, rotados
+  incluidos con la rotación aparte (la misma cuenta que los vectores
+  rotados de la v8); con flip sigue el camino de siempre. El normalizador
+  copia la rotación al trazo (sabotaje 41 en rojo exacto). OJO: re-copiar
+  code.js en Figma y re-exportar la pantalla.
+
 ### [HECHO] El ANALISTA de referencias: Flash ve el video entero (2026-08-31, tanda 21)
 - **Hecho (pedido de Gabriel tras la primera prueba real):** 8 frames
   uniformes no alcanzan para leer motion (el movimiento vive ENTRE los

@@ -293,6 +293,31 @@ test("un nodo «vector» del plugin llega como CapaVector: path, relleno, regla 
   assert.equal(res.avisos.length, 0);
 });
 
+test("un trazo ROTADO llega con su rotación (v11: la LINE vertical de Figma es una LINE rotada)", async () => {
+  const { normalizarFigma } = await import("@/lib/motion/figma-puro");
+  const res = normalizarFigma({
+    origen: "figma",
+    version: 1,
+    frame: { nombre: "F", ancho: 100, alto: 100, fondo: "#000000" },
+    nodos: [{
+      tipo: "trazo",
+      nombre: "Line vertical",
+      x: 10,
+      y: 20,
+      ancho: 60,
+      alto: 0,
+      rotacion: -90,
+      trazo: { path: "M 0 0 L 60 0", color: "#ff6e2c", grosor: 2, remate: "recto" },
+    }],
+  });
+  const capa = res.composicion.capas[0];
+  assert.equal(capa.tipo, "trazo");
+  if (capa.tipo !== "trazo") return;
+  assert.equal(capa.rotacion, -90);
+  assert.equal(capa.path, "M 0 0 L 60 0");
+  assert.equal(capa.grosor, 2);
+});
+
 test("un vector ROTADO llega con su rotación en la capa (el path sin rotar)", async () => {
   const { normalizarFigma } = await import("@/lib/motion/figma-puro");
   const res = normalizarFigma({

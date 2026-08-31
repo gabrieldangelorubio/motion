@@ -191,7 +191,7 @@ export function validarImportFigma(datos: unknown): datos is ImportFigma {
 /** La versión del plugin que este build espera: el JSON exportado lleva el
     sello `plugin: N` y un sello menor delata un plugin desactualizado en
     Figma (la causa clásica de «el fix no anda»: el code.js viejo). */
-export const PLUGIN_ESPERADO = 10;
+export const PLUGIN_ESPERADO = 11;
 
 /** El aviso de plugin viejo, o null si el sello está al día. */
 export function avisoDePluginViejo(datos: unknown): string | null {
@@ -379,6 +379,9 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
       capas.push({
         ...base,
         tipo: "trazo",
+        // v11: los trazos también pueden llegar ROTADOS (una LINE vertical
+        // de Figma es una LINE horizontal rotada 90°)
+        rotacion: nodo.rotacion,
         path: nodo.trazo.path,
         ancho: nodo.ancho,
         alto: nodo.alto,
