@@ -28,6 +28,25 @@ export function instantesDeMuestreo(duracionMs: number, maxFrames = MAX_FRAMES_R
   return Array.from({ length: n }, (_, i) => Math.round((fin * i) / (n - 1)));
 }
 
+/** ¿Este instante necesita un SEEK real (y esperar `seeked`)? El primero
+    suele ser 0 y el video recién cargado YA está ahí: pedir un seek al
+    mismo tiempo puede no disparar `seeked` (la spec lo permite saltear —
+    Chromium lo dispara, Safari no siempre) y colgaría hasta el timeout.
+    Determinista: tras buscar t_i, la posición ES t_i. */
+export function necesitaSeek(posicionActualMs: number, destinoMs: number): boolean {
+  return Math.abs(posicionActualMs - destinoMs) > 1;
+}
+
+/** MIME inferido por extensión cuando File.type viene VACÍO («» es un caso
+    real de .mov según SO/gestor de archivos): el accept invita a subirlo,
+    rechazarlo en silencio sería mentirle al usuario. */
+export function tipoPorNombre(nombre: string): string {
+  const ext = /\.([a-z0-9]+)$/i.exec(nombre)?.[1]?.toLowerCase() ?? "";
+  if (["mov", "mp4", "m4v", "webm", "mkv", "avi"].includes(ext)) return `video/${ext === "mov" ? "quicktime" : ext}`;
+  if (["png", "jpg", "jpeg", "webp", "gif", "avif"].includes(ext)) return `image/${ext === "jpg" ? "jpeg" : ext}`;
+  return "";
+}
+
 export type MetaReferencia = {
   nombre: string;
   tipo: "video" | "imagen";

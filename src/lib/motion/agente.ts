@@ -204,14 +204,17 @@ export async function dirigirComposicion(
     })),
     {
       role: "user",
-      // con frames de revisión el turno es multimodal: imágenes + texto
+      // con frames (revisión o referencia) el turno es multimodal: imágenes
+      // + texto, con BREAKPOINT DE CACHÉ al final — 8 frames son ~4k tokens
+      // de visión que el loop re-manda en CADA iteración: sin esto se pagan
+      // a precio pleno por vuelta; con esto, cache-hit desde la segunda
       content: imagenes?.length
         ? [
             ...imagenes.map<Anthropic.ImageBlockParam>((im) => ({
               type: "image",
               source: { type: "base64", media_type: im.mime as "image/jpeg", data: im.datosBase64 },
             })),
-            { type: "text", text: primerUsuario },
+            { type: "text", text: primerUsuario, cache_control: { type: "ephemeral" } },
           ]
         : primerUsuario,
     },

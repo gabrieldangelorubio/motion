@@ -11,6 +11,8 @@ import type { ImagenRevision } from "@/lib/motion/revision-puro";
 import {
   contextoDeReferencias,
   instantesDeMuestreo,
+  necesitaSeek,
+  tipoPorNombre,
   type MetaReferencia,
 } from "@/lib/motion/referencias-puro";
 
@@ -67,8 +69,10 @@ function esperar(el: HTMLVideoElement, evento: string, ms = 8000): Promise<boole
  */
 export async function referenciaDeArchivo(archivo: File): Promise<ReferenciaAdjunta | null> {
   const nombre = archivo.name.replace(/\.[a-z0-9]+$/i, "");
+  // File.type puede venir VACÍO (.mov según SO): inferir por extensión
+  const tipoArchivo = archivo.type || tipoPorNombre(archivo.name);
 
-  if (archivo.type.startsWith("image/")) {
+  if (tipoArchivo.startsWith("image/")) {
     try {
       const bitmap = await createImageBitmap(archivo);
       const { canvas, ctx, w, h } = canvasPara(bitmap.width, bitmap.height);
@@ -82,7 +86,7 @@ export async function referenciaDeArchivo(archivo: File): Promise<ReferenciaAdju
     }
   }
 
-  if (!archivo.type.startsWith("video/")) return null;
+  if (!tipoArchivo.startsWith("video/")) return null;
   const url = URL.createObjectURL(archivo);
   const video = document.createElement("video");
   video.muted = true;
@@ -93,13 +97,20 @@ export async function referenciaDeArchivo(archivo: File): Promise<ReferenciaAdju
     if (!(await esperar(video, "loadedmetadata"))) return null;
     const duracionMs = Number.isFinite(video.duration) ? Math.round(video.duration * 1000) : 0;
     if (duracionMs <= 0) return null;
+    // el PRIMER frame decodificado antes de dibujar: con solo metadata
+    // (readyState 1) el canvas saldría negro
+    if (video.readyState < 2 && !(await esperar(video, "loadeddata"))) return null;
     const instantes = instantesDeMuestreo(duracionMs);
     const { canvas, ctx, w, h } = canvasPara(video.videoWidth || 640, video.videoHeight || 360);
     if (!ctx) return null;
     const imagenes: ImagenRevision[] = [];
     for (const ms of instantes) {
-      video.currentTime = ms / 1000;
-      if (!(await esperar(video, "seeked"))) return null;
+      // seek solo si hace falta: pedir el tiempo donde YA está (el 0
+      // inicial) puede no disparar `seeked` (Safari) y colgaría al timeout
+      if (necesitaSeek(video.currentTime * 1000, ms)) {
+        video.currentTime = ms / 1000;
+        if (!(await esperar(video, "seeked"))) return null;
+      }
       ctx.drawImage(video, 0, 0, w, h);
       imagenes.push(jpegDe(canvas));
     }

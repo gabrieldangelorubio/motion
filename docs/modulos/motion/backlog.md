@@ -496,6 +496,17 @@
   proveedores. Verificado: unit (muestreo, contexto, primer turno,
   partes Gemini) + sabotajes 37-38 + Playwright interceptando el POST
   (8 frames JPEG reales + contexto + pedido limpio + chip consumido).
+- La review adversarial (Sonnet, TOKENOMICS) encontró 6 y se corrigieron
+  los 5 reales + robustez: el seek al instante 0 podía colgar hasta el
+  timeout en motores que no disparan `seeked` sin seek real (Chromium sí
+  lo dispara — verificado end-to-end —, Safari no siempre; ahora
+  `necesitaSeek` lo saltea y además se espera el primer frame decodificado
+  antes de dibujar), Enviar durante la extracción mandaba el pedido SIN
+  la referencia (guard + botón), los ~4k tokens de visión se re-mandaban
+  a precio pleno en cada iteración del loop (breakpoint de caché en el
+  primer turno: cache-hit desde la segunda), un .mov con File.type vacío
+  se rechazaba en silencio (inferencia por extensión), y el historial de
+  la revisión no llevaba la marca de referencia (consistencia).
 - **Pendiente natural (M8 del blueprint):** medición CV de curvas contra
   el video (hoy el director lee a criterio); varias referencias por
   pedido; recordar la referencia de la sesión para correcciones.

@@ -232,7 +232,9 @@ export function PanelAgente({
 
   const enviar = async () => {
     const pedido = texto.trim();
-    if (!pedido || pensando) return;
+    // con la extracción de frames EN CURSO no se manda: el pedido saldría
+    // sin la referencia que el usuario cree que lleva
+    if (!pedido || pensando || leyendoReferencia) return;
     setTexto("");
     setError(null);
     // el historial que viaja: turnos consecutivos del mismo rol se FUNDEN
@@ -293,7 +295,7 @@ export function PanelAgente({
         let snapshotVivo = fin.snapshot;
         let historialVivo: TurnoAgente[] = [
           ...historial,
-          { rol: "usuario", texto: pedido },
+          { rol: "usuario", texto: pedido + marcaRef },
           { rol: "agente", texto: fin.respuesta },
         ];
         for (let ronda = 1; ronda <= 2; ronda++) {
@@ -506,7 +508,7 @@ export function PanelAgente({
             {grabando ? "■" : "⏺"}
           </span>
         </BotonIcono>
-        <BotonIcono tam={36} etiqueta={t("Enviar")} onClick={() => void enviar()} deshabilitado={pensando || !texto.trim()}>
+        <BotonIcono tam={36} etiqueta={t("Enviar")} onClick={() => void enviar()} deshabilitado={pensando || leyendoReferencia || !texto.trim()}>
           <Icono nombre="enviar" width={16} height={16} />
         </BotonIcono>
       </div>

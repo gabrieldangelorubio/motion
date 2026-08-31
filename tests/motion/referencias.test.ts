@@ -4,6 +4,8 @@ import {
   MAX_FRAMES_REFERENCIA,
   contextoDeReferencias,
   instantesDeMuestreo,
+  necesitaSeek,
+  tipoPorNombre,
 } from "@/lib/motion/referencias-puro";
 import { armarPrimerUsuario } from "@/lib/motion/agente";
 import { partesDeUsuario } from "@/lib/motion/agente-gemini";
@@ -33,6 +35,21 @@ test("instantesDeMuestreo: un video corto muestrea menos (nunca más de un frame
   const corto = instantesDeMuestreo(500);
   assert.ok(corto.length <= 4 && corto.length >= 2, `500ms → pocos frames (${corto.length})`);
   assert.deepEqual(instantesDeMuestreo(0), [0]); // duración rota: degrada
+});
+
+test("necesitaSeek: el instante donde el video YA está no se busca (pedir seek al mismo tiempo puede no disparar seeked)", () => {
+  // el caso del cuelgue: video recién cargado (posición 0) y primer instante 0
+  assert.ok(!necesitaSeek(0, 0), "el 0 inicial no espera seeked");
+  assert.ok(necesitaSeek(0, 450), "un destino distinto sí busca");
+  assert.ok(!necesitaSeek(450.4, 450), "sub-milisegundo = mismo frame");
+});
+
+test("tipoPorNombre: un .mov con File.type vacío se infiere por extensión (rechazarlo mentiría)", () => {
+  assert.equal(tipoPorNombre("spot final.mov"), "video/quicktime");
+  assert.equal(tipoPorNombre("clip.MP4"), "video/mp4");
+  assert.equal(tipoPorNombre("poster.jpg"), "image/jpeg");
+  assert.equal(tipoPorNombre("raro.xyz"), "");
+  assert.equal(tipoPorNombre("sin-extension"), "");
 });
 
 /* ——— el contexto que acompaña a los frames ————————————————————— */
