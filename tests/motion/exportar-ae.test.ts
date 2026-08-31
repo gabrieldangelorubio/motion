@@ -165,9 +165,9 @@ test("temblor: la expresion lleva la misma suma de senos con amplitud escalada a
   assert.match(jsx, /"ADBE Scale"\)\.setValue\(\[120, 120\]\);/);
 });
 
-test("presets simples → keyframes RALOS: un in y un out por segmento, con el ease del easing", () => {
-  // SIN división: el bloque entero sigue viajando como keyframes ralos
-  // (con división ahora viaja como TEXT ANIMATOR — test aparte)
+test("revelar SIN división: animator de Position + MASCARA real (ya no keyframes de capa)", () => {
+  // el viaje NO puede ir en la Position de la capa (la mask viajaría con
+  // él): el bloque pasa a UN animator basado en líneas y la mask real abajo
   const comp = base({
     capas: [
       titulo({
@@ -177,20 +177,17 @@ test("presets simples → keyframes RALOS: un in y un out por segmento, con el e
     ],
   });
   const jsx = generarScriptAE([comp]);
-  // el comentario informa que la animación viajó editable
-  assert.match(jsx, /animacion en keyframes editables \(entrada revelar\)/);
-  assert.ok(!jsx.includes("pendiente de traducir: entrada revelar ("), "ya no queda como pendiente");
-  // la posición son DOS keyframes (in y out) con temporal ease, no un muro
-  const posicion = /__pista\(__t\(capa, "ADBE Position"\), (\[.*?\]), 1\);/.exec(jsx);
-  assert.ok(posicion, "hay pista de posición");
-  const claves = posicion![1].match(/\{t: /g) ?? [];
-  assert.equal(claves.length, 2, `keyframes ralos (salieron ${claves.length})`);
-  assert.match(posicion![1], /eo: \[/);
-  assert.match(posicion![1], /ei: \[/);
-  // revelar no toca opacidad (máscara + viaje): el canal quieto NO se emite,
-  // y la máscara imposible de trasladar queda avisada en el comentario
-  assert.ok(!jsx.includes('"ADBE Opacity"), [{'), "opacidad quieta no emite pista");
-  assert.match(jsx, /la MASCARA del revelado no viaja/);
+  // viaje = 1.1 × altoUnidad (max(interlineado 138, 1.2×120=144) = 144 → 158.4)
+  assert.match(jsx, /__animador\(capa, "entrada revelar", 4, false, "ADBE Text Percent Start", \[\["ADBE Text Position 3D", \[0, 158\.4\]\]\]/);
+  // la MASK con la caja del motor: padX 30, arriba -102, alto 144; ventana
+  // [caja hasta el fin de la entrada, libre después] con hold
+  assert.match(jsx, /__mascaraTexto\(capa, 30, -102, 144, 0\.801, \[\[0, true\], \[0\.8, false\]\]\);/);
+  assert.match(jsx, /revelado con MASCARA real/);
+  assert.ok(!jsx.includes("la MASCARA del revelado no viaja"), "ya no queda como pendiente");
+  // el revelado NO viaja además como keyframes de transform (sería doble)
+  assert.ok(!/__pista\(__t\(capa, "ADBE Position"\)/.test(jsx), "la Position de la capa queda quieta");
+  // con mask real no hace falta la aproximación por opacidad
+  assert.ok(!jsx.includes('"ADBE Text Opacity"'), "sin fundido por unidad");
 });
 
 test("entrada + salida ralas comparten la pista: 4 claves con el tramo del medio plano", () => {

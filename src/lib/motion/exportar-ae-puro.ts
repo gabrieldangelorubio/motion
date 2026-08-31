@@ -20,11 +20,13 @@
      nativos con el easing convertido a KeyframeEase (velocidad+influencia).
    - temblor → EXPRESIÓN con nuestra misma suma de senos (matchea el render
      y encima queda editable en AE).
-   - presets entrada/salida → todavía NO se traducen (tanda 2: text
-     animators); quedan anotados en el comentario de la capa para que nada
-     se pierda en silencio (degradar, no romper).
-   - media → sólido placeholder con el nombre (el asset se relinkea en AE);
-     trazo → rectángulo con Trim Paths real (el path SVG es de la tanda 2).
+   - presets entrada/salida → keyframes ralos o densos; un texto con
+     división → TEXT ANIMATOR nativo; el revelado → MASK real con ventana
+     de hold keys (multilínea partido por renglón, shapes por la Position
+     del grupo — el porqué vive en revelado-ae-puro). Lo que no cabe queda
+     anotado en el comentario de la capa (degradar, no romper).
+   - media → el asset viaja en el zip y el script lo importa (sin archivo,
+     sólido placeholder avisado); trazo → su path SVG real con Trim Paths.
    - varias escenas → una comp por escena + comp master con cortes duros.
 ----------------------------------------------------------------------------- */
 
@@ -44,6 +46,17 @@ import { familiaPrincipal } from "@/lib/motion/fuentes-puro";
 import { compilarSegmento } from "@/lib/motion/presets-puro";
 import { desplazarSubrutas, subrutasDeSvg } from "@/lib/motion/ruta-puro";
 import { animadoresDeCapa, estiradosDeCapa, type AnimadorAE } from "@/lib/motion/animadores-ae-puro";
+import {
+  capasPorLinea,
+  cajaMascara,
+  instanteMedicion,
+  mascaraTexto,
+  sinRecorte,
+  soloRecorte,
+  tieneRecorteAE,
+  ventanasMascara,
+  type VentanaMascara,
+} from "@/lib/motion/revelado-ae-puro";
 
 /* ——— Números y strings deterministas ————————————————————————————— */
 
@@ -429,13 +442,26 @@ function comentarioPendientes(
   conAsset = false,
   animacion: AnimacionAE | null = null,
   animadores: AnimadorAE[] = [],
+  conMascara = false,
+  nota: string | null = null,
 ): string | null {
   const pendientes: string[] = [];
+  if (nota) pendientes.push(nota);
   if (!sinAnimacion) {
+    if (conMascara) {
+      pendientes.push(
+        capa.tipo === "texto"
+          ? "revelado con MASCARA real: la caja de reposo recorta el renglon (hold keys en la ventana)"
+          : "revelado con MASCARA real: la caja recorta y el viaje va en la Position del grupo",
+      );
+    }
+    // con MASCARA los segmentos de recorte ya viajaron (animator o grupo):
+    // el comentario describe solo lo que siguió el camino de siempre
+    const capaResto = conMascara && capa.tipo !== "texto" ? sinRecorte(capa) : capa;
     if (animacion) {
       // los presets ya viajaron como keyframes: el comentario informa, no
       // reclama — y la división avisa que llegó como bloque
-      const partes = [capa.entrada && `entrada ${capa.entrada.preset}`, capa.salida && `salida ${capa.salida.preset}`]
+      const partes = [capaResto.entrada && `entrada ${capaResto.entrada.preset}`, capaResto.salida && `salida ${capaResto.salida.preset}`]
         .filter(Boolean)
         .join(" + ");
       if (animacion.ralas) pendientes.push(`animacion en keyframes editables (${partes})`);
@@ -443,11 +469,11 @@ function comentarioPendientes(
       if (capa.tipo === "texto" && capa.division !== "ninguna" && animadores.length === 0) {
         pendientes.push(`division por ${capa.division}: horneada como bloque (letra por letra pendiente)`);
       }
-      // el recorte del revelado (la máscara por renglón) no se puede hornear
-      // en keyframes de transform (los segmentos que viajan como ANIMATOR
-      // llevan su propia aproximación avisada)
+      // el recorte del revelado que NO viajó como mask (media) no se puede
+      // hornear en keyframes de transform: queda avisado
       const cubiertos = new Set(animadores.map((a) => a.clase));
       if (
+        !conMascara &&
         ([["entrada", capa.entrada], ["salida", capa.salida]] as const).some(
           ([clase, seg]) => seg && !cubiertos.has(clase) && compilarSegmento(seg).recorte,
         )
@@ -455,9 +481,9 @@ function comentarioPendientes(
         pendientes.push("la MASCARA del revelado no viaja: agregala en AE (pendiente)");
       }
     } else if (animadores.length === 0) {
-      if (capa.entrada) pendientes.push(describirSegmento("entrada", capa.entrada));
-      if (capa.salida) pendientes.push(describirSegmento("salida", capa.salida));
-      if (capa.tipo === "texto" && capa.division !== "ninguna") {
+      if (capaResto.entrada) pendientes.push(describirSegmento("entrada", capaResto.entrada));
+      if (capaResto.salida) pendientes.push(describirSegmento("salida", capaResto.salida));
+      if (capa.tipo === "texto" && capa.division !== "ninguna" && (capaResto.entrada || capaResto.salida)) {
         pendientes.push(`division: ${capa.division}`);
       }
     }
@@ -789,14 +815,21 @@ function emitirComunes(
   conAsset = false,
   animacion: AnimacionAE | null = null,
   animadores: AnimadorAE[] = [],
+  conMascara = false,
+  nota: string | null = null,
 ): void {
   L.push(`capa.name = ${cadena(capa.nombre)};`);
   if (capa.oculta) L.push("capa.enabled = false;");
   if (capa.mezcla && MEZCLA_AE[capa.mezcla]) {
     L.push(`try { capa.blendingMode = BlendingMode.${MEZCLA_AE[capa.mezcla]}; } catch (e) {}`);
   }
-  const comentario = comentarioPendientes(capa, sinAnimacion, conAsset, animacion, animadores);
+  const comentario = comentarioPendientes(capa, sinAnimacion, conAsset, animacion, animadores, conMascara, nota);
   if (comentario) L.push(`capa.comment = ${cadena(comentario)};`);
+}
+
+/** Las ventanas de la mask como literal del script: [[t_seg, esCaja], …]. */
+function clavesVentana(ventanas: VentanaMascara[]): string {
+  return `[${ventanas.map((v) => `[${num(redondear(v.t / 1000))}, ${v.caja ? "true" : "false"}]`).join(", ")}]`;
 }
 
 /** Cada subruta del path SVG → un «ADBE Vector Shape - Group» dentro del
@@ -817,23 +850,22 @@ function emitirSubrutas(L: string[], path: string, ancho: number, alto: number):
   }
 }
 
-function emitirCapa(
+function emitirCapaTexto(
   L: string[],
-  capa: Capa,
+  capa: CapaTexto,
   sinAnimacion: boolean,
-  rutasMedia: Record<string, string> = {},
-  compHorneo: Composicion | null = null,
+  compHorneo: Composicion | null,
+  desplazarYLinea: number | null,
+  conMascara: boolean,
+  nota: string | null,
 ): void {
-  // presets (entrada/salida) a keyframes — ralos si se puede, densos si no
-  const hornearCon = (desplazarY: number) =>
-    !sinAnimacion && compHorneo ? animacionDeCapa(compHorneo, capa, desplazarY) : null;
-
-  if (capa.tipo === "texto") {
+  {
     const lineas = capa.texto.split("\n").length;
     const interlineado = capa.fuente.interlineado ?? capa.fuente.tamano * 1.15;
     // nuestro ancla centra el bloque vertical; el de AE es la baseline de la
-    // PRIMERA línea — el corrimiento compensa la diferencia
-    const desplazarY = ((lineas - 1) / 2) * interlineado;
+    // PRIMERA línea — el corrimiento compensa la diferencia (una capa-renglón
+    // del revelado trae el suyo: su lugar dentro del bloque original)
+    const desplazarY = desplazarYLinea ?? ((lineas - 1) / 2) * interlineado;
     const justif =
       capa.alineacion === "izquierda" ? "LEFT_JUSTIFY"
       : capa.alineacion === "derecha" ? "RIGHT_JUSTIFY"
@@ -864,7 +896,7 @@ function emitirCapa(
     // (antes se horneaba como bloque). Los segmentos traducidos a animador
     // no se hornean — lo que quede (el otro segmento, pistas crudas) sigue
     // el camino de siempre sobre la capa recortada.
-    const animadores = sinAnimacion ? [] : animadoresDeCapa(capa);
+    const animadores = sinAnimacion ? [] : animadoresDeCapa(capa, conMascara);
     const capaHorneo: CapaTexto = animadores.length
       ? {
           ...capa,
@@ -873,7 +905,7 @@ function emitirCapa(
         }
       : capa;
     const animTexto = !sinAnimacion && compHorneo ? animacionDeCapa(compHorneo, capaHorneo, desplazarY) : null;
-    emitirComunes(L, capa, sinAnimacion, false, animTexto, animadores);
+    emitirComunes(L, capa, sinAnimacion, false, animTexto, animadores, conMascara, nota);
     for (const a of animadores) {
       const dt = (a.claves[1].t - a.claves[0].t) / 1000;
       const ease = easeDeTramo(a.easing, 100, dt);
@@ -922,9 +954,69 @@ function emitirCapa(
       if (candidatos === "null" && tam === "null" && color === "null") continue;
       L.push(`__tramo(capa, ${ini}, ${fin}, ${candidatos}, ${baseTramo}, ${cadena(etiqueta)}, ${tam}, ${color});`);
     }
+    // la MASK del revelado, DESPUÉS de fijar la fuente real y los tramos:
+    // el script mide el renglón con sourceRectAtTime en un instante de
+    // reposo y arma la caja del motor (ventana con hold keys)
+    if (conMascara) {
+      const g = mascaraTexto(capa);
+      L.push(
+        `__mascaraTexto(capa, ${num(g.padX)}, ${num(g.arriba)}, ${num(g.alto)}, ${num(redondear(instanteMedicion(capa) / 1000))}, ${clavesVentana(ventanasMascara(capa))});`,
+      );
+    }
     emitirTransform(L, capaHorneo, desplazarY, sinAnimacion, false, animTexto?.claves ?? null);
+  }
+}
+
+function emitirCapa(
+  L: string[],
+  capa: Capa,
+  sinAnimacion: boolean,
+  rutasMedia: Record<string, string> = {},
+  compHorneo: Composicion | null = null,
+): void {
+  // presets (entrada/salida) a keyframes — ralos si se puede, densos si no
+  const hornearCon = (c: Capa, desplazarY: number) =>
+    !sinAnimacion && compHorneo ? animacionDeCapa(compHorneo, c, desplazarY) : null;
+
+  if (capa.tipo === "texto") {
+    const conMascara = !sinAnimacion && tieneRecorteAE(capa);
+    if (!conMascara) {
+      emitirCapaTexto(L, capa, sinAnimacion, compHorneo, null, false, null);
+      return;
+    }
+    // REVELADO con máscara: un texto multilínea se parte en UNA CAPA POR
+    // RENGLÓN (cada una con su mask, su timing y sus animators) — el
+    // porqué vive en revelado-ae-puro
+    const partes = capasPorLinea(capa);
+    const nota = partes.length > 1
+      ? `capa partida por renglon para el revelado (${partes.length} capas, una mask por linea)`
+      : null;
+    for (const parte of partes) {
+      emitirCapaTexto(L, parte.capa, sinAnimacion, compHorneo, parte.desplazarY, true, nota);
+    }
     return;
   }
+
+  // el viaje del revelado de una capa de shapes: claves para la Position
+  // del GRUPO (la capa y su mask no se mueven) + la caja y su ventana
+  const revelado = (() => {
+    if (sinAnimacion || !compHorneo || !tieneRecorteAE(capa)) return null;
+    const caja = cajaMascara(capa);
+    if (!caja) return null;
+    const anim = animacionDeCapa(compHorneo, soloRecorte(capa), 0);
+    if (!anim?.claves.posicion) return null;
+    return { claves: anim.claves.posicion, caja, ventanas: ventanasMascara(capa) };
+  })();
+  const capaResto = revelado ? sinRecorte(capa) : capa;
+  const emitirRevelado = () => {
+    if (!revelado) return;
+    L.push(
+      `__pista(gr.property("ADBE Vector Transform Group").property("ADBE Vector Position"), ${clavesLit(revelado.claves)}, 1);`,
+    );
+    L.push(
+      `__mascara(capa, ${num(revelado.caja.x1)}, ${num(revelado.caja.y1)}, ${num(revelado.caja.x2)}, ${num(revelado.caja.y2)}, ${clavesVentana(revelado.ventanas)});`,
+    );
+  };
 
   if (capa.tipo === "forma") {
     L.push(`capa = comp.layers.addShape();`);
@@ -938,9 +1030,10 @@ function emitirCapa(
       if (capa.radio) L.push(`forma.property("ADBE Vector Rect Roundness").setValue(${num(capa.radio)});`);
     }
     L.push(`gr.property("ADBE Vectors Group").addProperty("ADBE Vector Graphic - Fill").property("ADBE Vector Fill Color").setValue(${colorLit(capa.color)});`);
-    const animForma = hornearCon(0);
-    emitirComunes(L, capa, sinAnimacion, false, animForma);
-    emitirTransform(L, capa, 0, sinAnimacion, false, animForma?.claves ?? null);
+    emitirRevelado();
+    const animForma = hornearCon(capaResto, 0);
+    emitirComunes(L, capa, sinAnimacion, false, animForma, [], Boolean(revelado));
+    emitirTransform(L, capaResto, 0, sinAnimacion, false, animForma?.claves ?? null);
     return;
   }
 
@@ -963,9 +1056,10 @@ function emitirCapa(
       // regla de relleno de AE: 1 = non-zero, 2 = even-odd (los agujeros)
       if (capa.reglaRelleno === "evenodd") L.push(`fx.property("ADBE Vector Fill Rule").setValue(2);`);
     }
-    const animVector = hornearCon(0);
-    emitirComunes(L, capa, sinAnimacion, false, animVector);
-    emitirTransform(L, capa, 0, sinAnimacion, false, animVector?.claves ?? null);
+    emitirRevelado();
+    const animVector = hornearCon(capaResto, 0);
+    emitirComunes(L, capa, sinAnimacion, false, animVector, [], Boolean(revelado));
+    emitirTransform(L, capaResto, 0, sinAnimacion, false, animVector?.claves ?? null);
     return;
   }
 
@@ -979,8 +1073,9 @@ function emitirCapa(
     L.push(`tr.property("ADBE Vector Stroke Color").setValue(${colorLit(capa.color)});`);
     L.push(`tr.property("ADBE Vector Stroke Width").setValue(${num(capa.grosor)});`);
     L.push(`tr.property("ADBE Vector Stroke Line Cap").setValue(${capa.remate === "recto" ? 1 : 2});`);
+    emitirRevelado();
     L.push(`tr = gr.property("ADBE Vectors Group").addProperty("ADBE Vector Filter - Trim");`);
-    const animTrazo = hornearCon(0);
+    const animTrazo = hornearCon(capaResto, 0);
     if (animTrazo?.claves.trazoInicio) {
       L.push(`__pista(tr.property("ADBE Vector Trim Start"), ${clavesLit(animTrazo.claves.trazoInicio)}, 1);`);
     }
@@ -1002,8 +1097,8 @@ function emitirCapa(
     } else if ((capa.trazoFin ?? 1) !== 1) {
       L.push(`tr.property("ADBE Vector Trim End").setValue(${num((capa.trazoFin ?? 1) * 100)});`);
     }
-    emitirComunes(L, capa, sinAnimacion, false, animTrazo);
-    emitirTransform(L, capa, 0, sinAnimacion, false, animTrazo?.claves ?? null);
+    emitirComunes(L, capa, sinAnimacion, false, animTrazo, [], Boolean(revelado));
+    emitirTransform(L, capaResto, 0, sinAnimacion, false, animTrazo?.claves ?? null);
     return;
   }
 
@@ -1025,13 +1120,13 @@ function emitirCapa(
     L.push(`capa.comment = ${cadena(`falta ${ruta}: descomprimi el zip ENTERO y deja assets/ al lado del .jsx`)};`);
     L.push(`__encaje = 100;`);
     L.push(`}`);
-    const animMedia = hornearCon(0);
+    const animMedia = hornearCon(capa, 0);
     emitirComunes(L, capa, sinAnimacion, true, animMedia);
     emitirTransform(L, capa, 0, sinAnimacion, true, animMedia?.claves ?? null);
     return;
   }
   L.push(`capa = comp.layers.addSolid([0.5, 0.5, 0.55], ${cadena(capa.nombre)}, ${num(capa.ancho)}, ${num(capa.alto)}, 1);`);
-  const animSolido = hornearCon(0);
+  const animSolido = hornearCon(capa, 0);
   emitirComunes(L, capa, sinAnimacion, false, animSolido);
   emitirTransform(L, capa, 0, sinAnimacion, false, animSolido?.claves ?? null);
 }
@@ -1253,6 +1348,40 @@ function __estirar(capaTexto, nombre, desdePct, hastaPct, escala) {
     try { adv.property("ADBE Text Selector Shape").setValue(1); } catch (e2) {}
     anim.property("ADBE Text Animator Properties").addProperty("ADBE Text Scale 3D").setValue(escala);
   } catch (e) { __avisar("estirar " + nombre, e); }
+}
+// La MASK del revelado: el rect de reposo recorta la capa mientras la
+// entrada esconde o la salida guarda (claves = [[t, esCaja], ...] con HOLD),
+// y en reposo se agranda para no cortar descendentes -- la ventana del
+// motor. El viaje NO va en la Position de la capa (la mask viajaria con el):
+// en texto lo lleva el animator, en shapes la Position del grupo.
+function __mascara(capa, x1, y1, x2, y2, claves) {
+  try {
+    var caja = new Shape();
+    caja.vertices = [[x1, y1], [x1, y2], [x2, y2], [x2, y1]];
+    caja.closed = true;
+    var G = 9000;
+    var libre = new Shape();
+    libre.vertices = [[x1 - G, y1 - G], [x1 - G, y2 + G], [x2 + G, y2 + G], [x2 + G, y1 - G]];
+    libre.closed = true;
+    var m = capa.property("ADBE Mask Parade").addProperty("ADBE Mask Atom");
+    m.name = "revelado";
+    var forma = m.property("ADBE Mask Shape");
+    if (claves.length < 2) {
+      forma.setValue(claves.length === 1 && !claves[0][1] ? libre : caja);
+      return;
+    }
+    for (var i = 0; i < claves.length; i++) forma.setValueAtTime(claves[i][0], claves[i][1] ? caja : libre);
+    for (var k = 1; k <= forma.numKeys; k++) forma.setInterpolationTypeAtKey(k, KeyframeInterpolationType.HOLD);
+  } catch (e) { __avisar("mascara del revelado", e); }
+}
+// La mask de un renglon de texto: el ancho se mide en AE (sourceRectAtTime
+// en un instante de REPOSO, con la fuente real ya fijada); el alto es la
+// caja del motor relativa a la baseline (el y=0 de la capa de texto).
+function __mascaraTexto(capaTexto, padX, arriba, alto, tMed, claves) {
+  try {
+    var r = capaTexto.sourceRectAtTime(tMed, false);
+    __mascara(capaTexto, r.left - padX, arriba, r.left + r.width + padX, arriba + alto, claves);
+  } catch (e) { __avisar("mascara del revelado (texto)", e); }
 }
 function __eases(par, n) {
   var e = par ? new KeyframeEase(par[0], __clamp(par[1], 0.1, 100)) : new KeyframeEase(0, 33.3333);

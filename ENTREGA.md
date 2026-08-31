@@ -1,4 +1,4 @@
-# ENTREGA — módulo motion (estado al 2026-08-28)
+# ENTREGA — módulo motion (estado al 2026-08-31)
 
 > Contrato: `docs/kit-diosa-2026-08-26.md` (copia del kit recibido, sello `main=9a8e79ce`).
 
@@ -226,9 +226,8 @@ del preset) se HORNEAN densos: el mismo estadoEn del preview muestreado
 a un keyframe por frame en las ventanas animadas —posición/escala/
 rotación/opacidad/desenfoque/trim, solo los canales que se mueven—, así
 la coreografía llega exacta igual; el comentario de la capa dice cuál de
-los dos viajó; un texto con división va
-como bloque (letra por letra = text animators, pendiente) y la máscara
-del revelado no viaja, avisada en el comentario),
+los dos viajó; un texto con división viaja como TEXT ANIMATOR nativo y el
+revelado con su MASCARA real — ver más abajo),
 **el panel de Efectos como TAB plegable** (la cabecera «Efectos» pliega
 la biblioteca a una fila compacta, como la fila «Cámara»; el estado
 persiste en localStorage y plegado el panel de capas gana el alto),
@@ -470,11 +469,33 @@ Tracking/Blur desde el preset compilado) + Range Selector con Based On
 según la división y el borde animado barriendo 0→100% (Start en entradas
 —la selección se achica y cada unidad queda en reposo—, End en salidas),
 con el escalonado como ventana total y el easing del segmento en el
-selector; MUY editable (ajustás el stagger tocando el selector). Lo que
-no cabe degrada CON AVISO en el comentario de la capa: la máscara del
-revelado se aproxima con opacidad por unidad, los overshoots internos del
-preset (pop) barren directo, orden centro/bordes queda desde el inicio
-(azar sí viaja: Randomize Order). Y los **estirados por letra**
+selector; MUY editable (ajustás el stagger tocando el selector). Y la
+**MÁSCARA del revelado VIAJA de verdad** (tanda 2 del export cerrada,
+2026-08-31): revelar/ocultar y familia llegan a AE con una MASK real —
+la caja de reposo del motor — con la regla de oro de que el viaje nunca
+va en la Position de la capa (la mask viajaría con él): en texto lo
+lleva el animator y la mask se mide en AE con sourceRectAtTime (fuente
+real ya fijada, en un instante de reposo); un texto MULTILÍNEA se parte
+en UNA CAPA POR RENGLÓN — el idioma clásico del motionero, porque las
+masks de varios renglones en una capa se unen y un renglón se vería a
+través de la caja del vecino — cada renglón con su ancla, su timing
+corrido (división «líneas»: el delay EXACTO de su renglón, orden
+centro/bordes/azar incluidos; caracteres/palabras: el `en` corre por las
+unidades previas y el escalonado sigue vivo en su animator), sus tramos
+de rich text re-indexados y el contador en el renglón de la cifra; en
+forma/vector/trazo el viaje va en la Position del GRUPO de shapes (la
+capa y su mask quietas) y la caja suma el margen del borde; y la mask
+lleva la VENTANA del motor con hold keys — recorta solo mientras esconde
+(la entrada hasta que su última unidad terminó, la salida desde que
+arranca) y en reposo se agranda para no cortar descendentes; media con
+revelado queda anotada (su encaje «cubrir» ya ocupa la mask del
+footage). De paso, paridad exacta del viaje: el animator escalaba los dy
+por interlineado donde el motor usa altoUnidad (nunca menos que 1.2× el
+cuerpo) — con interlineado apretado el texto asomaba bajo la máscara.
+Lo que sigue degradando CON AVISO: los overshoots internos del preset
+(pop) barren directo, orden centro/bordes por caracteres/palabras queda
+desde el inicio (azar sí viaja: Randomize Order; por líneas ahora van
+todos exactos). Y los **estirados por letra**
 (`estirar_letras` del director: «estirá la O» — escala no uniforme por
 rango de caracteres, la letra ancha EMPUJA a las demás, pintada desde la
 baseline) viajan como Scale animator con el selector clavado en la letra.
@@ -598,13 +619,16 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **244
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **297
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
   los del script de After Effects (conversión de easings, ancla de texto
   multilínea, cámara, temblor, master multi-escena, escapado ASCII,
-  determinismo byte a byte) en `tests/motion/exportar-ae.test.ts`.
+  determinismo byte a byte) en `tests/motion/exportar-ae.test.ts`; los de
+  la máscara del revelado en AE (ventanas, partición por renglón,
+  re-indexado de tramos, grupo de shapes) en
+  `tests/motion/revelado-ae.test.ts`.
 - **Sabotajes vistos en rojo** (§2.5): (1) `interpolar` ignorando el easing
   del tramo → falló exactamente «el easing del tramo lo declara el keyframe
   de SALIDA»; (2) gate del motion blur apagado en `evaluar-puro` → falló
@@ -656,7 +680,13 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   ABSOLUTAS (sin restar el vértice) → cayeron exactos los tests del parser
   Y el end-to-end del export del trazo. (31) filtro de familia de
   paresPorCategoria apagado (tracking ofrecido para gráficas) → falló
-  exacto el test del filtrado. Restaurados, 231/231 verdes. La tanda de UX del timeline (teclado del modal de recorte,
+  exacto el test del filtrado. (32) ventana de la mask sin el escalonado
+  de la entrada → falló exactamente «la entrada recorta hasta que su
+  ULTIMA unidad terminó». (33) corrimiento del `en` por unidades previas
+  quitado de capasPorLinea → falló exactamente «el en corre por las
+  unidades previas». (34) escalaDy del animator de vuelta a interlineado
+  (el bug de paridad con altoUnidad) → fallaron exactos los dos tests del
+  viaje 1.1× altoUnidad. Restaurados, todos verdes. La tanda de UX del timeline (teclado del modal de recorte,
   imán shift, Alt-dup, drag de palabra, Efectos plegable) se verificó por
   Playwright end-to-end (verificar32/33) — sus checks mostraron rojo
   GENUINO durante el desarrollo (el imán con alcance corto, el carril

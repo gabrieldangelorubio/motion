@@ -13,6 +13,27 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] La MÁSCARA del revelado viaja a AE (2026-08-31, tanda 18)
+- **Hecho (cierra la tanda 2 del export):** revelar/ocultar y familia
+  llegan a AE como MASK real con la ventana del motor (hold keys: recorta
+  solo mientras esconde; en reposo se agranda y no corta descendentes).
+  Regla de oro: el viaje nunca va en la Position de la capa (la mask
+  viajaría con él) — en TEXTO lo lleva el animator y la mask se mide en
+  AE con sourceRectAtTime (fuente real fijada, instante de reposo); un
+  texto MULTILÍNEA se parte en UNA CAPA POR RENGLÓN (el idioma del
+  motionero: las masks unidas en una capa dejan ver un renglón a través
+  de la caja del vecino), cada renglón con su ancla, su timing corrido
+  (por líneas el delay EXACTO — orden centro/bordes/azar incluidos —,
+  por caracteres/palabras el `en` corre por unidades previas), tramos
+  re-indexados y el contador en el renglón de la cifra; en FORMA/VECTOR/
+  TRAZO el viaje va en la Position del GRUPO de shapes y la caja suma el
+  margen del borde. De paso, bug de paridad cazado: el animator escalaba
+  los dy por interlineado donde el motor usa altoUnidad (con interlineado
+  apretado el texto asomaba bajo la máscara). MEDIA con revelado sigue
+  anotada (su encaje «cubrir» ya ocupa la mask del footage). Todo en
+  `revelado-ae-puro.ts` + tests (297 verdes, sabotajes 32-34 en rojo
+  exacto); review adversarial Sonnet según TOKENOMICS.
+
 ### [HECHO] Costo por dirección a la vista (2026-08-28, tanda 17)
 - **Hecho:** cada respuesta del director cierra con su META: «20 pasos ·
   1:26 · 184k tokens · ~$0.031 · gemini-3.6-flash» — tokens acumulados de
@@ -353,10 +374,12 @@
   viejo; (3) avisos deduplicados + diagnóstico de fuentes (qué resolvió AE
   cuando nada pega); (4) regla DURA de cámara en el prompt del agente
   (descubrir la escena = bajar zoom de la cámara, nunca animar capas).
-- **Tanda 2 (reducida, falta):** división letra por letra → text animators con range
-  selector + offset (división por caracteres/palabras/líneas y escalonado),
-  máscaras de revelado por línea, path SVG real del trazo. Hoy eso queda
-  ANOTADO en el comentario de capa.
+- **Tanda 2: HECHA.** Text animators nativos (2026-08-29): división por
+  caracteres/palabras/líneas → Range Selector barriendo con el escalonado
+  como ventana; estirados por letra como Scale animator clavado. Path SVG
+  real del trazo: hecho en la tanda 10. Máscaras de revelado (2026-08-31,
+  tanda 18): mask real con ventana de hold keys, multilínea partida por
+  renglón, shapes por la Position del grupo — ver la entrada de arriba.
 - **Tanda 3 (falta):** lo que muestre degradado la prueba en AE real de
   Gabriel (paso suyo: correr el .jsx, chequear editabilidad, renderizar y
   comparar frames contra nuestro MP4); resortes horneados por frame si la

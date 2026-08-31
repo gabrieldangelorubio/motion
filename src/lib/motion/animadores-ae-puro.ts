@@ -17,6 +17,7 @@
 
 import type { CapaTexto, Segmento } from "@/lib/motion/modelo";
 import { compilarSegmento, type PresetCompilado } from "@/lib/motion/presets-puro";
+import { altoUnidad } from "@/lib/motion/evaluar-puro";
 
 export type AnimadorAE = {
   clase: "entrada" | "salida";
@@ -70,11 +71,14 @@ function tieneIntermedios(compilado: PresetCompilado): boolean {
 
 /** Traduce UN segmento de una capa de texto dividida a su Text Animator.
     null = este segmento no es representable (sin división, canales de
-    trazo, o nada que animar) y sigue el camino de siempre. */
+    trazo, o nada que animar) y sigue el camino de siempre. `conMascara`:
+    el revelado viaja con MASK real (revelado-ae-puro) — el fundido por
+    unidad que la aproximaba ya no hace falta. */
 export function animadorDeSegmento(
   capa: CapaTexto,
   seg: Segmento,
   clase: "entrada" | "salida",
+  conMascara = false,
 ): AnimadorAE | null {
   if (capa.division === "ninguna") return null;
   const compilado = compilarSegmento(seg);
@@ -83,8 +87,10 @@ export function animadorDeSegmento(
   const avisos: string[] = [];
   const props: [string, number | number[]][] = [];
 
-  const interlineado = capa.fuente.interlineado ?? capa.fuente.tamano * 1.15;
-  const escalaDy = compilado.relativo ? interlineado : 1;
+  // los dy de presets `relativo` son múltiplos del ALTO DE UNIDAD del motor
+  // (nunca menos que 1.2× el cuerpo): con interlineado apretado el viaje
+  // tiene que cubrir el glifo completo o el texto asoma bajo la máscara
+  const escalaDy = compilado.relativo ? altoUnidad(capa) : 1;
   let dx = extremo(compilado.pista.dx, p0);
   const dy = extremo(compilado.pista.dy, p0) * escalaDy;
   if (compilado.tracking) {
@@ -105,9 +111,9 @@ export function animadorDeSegmento(
   if (dRotacion !== 0) props.push(["ADBE Text Rotation", r1(dRotacion)]);
 
   let dOpacidad = extremo(compilado.pista.dOpacidad, p0);
-  if (compilado.recorte && dOpacidad === 0) {
-    // la máscara por renglón del revelado no existe en animators: el
-    // fundido por unidad es la aproximación estándar — avisada
+  if (compilado.recorte && dOpacidad === 0 && !conMascara) {
+    // sin la MASK real del revelado (conMascara), el fundido por unidad
+    // es la aproximación estándar — avisada
     dOpacidad = -1;
     avisos.push("mascara del revelado aproximada con opacidad por unidad");
   }
@@ -167,14 +173,14 @@ export function estiradosDeCapa(capa: CapaTexto): EstiradoAE[] {
 }
 
 /** Los animadores de la capa: entrada y/o salida traducibles. */
-export function animadoresDeCapa(capa: CapaTexto): AnimadorAE[] {
+export function animadoresDeCapa(capa: CapaTexto, conMascara = false): AnimadorAE[] {
   const lista: AnimadorAE[] = [];
   if (capa.entrada) {
-    const a = animadorDeSegmento(capa, capa.entrada, "entrada");
+    const a = animadorDeSegmento(capa, capa.entrada, "entrada", conMascara);
     if (a) lista.push(a);
   }
   if (capa.salida) {
-    const a = animadorDeSegmento(capa, capa.salida, "salida");
+    const a = animadorDeSegmento(capa, capa.salida, "salida", conMascara);
     if (a) lista.push(a);
   }
   return lista;
