@@ -173,9 +173,12 @@ export function desplazarEnZ(comp: Composicion, ids: string[], direccion: 1 | -1
   const resto = comp.capas.filter((c) => !enBloque.has(c.id));
   const primero = comp.capas.findIndex((c) => enBloque.has(c.id));
   const p = comp.capas.slice(0, primero).filter((c) => !enBloque.has(c.id)).length;
-  const primeraNoVideo = resto.findIndex((c) => c.tipo !== "video");
-  const piso = primeraNoVideo < 0 ? resto.length : primeraNoVideo;
+  // el piso es DESPUÉS del último video de resto (no solo la primera racha:
+  // si un video quedó fuera de lugar por otra vía, nada nuevo baja debajo)
+  const piso = resto.reduce((max, c, i) => (c.tipo === "video" ? i + 1 : max), 0);
   const nuevoP = Math.min(Math.max(p + direccion, piso), resto.length);
+  // el clamp jamás mueve CONTRA el gesto (p < piso solo en estados ya rotos)
+  if (Math.sign(nuevoP - p) === -direccion) return comp;
   const capas = [...resto.slice(0, nuevoP), ...bloque, ...resto.slice(nuevoP)];
   const igual = capas.every((c, i) => c.id === comp.capas[i].id);
   return igual ? comp : { ...comp, capas };
@@ -262,16 +265,22 @@ export type FilaCapas =
     AE (precomp por subgrupo). */
 export function filasDeCapas(capas: Capa[]): FilaCapas[] {
   const filas: FilaCapas[] = [];
+  // un subgrupo puede quedar PARTIDO en rachas (reordenando en z una sola de
+  // sus capas): cada racha es una fila con id único — sin esto, dos filas
+  // compartirían key de React y estado de plegado
+  const rachas = new Map<string, number>();
   for (const capa of capas) {
     if (capa.subgrupo) {
       const previa = filas[filas.length - 1];
-      if (previa?.tipo === "grupo" && previa.id === capa.subgrupo) {
+      if (previa?.tipo === "grupo" && previa.capas[0].subgrupo === capa.subgrupo) {
         previa.capas.push(capa);
         continue;
       }
+      const n = (rachas.get(capa.subgrupo) ?? 0) + 1;
+      rachas.set(capa.subgrupo, n);
       filas.push({
         tipo: "grupo",
-        id: capa.subgrupo,
+        id: n === 1 ? capa.subgrupo : `${capa.subgrupo}·${n}`,
         nombre: capa.subgrupoNombre ?? capa.subgrupo,
         capas: [capa],
       });

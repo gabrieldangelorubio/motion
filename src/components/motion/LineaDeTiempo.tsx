@@ -423,11 +423,15 @@ export function LineaDeTiempo({
       if (!origen.movio) return;
       pintar();
     };
-    const alSoltar = (ev: PointerEvent) => {
+    const limpiar = () => {
       window.removeEventListener("pointermove", alMover);
       window.removeEventListener("pointerup", alSoltar);
+      window.removeEventListener("pointercancel", limpiar);
       cancelAnimationFrame(rafId);
       setMarquee(null);
+    };
+    const alSoltar = (ev: PointerEvent) => {
+      limpiar();
       if (!origen.movio) {
         if (!capaId) return; // el fondo (o la fila de cámara, que se maneja sola)
         if (shift && onAlternarSeleccion) onAlternarSeleccion(capaId);
@@ -449,8 +453,17 @@ export function LineaDeTiempo({
         .flatMap((el) => (el.dataset.filaTl ? [el.dataset.filaTl] : (el.dataset.filaTlGrupo?.split(",") ?? [])));
       if (ids.length && onSeleccionarVarias) onSeleccionarVarias(ids);
     };
+    // capturar el puntero: si se suelta FUERA de la ventana igual llega el
+    // pointerup (sin esto, el rAF del auto-scroll quedaría corriendo solo);
+    // pointercancel (gesto del SO, pérdida de captura) también limpia
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* puntero ya ido: los listeners de window siguen cubriendo el gesto */
+    }
     window.addEventListener("pointermove", alMover);
     window.addEventListener("pointerup", alSoltar);
+    window.addEventListener("pointercancel", limpiar);
     rafId = requestAnimationFrame(paso);
   };
 

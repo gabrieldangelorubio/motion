@@ -1656,8 +1656,9 @@ export function Editor({
   // ⌘A: todas las capas reales (el video de referencia no es operable)
   const seleccionarTodas = useCallback(() => {
     const ids = compRef.current.capas.filter((c) => c.tipo !== "video").map((c) => c.id);
+    if (!ids.length) return; // nada operable: no pisar la selección que haya
     setSeleccionIds(ids);
-    setSeleccionId(ids[ids.length - 1] ?? null);
+    setSeleccionId(ids[ids.length - 1]);
   }, []);
 
   // ⌘] / ⌘[: la selección sube o baja un escalón en el z-order (como AE)

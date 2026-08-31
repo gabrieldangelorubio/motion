@@ -184,4 +184,26 @@ test("desplazarEnZ corre la selección un escalón, compacta, y respeta el piso 
   assert.equal(desplazarEnZ(conRef, ["a"], -1), conRef, "a ya está apoyada sobre el video");
   assert.equal(orden(desplazarEnZ(conRef, ["b"], -1)), "ref,b,a");
   assert.equal(orden(desplazarEnZ(conRef, ["ref", "a"], 1)), "ref,b,a", "el video no entra al bloque");
+
+  // estado ya roto (un video fuera de lugar): nada NUEVO baja debajo de un
+  // video, y el clamp jamás mueve contra el gesto
+  const roto = {
+    ...crearComposicion({ nombre: "z" }),
+    capas: [video("v1"), capaNueva("a"), video("v2"), capaNueva("b")] as import("@/lib/motion/modelo").Capa[],
+  };
+  assert.equal(desplazarEnZ(roto, ["b"], -1), roto, "b no se mete debajo de v2");
+  assert.equal(desplazarEnZ(roto, ["a"], -1), roto, "a no sube por un clamp de bajada");
+});
+
+test("filasDeCapas: un subgrupo partido en rachas da filas con id único", async () => {
+  const { filasDeCapas } = await import("@/lib/motion/herramientas-puro");
+  const con = (id: string, subgrupo?: string) => ({ ...capaNueva(id), subgrupo });
+  const filas = filasDeCapas([con("s1", "logo"), con("suelta"), con("s2", "logo")]);
+  assert.deepEqual(
+    filas.map((f) => (f.tipo === "grupo" ? f.id : f.capa.id)),
+    ["logo", "suelta", "logo·2"],
+  );
+  // la racha contigua sigue colapsando en UNA fila
+  const juntas = filasDeCapas([con("s1", "logo"), con("s2", "logo")]);
+  assert.equal(juntas.length, 1);
 });

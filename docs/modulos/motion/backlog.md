@@ -33,9 +33,25 @@
   Playwright end-to-end (verificar-zorden, 13/13), que además cazó un bug
   real: el rectángulo del marquee agrandaba el área scrolleable y el
   auto-scroll se retroalimentaba infinito — quedó clampeado al contenido.
+- La review adversarial (Sonnet, TOKENOMICS) encontró 3 reales + 1 menor,
+  todos aplicados: el piso de video solo protegía la primera racha (ahora
+  es «después del ÚLTIMO video», y el clamp jamás mueve contra el gesto);
+  el marquee sin pointer capture dejaba el rAF del auto-scroll corriendo
+  para siempre si soltabas fuera de la ventana (capture + pointercancel +
+  limpieza unificada); la fila del video en el panel de Capas se podía
+  arrastrar y romper el invariante de fondo (ahora ni arrastra ni es
+  blanco de drop, solo click-selecciona); y ⌘A sin capas operables pisaba
+  la selección que hubiera (early return). De paso: un subgrupo partido
+  en rachas (posible con ⌘]/⌘[ sobre una sola de sus capas) generaba
+  filas con id duplicado (keys de React) — filasDeCapas ahora da id único
+  por racha («logo», «logo·2»).
 - **Anotado:** drag para reordenar directo en el gutter del timeline
   (hoy el reorden por drag vive en el panel de capas; en el timeline es
   ⌘]/⌘[) — si Gabriel lo pide, es la próxima muesca de esta tanda.
+  Mover capas en z ENTRE pantallas es libre (como AE): puede dejar los
+  miembros de una pantalla no contiguos en el array — los paneles lo
+  toleran (elementosDe filtra por grupo, filasDeCapas id por racha); si
+  algún consumidor futuro asume contigüidad, mirar acá.
 
 ### [HECHO] Todo lo solo-borde es TRAZO dibujable (2026-08-31, tanda 22, plugin v11)
 - **Hecho (ronda de Gabriel: «las líneas deberían dibujarse como path»):**

@@ -143,14 +143,24 @@ export function Capas({
   const fila = (capa: Capa, cont: string, sangria: boolean) => {
     const activa = seleccionId === capa.id || seleccionIds.includes(capa.id);
     const esPlaca = capa.grupo === capa.id;
+    // el video de referencia vive CLAVADO al fondo: ni se arrastra ni es
+    // blanco de drop (sin data-fila-id no existe para el reorden) — solo
+    // se selecciona con click, para ver su sección del inspector
+    const esVideo = capa.tipo === "video";
     return (
       <div
         key={capa.id}
-        data-fila-id={capa.id}
-        data-fila-cont={cont}
-        onPointerDown={(e) => iniciarFila(e, capa.id, cont, capa.id)}
+        data-fila-id={esVideo ? undefined : capa.id}
+        data-fila-cont={esVideo ? undefined : cont}
+        onPointerDown={esVideo ? undefined : (e) => iniciarFila(e, capa.id, cont, capa.id)}
+        onClick={
+          esVideo
+            ? (e) => (e.shiftKey && onAlternarSeleccion ? onAlternarSeleccion(capa.id) : onSeleccionar(capa.id))
+            : undefined
+        }
         className={[
-          "group/fila relative mb-0.5 flex h-8 cursor-grab touch-none items-center gap-2 rounded-control pr-1 active:cursor-grabbing",
+          "group/fila relative mb-0.5 flex h-8 touch-none items-center gap-2 rounded-control pr-1",
+          esVideo ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
           sangria ? "pl-6" : "pl-2.5",
           activa ? "bg-ink/[0.08]" : "hover:bg-ink/[0.04]",
         ].join(" ")}
