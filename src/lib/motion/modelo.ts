@@ -235,7 +235,25 @@ export type CapaMedia = CapaBase & {
   ajuste: "cubrir" | "contener";
 };
 
-export type Capa = CapaTexto | CapaForma | CapaMedia | CapaTrazo | CapaVector;
+/** VIDEO DE REFERENCIA: el video real que la pieza acompaña, de fondo en el
+    preview para componer las gráficas ENCIMA. Es SOLO guía — nunca sale en
+    ningún export (MP4, secuencia PNG, .jsx de AE): el montaje final se hace
+    allá, con las gráficas en alfa sobre el video verdadero. El archivo vive
+    en el navegador (IndexedDB, como el audio del proyecto); al JSON viaja
+    únicamente el `videoId`. El director no la opera. */
+export type CapaVideo = CapaBase & {
+  tipo: "video";
+  /** id del archivo en el almacén local del navegador */
+  videoId: string;
+  ancho: number;
+  alto: number;
+  ajuste: "cubrir" | "contener";
+  /** offset dentro del archivo: el ms del video que suena en el t=0 de la escena */
+  desde?: number;
+  referencia: true;
+};
+
+export type Capa = CapaTexto | CapaForma | CapaMedia | CapaTrazo | CapaVector | CapaVideo;
 
 /** Cámara de la composición: el render ES lo que ella ve. Keyframes de centro
     (x, y en px del lienzo) y zoom (1 = el frame entero); `base` es el estado

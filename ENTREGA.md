@@ -333,6 +333,24 @@ media, «Reemplazar el archivo…» cambia la imagen CONSERVANDO posición,
 tamaño y animación — actualizar la foto de un diseño sin rearmar nada;
 de paso el `ajuste` cubrir/contener ahora se PINTA de verdad —cubrir
 recorta centrado con clip, contener encaja entera— cuando antes estiraba),
+**VIDEO DE REFERENCIA** (tanda 19, 2026-08-31 — la decisión «los videos
+acá son solo referencia» implementada: botón de la toolbar → el video cae
+como capa de FONDO cubriendo el frame, se ve en el preview para componer
+las gráficas encima, y NUNCA sale en ningún export — el MP4, la secuencia
+PNG, el .jsx de AE y los frames de la revisión del director filtran con
+`sinCapasReferencia` antes de renderizar, y el alert de AE recuerda que
+el montaje sobre el video real se hace allá; el archivo vive ENTERO en el
+navegador (IndexedDB, como el audio y las fuentes: al reabrir vuelve
+solo; al JSON viaja únicamente el `videoId`, y en otra máquina pinta
+placeholder con aviso), el `<video>` mudo es ESCLAVO del reloj del
+preview (corrección por deriva en cada frame: play, scrub, cambio de
+escena y loop lo siguen; clavado en su último frame si la escena es más
+larga; el inspector tiene el offset «Desde» para alinear el archivo), la
+fila del panel de capas lleva el chip REF, y el DIRECTOR la conoce pero
+no la opera: `describir` la nombra como referencia con la regla de no
+tocarla y cualquier herramienta que la apunte se rechaza con guía;
+borrar la capa NO borra el archivo local — el undo la puede traer de
+vuelta, como las fuentes recordadas),
 **secuencia PNG con alfa** (tercer camino de export, pensado para el
 flujo «los videos acá son solo referencia»: las gráficas solas sobre
 fondo TRANSPARENTE, frame a frame, en un ZIP —zip STORE propio,
@@ -541,6 +559,9 @@ indexados a otros caracteres): degradar, no romper.
   se vuelve trazo animable (es el caso «línea decorativa»; un shape relleno
   animado con trim no tiene equivalente fiel en canvas barato).
 - **Audio**: no hay pista de audio en esta versión.
+- **El video de referencia vive solo en el navegador** (IndexedDB): no
+  viaja entre máquinas hasta el catálogo de diosa (P2, como las fuentes).
+  Su audio no suena (va mudo: la locución es el audio de proyecto).
 - **Selección múltiple en el lienzo** (shift-click, marquee, Alt-duplica):
   la selección y el drag simples ya están; lo múltiple es P1.
 - **Permisos reales**: `exigirEdicion(actor, composicionId)` es el único
@@ -626,7 +647,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **301
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **309
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -693,7 +714,14 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   quitado de capasPorLinea → falló exactamente «el en corre por las
   unidades previas». (34) escalaDy del animator de vuelta a interlineado
   (el bug de paridad con altoUnidad) → fallaron exactos los dos tests del
-  viaje 1.1× altoUnidad. Restaurados, todos verdes. La tanda de UX del timeline (teclado del modal de recorte,
+  viaje 1.1× altoUnidad. (35) sinCapasReferencia sin filtrar → cayeron
+  exactos el test del filtro y el del .jsx sin video. (36) guard del
+  director sobre el video de referencia apagado → falló exacto «se
+  rechaza con guía». Restaurados, todos verdes. El video de referencia
+  además se verificó END-TO-END en Chromium real (Playwright: webm
+  generado en la página → subido por el botón → capa al fondo con chip
+  REF → el canvas pinta el FRAME del video, pixel verificado → el archivo
+  persiste en IndexedDB tras recargar). La tanda de UX del timeline (teclado del modal de recorte,
   imán shift, Alt-dup, drag de palabra, Efectos plegable) se verificó por
   Playwright end-to-end (verificar32/33) — sus checks mostraron rojo
   GENUINO durante el desarrollo (el imán con alcance corto, el carril
@@ -716,6 +744,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 7. Dobles de `ui/` (`BotonIcono`, `ConPista`) → piezas reales, mismo uso.
 8. Capas media: resolver `mediaId` contra el catálogo (el motor recibe un
    `imagenDe(mediaId)` inyectado; hoy pinta placeholder).
+9. Video de referencia: subir el archivo al catálogo para que viaje entre
+   máquinas (hoy IndexedDB local; `video-guardado.ts` es la interfaz que
+   queda, `olvidarVideo` incluido para la limpieza).
 
 ## Qué probé a ojo
 

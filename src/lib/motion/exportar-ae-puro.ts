@@ -40,7 +40,7 @@ import type {
   Pistas,
   Segmento,
 } from "@/lib/motion/modelo";
-import { camaraEn, estadoEn } from "@/lib/motion/evaluar-puro";
+import { camaraEn, esCapaReferencia, estadoEn, sinCapasReferencia } from "@/lib/motion/evaluar-puro";
 import { filasDeCapas, type FilaCapas } from "@/lib/motion/herramientas-puro";
 import { familiaPrincipal } from "@/lib/motion/fuentes-puro";
 import { compilarSegmento } from "@/lib/motion/presets-puro";
@@ -1116,6 +1116,10 @@ function emitirCapa(
     return;
   }
 
+  // el video de referencia nunca llega acá (las escenas vienen filtradas
+  // por sinCapasReferencia); el narrowing lo necesita igual
+  if (capa.tipo === "video") return;
+
   // media: si el asset viaja en el zip, el script lo IMPORTA de verdad
   // (assets/ junto al .jsx); sin archivo cae al sólido placeholder — el
   // proyecto abre igual, degradado y avisado
@@ -1535,11 +1539,18 @@ function __pista(prop, claves, dims) {
  * Determinista: mismas escenas → mismo texto, byte a byte.
  */
 export function generarScriptAE(
-  escenas: Composicion[],
+  escenasCrudas: Composicion[],
   nombreProyecto?: string,
   opciones: OpcionesAE = {},
 ): string {
-  if (escenas.length === 0) throw new Error("No hay escenas para exportar");
+  if (escenasCrudas.length === 0) throw new Error("No hay escenas para exportar");
+  // el VIDEO DE REFERENCIA no viaja a AE: es la guía del preview — el
+  // montaje sobre el video real se hace allá (el alert final lo recuerda)
+  const escenas = escenasCrudas.map(sinCapasReferencia);
+  const videosReferencia = escenasCrudas.reduce(
+    (n, e) => n + e.capas.filter(esCapaReferencia).length,
+    0,
+  );
   const sinAnimacion = opciones.sinAnimacion ?? false;
   const rutasMedia = opciones.rutasMedia ?? {};
   const proyecto = nombreProyecto ?? escenas[0].nombre;
@@ -1638,7 +1649,10 @@ export function generarScriptAE(
   }
 
   L.push(`app.endUndoGroup();`);
-  L.push(`alert(${cadena(`motion: «${proyecto}» importado — ${escenas.length} escena(s), ${totalCapas} capa(s). Las capas con animacion pendiente de traducir lo dicen en su comentario.`)});`);
+  const notaReferencia = videosReferencia
+    ? ` El video de REFERENCIA del preview (${videosReferencia}) no viaja: monta estas comps sobre el video real aca.`
+    : "";
+  L.push(`alert(${cadena(`motion: «${proyecto}» importado — ${escenas.length} escena(s), ${totalCapas} capa(s). Las capas con animacion pendiente de traducir lo dicen en su comentario.${notaReferencia}`)});`);
   L.push(`if (__fuentesFaltantes.length) alert("Tipografias que AE no encontro (cada capa dice la ORIGINAL en su comentario; instalalas y volve a correr el script):\\n- " + __fuentesFaltantes.join("\\n- "));`);
   L.push(`if (__avisos.length) alert("Avisos tecnicos del import (mandale una captura de esto a motion):\\n- " + __avisos.join("\\n- "));`);
   L.push(``);

@@ -87,6 +87,19 @@ export function altoUnidad(capa: Capa): number {
   return capa.alto;
 }
 
+/** ¿La capa es SOLO referencia (el video de fondo)? Se ve en el preview
+    pero nunca sale en un export ni la opera el director. */
+export function esCapaReferencia(capa: Capa): boolean {
+  return capa.tipo === "video" && capa.referencia;
+}
+
+/** La composición sin sus capas de referencia: lo que un EXPORT renderiza
+    (MP4, secuencia PNG, .jsx de AE) y lo que la revisión visual mira. */
+export function sinCapasReferencia(comp: Composicion): Composicion {
+  if (!comp.capas.some(esCapaReferencia)) return comp;
+  return { ...comp, capas: comp.capas.filter((c) => !esCapaReferencia(c)) };
+}
+
 function offsetDe(pista: PistaRelativa[keyof PistaRelativa], p: number): number {
   if (!pista || pista.length === 0) return 0;
   if (p <= pista[0].p) return pista[0].v;

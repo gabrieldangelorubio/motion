@@ -478,6 +478,12 @@ export function describir(comp: Composicion): string {
     lineas.push(`  cámara — el render es lo que ella ve: ${partes.join(" · ") || "sin pistas (plano fijo)"}`);
   }
   for (const capa of comp.capas) {
+    if (capa.tipo === "video") {
+      // el director SABE que existe (es el fondo contra el que compone)
+      // pero no la opera: no se anima, no se edita, no sale en el export
+      lineas.push(`  · [video] «${capa.nombre}» — VIDEO DE REFERENCIA de fondo: solo guía del preview, NO operarla (no se anima ni se exporta)`);
+      continue;
+    }
     const partes = [`  · [${capa.tipo}] «${capa.nombre}» en (${Math.round(capa.x)}, ${Math.round(capa.y)})`];
     if (capa.tipo === "texto" && capa.division !== "ninguna") partes.push(`división ${capa.division}`);
     if (capa.tipo === "texto" && capa.deformaciones?.length) {

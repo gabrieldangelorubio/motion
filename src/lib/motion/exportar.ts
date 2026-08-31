@@ -18,7 +18,7 @@
 
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import type { Composicion } from "@/lib/motion/modelo";
-import { estadoEn } from "@/lib/motion/evaluar-puro";
+import { estadoEn, sinCapasReferencia } from "@/lib/motion/evaluar-puro";
 import { pintar, type Contexto2D, type FuentesDeMedia } from "@/lib/motion/pintar";
 import { problemaDeFormatos, rangoDeExport } from "@/lib/motion/escenas-puro";
 import { recorteDeAudio } from "@/lib/motion/audio-puro";
@@ -76,7 +76,8 @@ export async function exportarMp4(
   if (!exportSoportado()) {
     throw new Error("Este navegador no soporta WebCodecs (probá Chrome o Edge)");
   }
-  const escenas = Array.isArray(entrada) ? entrada : [entrada];
+  // el VIDEO DE REFERENCIA no sale en ningún export: solo guía del preview
+  const escenas = (Array.isArray(entrada) ? entrada : [entrada]).map(sinCapasReferencia);
   const problema = problemaDeFormatos(escenas);
   if (problema) throw new Error(problema);
   const comp = escenas[0];
@@ -302,7 +303,8 @@ export async function exportarPngSecuencia(
     throw new Error("Este navegador no soporta OffscreenCanvas");
   }
   const { crearZip } = await import("@/lib/motion/zip-puro");
-  const escenas = Array.isArray(entrada) ? entrada : [entrada];
+  // ídem MP4: el video de referencia queda afuera de la secuencia PNG
+  const escenas = (Array.isArray(entrada) ? entrada : [entrada]).map(sinCapasReferencia);
   const problema = problemaDeFormatos(escenas);
   if (problema) throw new Error(problema);
   const comp = escenas[0];

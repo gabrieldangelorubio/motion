@@ -37,6 +37,9 @@ export type Contexto2D = Pick<
 /** Imágenes ya resueltas por el caller (el motor no sabe de red ni catálogo). */
 export type FuentesDeMedia = {
   imagenDe?: (mediaId: string) => CanvasImageSource | null;
+  /** el frame vivo del VIDEO DE REFERENCIA: un <video> cuyo currentTime lo
+      esclaviza el reloj del caller — el motor solo lo dibuja */
+  videoDe?: (videoId: string) => CanvasImageSource | null;
 };
 
 function filtroDe(desenfoque: number, blurX: number, blurY: number, escalaPx: number): string {
@@ -369,6 +372,51 @@ function pintarMedia(estado: EstadoCapa, ctx: Contexto2D, media: FuentesDeMedia,
   ctx.restore();
 }
 
+/** El VIDEO DE REFERENCIA: se dibuja el frame vivo del <video> que el
+    caller esclaviza al reloj. Solo existe en el preview — los exports
+    filtran estas capas con sinCapasReferencia antes de pintar. */
+function pintarVideo(estado: EstadoCapa, ctx: Contexto2D, media: FuentesDeMedia, escalaPx: number): void {
+  const capa = estado.capa;
+  if (capa.tipo !== "video") return;
+  const u = estado.unidades[0];
+  ctx.save();
+  ctx.globalAlpha *= u.opacidad;
+  ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
+  if (u.recorte) recortarACaja(ctx, capa.ancho, capa.alto);
+  ctx.translate(u.dx, u.dy);
+  if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
+  ctx.scale(1 + u.dEscala, 1 + u.dEscala);
+  const video = media.videoDe?.(capa.videoId) ?? null;
+  if (video) {
+    const natural = video as { videoWidth?: number; videoHeight?: number; width?: number; height?: number };
+    const natW = natural.videoWidth || natural.width || 0;
+    const natH = natural.videoHeight || natural.height || 0;
+    const real = ctx as unknown as CanvasRenderingContext2D;
+    if (natW > 0 && natH > 0) {
+      const factor =
+        capa.ajuste === "contener"
+          ? Math.min(capa.ancho / natW, capa.alto / natH)
+          : Math.max(capa.ancho / natW, capa.alto / natH);
+      const dw = natW * factor;
+      const dh = natH * factor;
+      if (capa.ajuste !== "contener" && (dw > capa.ancho || dh > capa.alto)) {
+        ctx.beginPath();
+        ctx.rect(-capa.ancho / 2, -capa.alto / 2, capa.ancho, capa.alto);
+        ctx.clip();
+      }
+      real.drawImage(video, -dw / 2, -dh / 2, dw, dh);
+    } else {
+      real.drawImage(video, -capa.ancho / 2, -capa.alto / 2, capa.ancho, capa.alto);
+    }
+  } else {
+    // Placeholder determinista: el archivo vive en OTRO navegador (o carga).
+    // Más oscuro que el de media — es el fondo, no una pieza del diseño.
+    ctx.fillStyle = "rgba(70, 70, 80, 0.3)";
+    ctx.fillRect(-capa.ancho / 2, -capa.alto / 2, capa.ancho, capa.alto);
+  }
+  ctx.restore();
+}
+
 export function pintar(estado: EstadoComposicion, ctx: Contexto2D, media: FuentesDeMedia = {}, escalaPx = 1): void {
   ctx.save();
   // fondo vacío = LIENZO TRANSPARENTE (secuencia PNG con alfa: las gráficas
@@ -401,6 +449,7 @@ export function pintar(estado: EstadoComposicion, ctx: Contexto2D, media: Fuente
     else if (capa.capa.tipo === "forma") pintarForma(capa, ctx, escalaPx);
     else if (capa.capa.tipo === "trazo") pintarTrazo(capa, ctx, escalaPx);
     else if (capa.capa.tipo === "vector") pintarVector(capa, ctx, escalaPx);
+    else if (capa.capa.tipo === "video") pintarVideo(capa, ctx, media, escalaPx);
     else pintarMedia(capa, ctx, media, escalaPx);
     ctx.restore();
   }

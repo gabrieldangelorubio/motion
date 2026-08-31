@@ -109,6 +109,16 @@ export function ejecutarHerramienta(
   const capaDe = (id: unknown) => comp.capas.find((c) => c.id === id);
   const marca = ahora || Math.max(0, ...comp.capas.map((c) => c.v ?? 0)) + 1;
 
+  // el VIDEO DE REFERENCIA no se opera: cualquier herramienta que lo apunte
+  // se rechaza con guía — es el fondo del preview, no una pieza de la pieza
+  const objetivo = capaDe(input.capaId);
+  if (objetivo?.tipo === "video") {
+    return fallo(
+      comp,
+      `«${objetivo.nombre}» es un VIDEO DE REFERENCIA: solo guía del preview — no se anima, no se edita y no sale en el export. Componé las gráficas encima.`,
+    );
+  }
+
   switch (nombre) {
     case "ver_composicion":
       return { comp, resultado: describir(comp) };

@@ -378,6 +378,39 @@ export function Inspector({
         </section>
       )}
 
+      {capa.tipo === "video" && (
+        <section className="border-t border-(--glass-border) px-3 py-3">
+          <Etiqueta className="mb-2">{t("Video de referencia")}</Etiqueta>
+          <p className="text-[11px] leading-snug text-muted">
+            {t("Solo guía: se ve en el preview para componer encima, pero no sale en ningún export (MP4, PNG, After Effects). El archivo vive en este navegador.")}
+          </p>
+          <div className="mt-2 flex flex-col gap-2">
+            <Desplegable
+              etiqueta={t("Ajuste")}
+              valor={capa.ajuste}
+              onCambio={(v) => {
+                onCheckpoint();
+                editar({ ajuste: v as "cubrir" | "contener" });
+              }}
+              opciones={[
+                { valor: "cubrir", nombre: t("Cubrir la caja") },
+                { valor: "contener", nombre: t("Contener (entero)") },
+              ]}
+            />
+            <CampoNumero
+              etiqueta={t("Desde")}
+              valor={capa.desde ?? 0}
+              min={0}
+              paso={100}
+              sufijo="ms"
+              porDefecto={0}
+              onInicio={onCheckpoint}
+              onCambio={(desde) => editar({ desde })}
+            />
+          </div>
+        </section>
+      )}
+
       {capa.grupo === capa.id && onBorrarPantalla && (
         <section className="border-t border-(--glass-border) px-3 py-3">
           <Etiqueta className="mb-2">{t("Pantalla")}</Etiqueta>

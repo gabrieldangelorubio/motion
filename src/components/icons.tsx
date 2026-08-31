@@ -132,6 +132,14 @@ const ICONOS = {
       <path d="M12 15V5m0 0L8 9m4-4l4 4M5 19h14" />
     </svg>
   ),
+  // video de referencia: un clacker de cine minimalista (concepto nuevo del
+  // módulo — al integrar se fusiona con el registro real de diosa)
+  pelicula: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <rect x="3.5" y="5" width="17" height="14" rx="2" />
+      <path d="M3.5 9h17M7.5 5l2.5 4M12.5 5l2.5 4M17.5 5l2 3.2" />
+    </svg>
+  ),
   descargar: (p: IconoProps) => (
     <svg {...base(p)} aria-hidden>
       <path d="M12 4v10m0 0l-4-4m4 4l4-4M5 19h14" />

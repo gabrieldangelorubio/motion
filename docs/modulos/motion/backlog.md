@@ -13,6 +13,26 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] VIDEO DE REFERENCIA: el fondo que no se exporta (2026-08-31, tanda 19)
+- **Hecho (la decisión «los videos acá son solo referencia»):** capa
+  `video` con `referencia: true` — botón en la toolbar, cae de FONDO
+  cubriendo el frame; se ve en el preview (el `<video>` mudo es esclavo
+  del reloj: play/scrub/loop/cambio de escena lo siguen, con offset
+  «Desde» en el inspector) y NUNCA sale en un export: MP4, secuencia PNG,
+  .jsx de AE y frames de revisión del director filtran con
+  `sinCapasReferencia` (el alert de AE recuerda montar sobre el video
+  real). Archivo entero en IndexedDB (`video-guardado.ts`, patrón del
+  audio); al JSON solo el `videoId`; en otra máquina placeholder avisado.
+  Chip REF en el panel de capas. El director la CONOCE (describir la
+  nombra con la regla de no tocarla) y cualquier herramienta que la
+  apunte se rechaza con guía. Borrar la capa no borra el archivo (el undo
+  la revive). Verificado: unit (filtro, pintado, AE, guard, serializar) +
+  sabotajes 35-36 + Playwright end-to-end en Chromium real (webm generado
+  en la página, subido, pixel del frame verificado, IndexedDB persiste).
+  Pendiente natural (P2): el archivo al catálogo de diosa para viajar
+  entre máquinas; sugerir el TEMPO de la escena desde la duración del
+  video (como hace el audio).
+
 ### [HECHO] La MÁSCARA del revelado viaja a AE (2026-08-31, tanda 18)
 - **Hecho (cierra la tanda 2 del export):** revelar/ocultar y familia
   llegan a AE como MASK real con la ventana del motor (hold keys: recorta
@@ -417,10 +437,8 @@
   audio; mic en el chat de diosa (hablar el pedido → texto al input).
   Falta: sugerir cortes de escena en las pausas de la locución, y linkear
   oración ↔ capa animada (auto-timing).
-- **Video de referencia (nuevo, decidido):** los videos que entren al
-  lienzo son SOLO referencia de fondo — no salen en el export (que va por
-  PNG alfa o por el .jsx de AE); implementar capa video con flag
-  `referencia` excluida del render final.
+- **Video de referencia:** HECHO (2026-08-31, tanda 19 — ver su entrada
+  arriba): capa `video` con `referencia: true`, excluida de todo export.
 - **Dónde:** `audio-puro.ts`, `audio-guardado.ts`, `AudioDeProyecto.tsx`,
   `exportar.ts`
 

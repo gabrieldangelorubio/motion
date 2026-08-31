@@ -58,6 +58,10 @@ export function validar(comp: Composicion): Problema[] {
       problemas.push({ capaId: capa.id, mensaje: `«${capa.nombre}»: el trim base deja el trazo vacío (fin ≤ inicio)` });
     }
 
+    if (capa.tipo === "video" && !capa.videoId) {
+      problemas.push({ capaId: capa.id, mensaje: `«${capa.nombre}»: el video de referencia no apunta a ningún archivo` });
+    }
+
     for (const [prop, keyframes] of Object.entries(capa.pistas ?? {})) {
       for (const kf of keyframes ?? []) {
         if (kf.t < 0 || kf.t > comp.duracion) {

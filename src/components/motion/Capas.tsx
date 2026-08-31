@@ -24,6 +24,7 @@ const ETIQUETA_TIPO: Record<string, string> = {
   forma: "▢",
   media: "▣",
   trazo: "〜",
+  video: "▶",
 };
 
 /** Contenedores de reorden: una pantalla (su id de grupo), sueltas, o cabeceras. */
@@ -161,6 +162,14 @@ export function Capas({
         >
           {capa.nombre}
         </span>
+        {capa.tipo === "video" && (
+          <span
+            className="shrink-0 rounded-full bg-ink/[0.08] px-1.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-foreground/50"
+            aria-label={t("Video de referencia: solo guía, no sale en el export")}
+          >
+            {t("REF")}
+          </span>
+        )}
         {capa.bloqueada && <Icono nombre="candado" width={13} height={13} className="shrink-0 text-foreground/40" />}
         <span
           className="flex opacity-0 group-hover/fila:opacity-100 coarse:opacity-100"

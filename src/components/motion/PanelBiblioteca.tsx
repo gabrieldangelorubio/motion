@@ -145,7 +145,8 @@ export function PanelBiblioteca({
   const [ultimoTipo, setUltimoTipo] = useState<Capa["tipo"] | null>(tipoSeleccion);
   if (tipoSeleccion !== ultimoTipo) {
     setUltimoTipo(tipoSeleccion);
-    if (tipoSeleccion) {
+    // el video de REFERENCIA no tiene familia de efectos: no saltar
+    if (tipoSeleccion && tipoSeleccion !== "video") {
       setFamilia(tipoSeleccion === "texto" ? "texto" : tipoSeleccion === "trazo" ? "trazo" : "grafica");
     }
   }

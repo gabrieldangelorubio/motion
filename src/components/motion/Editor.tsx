@@ -13,7 +13,7 @@
 ----------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CanalCamara, Capa, CapaMedia, CapaTexto, Composicion, Keyframe, NombrePropiedad, Segmento, TemblorCamara } from "@/lib/motion/modelo";
+import type { CanalCamara, Capa, CapaMedia, CapaTexto, CapaVideo, Composicion, Keyframe, NombrePropiedad, Segmento, TemblorCamara } from "@/lib/motion/modelo";
 import { PRESETS, escalonadoSano } from "@/lib/motion/presets-puro";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
 import {
@@ -36,7 +36,10 @@ import {
   desplazarTiempoCapas,
   estirarTiempoCapas,
 } from "@/lib/motion/herramientas-puro";
-import { camaraEn, estadoEn } from "@/lib/motion/evaluar-puro";
+import { camaraEn, estadoEn, sinCapasReferencia } from "@/lib/motion/evaluar-puro";
+// olvidarVideo queda para la migración al catálogo: borrar la capa NO borra
+// el archivo local (el undo la puede traer de vuelta, como las fuentes)
+import { cargarVideoGuardado, recordarVideo } from "@/lib/motion/video-guardado";
 import { pintar, type Contexto2D } from "@/lib/motion/pintar";
 import type { ImagenRevision } from "@/lib/motion/revision-puro";
 import { aplicarSensacion, descripcionSensacion, type Sensacion } from "@/lib/motion/sensacion-puro";
@@ -268,6 +271,55 @@ export function Editor({
     const corte = cortesRef.current.find((c) => c.id === escenaActivaRef.current);
     el.currentTime = (recorteDesdeRef.current + (corte?.desdeMs ?? 0) + tiempoRef.current) / 1000;
   }, []);
+
+  // ——— VIDEO DE REFERENCIA: el archivo vive en IndexedDB (como el audio) y
+  // acá se materializa en un <video> mudo cuyo currentTime esclaviza el
+  // reloj del preview. pintar() solo dibuja el frame vivo. En otra máquina
+  // el registro no está: placeholder + aviso, nunca romper. ———
+  const videosRef = useRef(new Map<string, HTMLVideoElement | "cargando" | "falta">());
+  const asegurarVideo = useCallback((videoId: string) => {
+    if (videosRef.current.has(videoId)) return;
+    videosRef.current.set(videoId, "cargando");
+    void cargarVideoGuardado(videoId).then((registro) => {
+      if (!registro) {
+        videosRef.current.set(videoId, "falta");
+        setAvisoGuardado(t("El video de referencia no está en este navegador: borrá la capa y subilo de nuevo"));
+        return;
+      }
+      const el = document.createElement("video");
+      el.muted = true;
+      el.playsInline = true;
+      el.preload = "auto";
+      el.src = URL.createObjectURL(new Blob([registro.datos], { type: registro.tipo || "video/mp4" }));
+      videosRef.current.set(videoId, el);
+    });
+  }, []);
+  // al abrir (o cambiar de escena), los videos de las capas cargan solos
+  useEffect(() => {
+    for (const capa of composicion.capas) {
+      if (capa.tipo === "video") asegurarVideo(capa.videoId);
+    }
+  }, [composicion, asegurarVideo]);
+  /** Esclaviza cada <video> al reloj: en play corrige deriva grande y lo
+      mantiene andando (mudo); en pausa/scrub busca el frame exacto. */
+  const sincronizarVideos = useCallback((tMs: number, enPlay: boolean) => {
+    for (const capa of compRef.current.capas) {
+      if (capa.tipo !== "video") continue;
+      const el = videosRef.current.get(capa.videoId);
+      if (!(el instanceof HTMLVideoElement) || el.readyState < 1) continue;
+      let destino = ((capa.desde ?? 0) + tMs) / 1000;
+      // pasado el final del archivo, clavado en el último frame
+      if (Number.isFinite(el.duration)) destino = Math.min(destino, Math.max(0, el.duration - 0.001));
+      const deriva = Math.abs(el.currentTime - destino);
+      if (enPlay) {
+        if (el.paused && deriva > 0.02) void el.play().catch(() => undefined);
+        if (deriva > 0.18) el.currentTime = destino;
+      } else {
+        if (!el.paused) el.pause();
+        if (deriva > 0.04 && !el.seeking) el.currentTime = destino;
+      }
+    }
+  }, []);
   // ——— Modo cámara: grabar el gesto del viewport y suavizarlo a keyframes ———
   const [grabandoCamara, setGrabandoCamara] = useState(false);
   const grabandoRef = useRef(false);
@@ -358,6 +410,9 @@ export function Editor({
           }
         }
       }
+      // el video de referencia sigue al reloj se venga de donde venga el
+      // movimiento (play, scrub, cambio de escena): corrección por deriva
+      sincronizarVideos(tiempoRef.current, reproduciendo && !document.hidden);
       lienzoRef.current?.pintarAhora(tiempoRef.current);
       if (ahora - ultimoAvisoUI > 125) {
         ultimoAvisoUI = ahora;
@@ -370,7 +425,7 @@ export function Editor({
       vivo = false;
       cancelAnimationFrame(id);
     };
-  }, [reproduciendo, detenerGrabacion, sincronizarAudio]);
+  }, [reproduciendo, detenerGrabacion, sincronizarAudio, sincronizarVideos]);
 
   // Play con el playhead clavado en el final = volver a empezar (sin esto,
   // tras parar al final, play pausaría al instante).
@@ -843,6 +898,49 @@ export function Editor({
     entradaMediaRef.current?.click();
   }, []);
 
+  // ——— VIDEO DE REFERENCIA: cae de FONDO (primero en el z-order), cubre el
+  // frame y queda solo como guía del preview — jamás sale en un export. El
+  // archivo entero va a IndexedDB (como el audio); al JSON solo el id. ———
+  const entradaVideoRef = useRef<HTMLInputElement | null>(null);
+  const subirVideo = useCallback(async (archivo: File) => {
+    const datos = await archivo.arrayBuffer();
+    const videoId = `video-${Date.now().toString(36)}`;
+    const tipo = archivo.type || "video/mp4";
+    const el = document.createElement("video");
+    el.muted = true;
+    el.playsInline = true;
+    el.preload = "auto";
+    el.src = URL.createObjectURL(new Blob([datos], { type: tipo }));
+    const cargo = await new Promise<boolean>((resolver) => {
+      el.onloadedmetadata = () => resolver(true);
+      el.onerror = () => resolver(false);
+    });
+    if (!cargo) {
+      setAvisoGuardado(t("Ese archivo no se pudo leer como video"));
+      return;
+    }
+    await recordarVideo({ videoId, nombre: archivo.name, tipo, datos });
+    videosRef.current.set(videoId, el);
+    registrar();
+    const comp = compRef.current;
+    const capa: CapaVideo = {
+      id: videoId,
+      nombre: archivo.name.replace(/\.[a-z0-9]+$/i, ""),
+      tipo: "video",
+      x: comp.ancho / 2,
+      y: comp.alto / 2,
+      ancho: comp.ancho,
+      alto: comp.alto,
+      ajuste: "cubrir",
+      videoId,
+      referencia: true,
+      v: Date.now(),
+    };
+    setComposicion({ ...comp, capas: [capa, ...comp.capas] });
+    setSeleccionId(capa.id);
+    setSeleccionIds([capa.id]);
+  }, [registrar]);
+
   const retimarSegmento = useCallback((capaId: string, clave: "entrada" | "salida", nuevoEn: number, nuevaDuracion?: number) => {
     const capa = compRef.current.capas.find((c) => c.id === capaId);
     const seg = capa?.[clave];
@@ -1193,6 +1291,7 @@ export function Editor({
   // perezosas la primera vez que pintar() las pide; el loop del preview
   // las pinta apenas terminan de cargar.
   const imagenesRef = useRef(new Map<string, HTMLImageElement | "cargando">());
+
   const obtenerMedia = useCallback((): FuentesDeMedia => ({
     imagenDe: (mediaId: string) => {
       const conocida = imagenesRef.current.get(mediaId);
@@ -1205,7 +1304,15 @@ export function Editor({
       imagen.src = mediaId;
       return null;
     },
-  }), []);
+    videoDe: (videoId: string) => {
+      const el = videosRef.current.get(videoId);
+      if (el === undefined) {
+        asegurarVideo(videoId);
+        return null;
+      }
+      return el instanceof HTMLVideoElement && el.readyState >= 2 ? el : null;
+    },
+  }), [asegurarVideo]);
 
   // ——— SENSACIÓN de la pieza: la perilla snappy ↔ suave, arriba del chat.
   // Arrastrar = PREVIEW en vivo (el Lienzo lee por getter y repinta solo);
@@ -1240,7 +1347,9 @@ export function Editor({
   // para el modelo multimodal y barato en tokens. JPEG no tiene alfa: una
   // base oscura evita que un lienzo transparente viaje negro-misterio. ———
   const renderizarFramesRevision = useCallback(async (snapshot: string, tiempos: number[]): Promise<ImagenRevision[]> => {
-    const comp = deserializar(snapshot);
+    // el director revisa el RENDER REAL: sin el video de referencia, igual
+    // que el export (la referencia es guía del humano, no de la pieza)
+    const comp = sinCapasReferencia(deserializar(snapshot));
     const escala = 768 / comp.ancho;
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(comp.ancho * escala);
@@ -1872,6 +1981,26 @@ export function Editor({
               onChange={(e) => {
                 const archivo = e.target.files?.[0];
                 if (archivo) void subirImagen(archivo);
+                e.target.value = "";
+              }}
+            />
+            <ConPista pista={t("Video de referencia — de fondo, solo guía del preview: no sale en el export")}>
+              <BotonIcono
+                tam={32}
+                etiqueta={t("Video de referencia")}
+                onClick={() => entradaVideoRef.current?.click()}
+              >
+                <Icono nombre="pelicula" width={15} height={15} />
+              </BotonIcono>
+            </ConPista>
+            <input
+              ref={entradaVideoRef}
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime"
+              className="hidden"
+              onChange={(e) => {
+                const archivo = e.target.files?.[0];
+                if (archivo) void subirVideo(archivo);
                 e.target.value = "";
               }}
             />
