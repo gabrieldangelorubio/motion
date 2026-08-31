@@ -80,6 +80,9 @@ test("crearComposicion da defaults sanos y describir cuenta lo que hay", () => {
   assert.match(texto, /4 capas/);
   assert.match(texto, /entrada subir @600ms/);
   assert.match(texto, /Presets de entrada:/);
+  // el ID de cada capa A LA VISTA: sin esto el director lo adivinaba por
+  // el nombre y quemaba un paso en el ERROR de id inexistente
+  assert.match(texto, /«[^»]+» \(id: [a-z0-9-]+\) en \(/i);
 });
 
 test("desplazarTiempoCapas corre EN BLOQUE spans y keyframes de las capas elegidas", async () => {

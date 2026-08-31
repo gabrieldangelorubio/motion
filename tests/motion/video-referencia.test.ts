@@ -141,8 +141,8 @@ test("validar avisa un video sin archivo; quitarCapa la borra como a cualquiera 
 test("describir la nombra como VIDEO DE REFERENCIA (el director sabe que existe y que no se toca)", () => {
   const texto = describir(comp([video(), titulo()]));
   assert.match(texto, /VIDEO DE REFERENCIA de fondo: solo guía del preview, NO operarla/);
-  // la capa normal sigue descripta con su posición
-  assert.match(texto, /\[texto\] «Titulo» en \(960, 540\)/);
+  // la capa normal sigue descripta con su id y su posición
+  assert.match(texto, /\[texto\] «Titulo» \(id: t\) en \(960, 540\)/);
 });
 
 test("cualquier herramienta del director que apunte al video de referencia se rechaza con guía", () => {

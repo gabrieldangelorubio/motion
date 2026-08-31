@@ -484,7 +484,10 @@ export function describir(comp: Composicion): string {
       lineas.push(`  · [video] «${capa.nombre}» — VIDEO DE REFERENCIA de fondo: solo guía del preview, NO operarla (no se anima ni se exporta)`);
       continue;
     }
-    const partes = [`  · [${capa.tipo}] «${capa.nombre}» en (${Math.round(capa.x)}, ${Math.round(capa.y)})`];
+    // el ID va A LA VISTA: las herramientas piden capaId y sin esto el
+    // director lo adivinaba desde el nombre («right» por «fig-3-right»),
+    // fallaba y quemaba un paso entero recuperándose del error
+    const partes = [`  · [${capa.tipo}] «${capa.nombre}» (id: ${capa.id}) en (${Math.round(capa.x)}, ${Math.round(capa.y)})`];
     if (capa.tipo === "texto" && capa.division !== "ninguna") partes.push(`división ${capa.division}`);
     if (capa.tipo === "texto" && capa.deformaciones?.length) {
       partes.push(
