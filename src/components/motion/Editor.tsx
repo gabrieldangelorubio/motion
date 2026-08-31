@@ -1933,13 +1933,6 @@ export function Editor({
                   >
                     {t("Subir una imagen")}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => entradaVideoRef.current?.click()}
-                    className="flex h-8 items-center justify-center rounded-control px-2 text-[12px] text-foreground/80 shadow-control hover:bg-ink/[0.06]"
-                  >
-                    {t("Subir el video de referencia (fondo, no se exporta)")}
-                  </button>
                 </div>
               </div>
             </div>

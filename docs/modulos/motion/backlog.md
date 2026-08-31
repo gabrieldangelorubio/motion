@@ -18,10 +18,12 @@
   VERSIÓN abajo a la izquierda del lienzo — el SHA corto del commit del
   build (next.config lo saca de git al levantar; reiniciar el dev server
   tras un checkout): se acabó el «¿estoy en la versión correcta?». (2) la
-  tarjeta de arranque del proyecto vacío ofrece también «Subir el video
-  de referencia» (estaba solo en la toolbar y no se encontraba — y el
-  botón ♪ confunde: ese saca el AUDIO de un mp4, la claqueta lo pone de
-  FONDO). Verificado en Chromium real (chip con el SHA + botón).
+  tarjeta de arranque del proyecto vacío ofreció también «Subir el video
+  de referencia» — REVERTIDO a pedido de Gabriel el mismo día: la tarjeta
+  vuelve a sus dos arranques y el video de FONDO queda solo en la
+  claqueta de la toolbar, porque la palabra «referencia» en la tarjeta se
+  confundía con las referencias del CHAT del director (otra cosa: los
+  frames que el director MIRA). Verificado en Chromium real.
 
 ### [HECHO] VIDEO DE REFERENCIA: el fondo que no se exporta (2026-08-31, tanda 19)
 - **Hecho (la decisión «los videos acá son solo referencia»):** capa
