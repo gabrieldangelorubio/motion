@@ -477,6 +477,19 @@
   del render, recortado al frame, solo lectura). Pendiente menor: renombrar
   pantallas.
 
+### [P2] Plugin: migrar a documentAccess dynamic-page (anotado 2026-08-31)
+- **Qué:** el manifest no declara `documentAccess: "dynamic-page"`, así
+  que Figma carga el DOCUMENTO ENTERO en la memoria del sandbox al correr
+  el plugin — en un deck de 30+ slides con fotos es pesado, y es el modo
+  que Figma está deprecando. La migración es chica: el plugin solo usa
+  `figma.currentPage.selection` y clones locales (auditado; nada de
+  `getNodeById`/`root` sincrónicos). Contexto: un «error loading the
+  plugin environment» en la máquina de Gabriel resultó ser el runtime de
+  Figma trabado (reiniciar la app lo curó), pero el diagnóstico dejó esta
+  mejora a la vista.
+- **Dónde:** `figma-plugin/manifest.json`, sello v11 en `code.js` +
+  `figma-puro.ts`.
+
 ### [P1] Probar el plugin de Figma en Figma real y ajustar
 - **Estado:** abierto
 - **Qué:** correr `figma-plugin/` sobre pantallas reales de adiós adiós,
