@@ -18,6 +18,7 @@
 import { useRef, useState, useEffect } from "react";
 import { costoUSD, formatearCosto, formatearTokens, type UsoTokens } from "@/lib/motion/costo-agente-puro";
 import { esAprobado, mensajeDeRevision, tiemposDeRevision, type ImagenRevision } from "@/lib/motion/revision-puro";
+import { referenciaDeArchivo, type ReferenciaAdjunta } from "@/lib/motion/referencias";
 import { deserializar } from "@/lib/motion/serializar-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
@@ -83,6 +84,28 @@ export function PanelAgente({
     if (costo !== null) setGasto((g) => g + costo);
   };
   const listaRef = useRef<HTMLDivElement>(null);
+
+  // ——— REFERENCIA adjunta al chat: «que se mueva como esto» — un video (o
+  // imagen) que el director MIRA. El archivo se muestrea ACÁ (frames JPEG
+  // chicos, referencias.ts): al server nunca viaja el video entero. Se
+  // consume con el próximo pedido; el × la saca antes de enviar. ———
+  const [referencia, setReferencia] = useState<ReferenciaAdjunta | null>(null);
+  const [leyendoReferencia, setLeyendoReferencia] = useState(false);
+  const entradaReferenciaRef = useRef<HTMLInputElement | null>(null);
+  const adjuntarReferencia = async (archivo: File) => {
+    setError(null);
+    setLeyendoReferencia(true);
+    try {
+      const ref = await referenciaDeArchivo(archivo);
+      if (!ref) {
+        setError(t("Esa referencia no se pudo leer como video o imagen"));
+        return;
+      }
+      setReferencia(ref);
+    } finally {
+      setLeyendoReferencia(false);
+    }
+  };
 
   // ——— Voz al chat: apretás el mic, hablás el pedido, Whisper LOCAL lo
   // pasa a texto y queda en el input (lo revisás antes de enviar) ———
@@ -221,11 +244,17 @@ export function PanelAgente({
       if (ultimo && ultimo.rol === m.rol) ultimo.texto += `\n${m.texto}`;
       else historial.push({ rol: m.rol, texto: m.texto });
     }
-    setMensajes((m) => [...m, { rol: "usuario", texto: pedido }]);
+    // la referencia adjunta viaja con ESTE pedido (frames + su contexto) y
+    // el turno visible lo dice — el historial de texto conserva la marca
+    const refDelPedido = referencia;
+    const marcaRef = refDelPedido
+      ? `\n(referencia adjunta: «${refDelPedido.meta.nombre}», ${refDelPedido.imagenes.length} ${refDelPedido.meta.tipo === "video" ? "frames" : "imagen"})`
+      : "";
+    setMensajes((m) => [...m, { rol: "usuario", texto: pedido + marcaRef }]);
     setPensando(true);
     try {
       const t0 = performance.now();
-      const log: string[] = [`[+0.0s] pedido: «${pedido.slice(0, 200)}»`];
+      const log: string[] = [`[+0.0s] pedido: «${pedido.slice(0, 200)}»${refDelPedido ? ` + referencia «${refDelPedido.meta.nombre}» (${refDelPedido.imagenes.length} imgs)` : ""}`];
       setProgreso(null);
       setTranscurrido(0);
       const { fin, pasos } = await pedirAlAgente(
@@ -237,6 +266,8 @@ export function PanelAgente({
           contextoAudio: obtenerContextoAudio?.(),
           contextoEstilo: obtenerContextoEstilo?.(),
           nivel,
+          imagenes: refDelPedido?.imagenes,
+          contextoReferencias: refDelPedido?.contexto,
         },
         log,
         t0,
@@ -246,6 +277,9 @@ export function PanelAgente({
         setError(fin?.error ?? t("El agente no pudo responder"));
         return;
       }
+      // consumida: el próximo pedido arranca limpio (si falló, queda puesta
+      // para reintentar sin re-adjuntar)
+      if (refDelPedido) setReferencia(null);
       if (fin.ops && fin.ops.length > 0) onAplicar(fin.snapshot, fin.ops);
       registrarGasto(fin);
       const meta = metaDe(fin, pasos, t0);
@@ -404,6 +438,29 @@ export function PanelAgente({
         )}
         {error && <div role="alert" className="py-1 text-xs text-peligro">{error}</div>}
       </div>
+      {(referencia || leyendoReferencia) && (
+        <div className="flex items-center gap-2 border-t border-(--glass-border) px-3 py-1.5">
+          <Icono nombre="adjuntar" width={12} height={12} className="shrink-0 text-foreground/50" />
+          {referencia ? (
+            <>
+              <span className="min-w-0 flex-1 truncate text-[11px] text-foreground/70">
+                {referencia.meta.nombre}
+                <span className="ml-1.5 font-mono text-[10px] text-foreground/40">
+                  {referencia.meta.tipo === "video"
+                    ? t.plural(referencia.imagenes.length, "{n} frame", "{n} frames")
+                    : t("imagen")}
+                </span>
+              </span>
+              <span className="shrink-0 text-[10px] text-muted">{t("viaja con el próximo pedido")}</span>
+              <BotonIcono tam={20} etiqueta={t("Quitar la referencia")} onClick={() => setReferencia(null)}>
+                <Icono nombre="cerrar" width={11} height={11} />
+              </BotonIcono>
+            </>
+          ) : (
+            <span role="status" className="text-[11px] text-muted">{t("Leyendo la referencia…")}</span>
+          )}
+        </div>
+      )}
       <div className="flex items-end gap-2 border-t border-(--glass-border) p-2">
         <textarea
           value={texto}
@@ -414,9 +471,29 @@ export function PanelAgente({
               void enviar();
             }
           }}
-          placeholder={t("Qué animamos…")}
+          placeholder={referencia ? t("Qué tomamos de la referencia…") : t("Qué animamos…")}
           rows={2}
           className="min-h-9 flex-1 resize-none rounded-control bg-transparent px-2 py-1.5 text-base text-foreground shadow-hueco outline-none"
+        />
+        <BotonIcono
+          tam={36}
+          etiqueta={t("Adjuntar una referencia (video o imagen): el director la mira y trae ese movimiento a tu pieza")}
+          activo={Boolean(referencia)}
+          onClick={() => entradaReferenciaRef.current?.click()}
+          deshabilitado={leyendoReferencia || pensando}
+        >
+          <Icono nombre="adjuntar" width={15} height={15} />
+        </BotonIcono>
+        <input
+          ref={entradaReferenciaRef}
+          type="file"
+          accept="video/mp4,video/webm,video/quicktime,image/*"
+          className="hidden"
+          onChange={(e) => {
+            const archivo = e.target.files?.[0];
+            if (archivo) void adjuntarReferencia(archivo);
+            e.target.value = "";
+          }}
         />
         <BotonIcono
           tam={36}

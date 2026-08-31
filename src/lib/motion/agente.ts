@@ -59,6 +59,7 @@ const SISTEMA = `Sos el director de motion design de adiós adiós, trabajando d
 - BAJOS FPS: si piden look stop-motion, «dibujado a mano», «animado en doses» o «a 12 fps», es SIEMPRE ajustar_composicion con fpsAnimacion (12 clásico, 8 más marcado) — cuantiza TODO el movimiento de una. JAMÁS lo simules con keyframes hold densos capa por capa.
 - SENSACIÓN DE LA PIEZA: si el pedido trae una línea «SENSACIÓN de la pieza», es el REGISTRO global elegido por el usuario: duraciones, easings, escalonados y fades de TODO lo que dirijas van en ese carácter (snappy = corto, expo, seco; suave = aire, sine, fades). No lo menciones de vuelta: ejecutalo.
 - PRESETS DE TRAZOS: trazar/trazarCentro/retraer/borrar/recogerCentro (y las pistas trazoInicio/trazoFin) animan el TRIM del recorrido y sólo se ven en capas de TRAZO — en una forma, un vector con relleno o un texto no hacen NADA visible y la herramienta los rechaza. Para que esas capas «se dibujen» o entren con carácter: revelar (máscara), crecer, aparecer o desenfocar.
+- REFERENCIAS ADJUNTAS: cuando el pedido traiga una línea «REFERENCIA ADJUNTA» con imágenes, son frames EN ORDEN de una pieza ajena que el usuario quiere como inspiración de MOVIMIENTO. Estudialos como director: qué entra y desde dónde, el easing percibido entre frames (¿frena suave? ¿rebota? ¿corta seco? ¿acelera al salir?), el ritmo y orden del stagger, la jerarquía (qué protagoniza cada momento), qué hace la cámara (paneo, zoom, quieta). Después TRADUCÍ ese carácter a NUESTRAS herramientas sobre las capas EXISTENTES de esta composición: presets, easings, escalonados, «en» y cámara que produzcan la misma sensación. La referencia es ESTILO, no contenido: JAMÁS copies sus textos, colores o layout — el diseño es del usuario. Nombrá en tu resumen qué leíste de la referencia y cómo lo trajiste.
 - REVISIÓN VISUAL: cuando el mensaje diga «REVISIÓN VISUAL AUTOMÁTICA» y traiga frames del render, no es un pedido nuevo: es tu control de calidad. Mirá los frames de verdad (desbordes, encimados, capas quietas que deberían moverse, texto ilegible) contra lo que dirigiste. Todo bien → respondé EXACTAMENTE «APROBADO». Hay problemas → corregilos con las herramientas (ajustes puntuales) y terminá con «Corregí:» y una línea por arreglo.
 
 ${ESCUELA_GSAP}
@@ -100,6 +101,24 @@ export type EventoAgente = {
   uso?: UsoTokens;
 };
 
+/** El PRIMER turno de usuario: estado + locución + estilo + referencias +
+    pedido. Pura y exportada: qué ve el director es testeable. */
+export function armarPrimerUsuario(
+  comp: Composicion,
+  mensaje: string,
+  contextoAudio?: string,
+  contextoEstilo?: string,
+  contextoReferencias?: string,
+): string {
+  return `Estado actual de la composición:\n${describir(comp)}\n${
+    contextoAudio
+      ? `\nLA LOCUCIÓN de esta escena (cada palabra con el ms donde CAE — sincronizá: la entrada de cada elemento arranca en la palabra que le corresponde, los «en» de segmentos y keyframes caen EN estos tiempos, no aproximados):\n${contextoAudio}\n`
+      : ""
+  }${contextoEstilo ? `\n${contextoEstilo}\n` : ""}${
+    contextoReferencias ? `\n${contextoReferencias}\n` : ""
+  }\nPedido: ${mensaje}`;
+}
+
 export type RespuestaAgente =
   | {
       ok: true;
@@ -125,15 +144,14 @@ export async function dirigirComposicion(
   nivel?: NivelDirector,
   /** el registro de la pieza (perilla de sensación del editor) */
   contextoEstilo?: string,
+  /** referencias adjuntadas al chat: el texto que explica los frames que
+      viajan en `imagenes` (contextoDeReferencias) */
+  contextoReferencias?: string,
 ): Promise<RespuestaAgente> {
   let comp = composicion;
   const ops: string[] = [];
 
-  const primerUsuario = `Estado actual de la composición:\n${describir(comp)}\n${
-    contextoAudio
-      ? `\nLA LOCUCIÓN de esta escena (cada palabra con el ms donde CAE — sincronizá: la entrada de cada elemento arranca en la palabra que le corresponde, los «en» de segmentos y keyframes caen EN estos tiempos, no aproximados):\n${contextoAudio}\n`
-      : ""
-  }${contextoEstilo ? `\n${contextoEstilo}\n` : ""}\nPedido: ${mensaje}`;
+  const primerUsuario = armarPrimerUsuario(comp, mensaje, contextoAudio, contextoEstilo, contextoReferencias);
 
   const modelo = modeloDirector(
     {

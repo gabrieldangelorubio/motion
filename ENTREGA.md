@@ -442,7 +442,22 @@ de undo) y responde APROBADO cuando quedó; el ojo del header del panel
 la prende/apaga —prendida por defecto—, `revision-puro.ts` decide QUÉ
 instantes mirar —final de cada entrada, arranque de cada salida, medio
 y casi-final, deduplicados— y el log copiable registra cada ronda con
-frames, veredicto y costo), **perilla de SENSACIÓN de la pieza**
+frames, veredicto y costo), **REFERENCIAS al chat del director** (tanda
+20, 2026-08-31 — «que se mueva como esto»: el clip del chat adjunta un
+video o imagen de referencia; el CLIENTE extrae hasta 8 frames en orden
+(≤768px JPEG, muestreo uniforme evitando el frame final — el archivo
+entero jamás viaja al server) y van al director como imágenes con su
+contexto («REFERENCIA ADJUNTA "nombre", video de Ns, frames tomados en
+…»); la regla del system prompt le enseña a LEERLA como director —
+dirección, easing percibido entre frames, ritmo del stagger, jerarquía,
+cámara — y a TRADUCIR ese carácter a las herramientas propias sobre las
+capas existentes: la referencia es ESTILO, no contenido (jamás copia
+textos/colores/layout ajenos); el chip muestra qué viaja y se consume
+con el pedido (si falla queda puesta para reintentar), el turno guarda
+la marca en el historial, y funciona igual en Anthropic y Gemini (el
+mismo canal multimodal de la revisión visual); primer paso del módulo
+M8 del blueprint — la medición CV de curvas queda para después),
+**perilla de SENSACIÓN de la pieza**
 (arriba del chat del director: snappy ↔ suave — arrastrar PREVISUALIZA
 en vivo sobre el lienzo y soltar revierte; «Aplicar» esculpe de verdad
 como UN paso de undo: `sensacion-puro.ts` escala duraciones y
@@ -649,7 +664,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **310
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **315
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -719,7 +734,10 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   viaje 1.1× altoUnidad. (35) sinCapasReferencia sin filtrar → cayeron
   exactos el test del filtro y el del .jsx sin video. (36) guard del
   director sobre el video de referencia apagado → falló exacto «se
-  rechaza con guía». Restaurados, todos verdes. El video de referencia
+  rechaza con guía». (37) el muestreo de referencia llegando al final
+  exacto del video → falló exactamente «termina ANTES del final». (38)
+  armarPrimerUsuario ignorando el contexto de referencias → falló exacto
+  el test del primer turno. Restaurados, todos verdes. El video de referencia
   además se verificó END-TO-END en Chromium real (Playwright: webm
   generado en la página → subido por el botón → capa al fondo con chip
   REF → el canvas pinta el FRAME del video, pixel verificado → el archivo

@@ -484,12 +484,21 @@
   mixtos frecuentes) y decidir qué más merece fidelidad nativa.
 - **Dónde:** `figma-plugin/code.js`, `lib/motion/figma-puro.ts`
 
-### [P2] Referencias visuales para el agente
-- **Estado:** abierto
-- **Qué:** adjuntar al chat un video/frames de referencia; el agente los ve
-  (visión) y los traduce a coreografía — primer paso del módulo M8 del
-  blueprint (la medición CV viene después).
-- **Dónde:** `lib/motion/agente.ts`, `PanelAgente.tsx`
+### [HECHO] Referencias visuales para el agente (2026-08-31, tanda 20)
+- **Hecho:** el CLIP del chat adjunta un video o imagen; el cliente
+  extrae hasta 8 frames en orden (`referencias.ts`: seek + canvas, JPEG
+  ≤768px; `referencias-puro.ts`: instantes de muestreo y el contexto
+  textual) y viajan al director por el MISMO canal multimodal de la
+  revisión visual, con la regla nueva del system prompt: estudiar
+  dirección/easing/stagger/jerarquía/cámara de los frames y TRADUCIR ese
+  carácter a las herramientas propias — estilo, no contenido. Chip con
+  nombre y frames, consumida por pedido, marca en el historial, ambos
+  proveedores. Verificado: unit (muestreo, contexto, primer turno,
+  partes Gemini) + sabotajes 37-38 + Playwright interceptando el POST
+  (8 frames JPEG reales + contexto + pedido limpio + chip consumido).
+- **Pendiente natural (M8 del blueprint):** medición CV de curvas contra
+  el video (hoy el director lee a criterio); varias referencias por
+  pedido; recordar la referencia de la sesión para correcciones.
 
 ### [P2] Migrar el agente al asistente real (Diosa)
 - **Estado:** abierto

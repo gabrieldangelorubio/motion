@@ -132,6 +132,13 @@ const ICONOS = {
       <path d="M12 15V5m0 0L8 9m4-4l4 4M5 19h14" />
     </svg>
   ),
+  // adjuntar al chat (el clip clásico — concepto nuevo del módulo, al
+  // integrar se fusiona con el registro real de diosa)
+  adjuntar: (p: IconoProps) => (
+    <svg {...base(p)} aria-hidden>
+      <path d="M20.5 11.5l-8 8a5 5 0 01-7-7l8.5-8.5a3.3 3.3 0 014.7 4.7L10.4 17a1.7 1.7 0 01-2.4-2.4l7-7" />
+    </svg>
+  ),
   // video de referencia: un clacker de cine minimalista (concepto nuevo del
   // módulo — al integrar se fusiona con el registro real de diosa)
   pelicula: (p: IconoProps) => (

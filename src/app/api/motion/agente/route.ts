@@ -28,8 +28,11 @@ export async function POST(pedido: Request): Promise<Response> {
       historial?: TurnoAgente[];
       /** la locución de la escena: «palabra @ms» por línea (opcional) */
       contextoAudio?: string;
-      /** frames de la revisión visual (JPEG/PNG/WebP base64, opcional) */
+      /** frames de la revisión visual O de una referencia adjuntada al
+          chat (JPEG/PNG/WebP base64, opcional) */
       imagenes?: { mime?: string; datosBase64?: string }[];
+      /** el texto que explica los frames de referencia (opcional) */
+      contextoReferencias?: string;
       /** nivel del panel: «fino» = Opus para el planteo, «rapido» = el
           modelo económico del entorno (default) */
       nivel?: string;
@@ -49,7 +52,8 @@ export async function POST(pedido: Request): Promise<Response> {
     const composicion = deserializar(cuerpo.snapshot);
     const contextoAudio =
       typeof cuerpo.contextoAudio === "string" && cuerpo.contextoAudio ? cuerpo.contextoAudio.slice(0, 8000) : undefined;
-    // frames de revisión saneados: pocos, chicos y de tipos conocidos
+    // frames saneados (revisión o referencia): pocos, chicos y de tipos
+    // conocidos — 12 banca una referencia de 8 frames + margen
     const imagenes = (cuerpo.imagenes ?? [])
       .filter(
         (im): im is { mime: string; datosBase64: string } =>
@@ -58,7 +62,11 @@ export async function POST(pedido: Request): Promise<Response> {
           im.datosBase64.length > 0 &&
           im.datosBase64.length < 3_000_000,
       )
-      .slice(0, 6);
+      .slice(0, 12);
+    const contextoReferencias =
+      typeof cuerpo.contextoReferencias === "string" && cuerpo.contextoReferencias
+        ? cuerpo.contextoReferencias.slice(0, 4000)
+        : undefined;
     const nivel = cuerpo.nivel === "fino" || cuerpo.nivel === "rapido" ? cuerpo.nivel : undefined;
     const contextoEstilo =
       typeof cuerpo.contextoEstilo === "string" && cuerpo.contextoEstilo ? cuerpo.contextoEstilo.slice(0, 600) : undefined;
@@ -86,6 +94,7 @@ export async function POST(pedido: Request): Promise<Response> {
             imagenes.length ? imagenes : undefined,
             nivel,
             contextoEstilo,
+            contextoReferencias,
           );
           if (!res.ok) emitir({ tipo: "fin", error: res.error });
           else emitir({ tipo: "fin", respuesta: res.respuesta, snapshot: serializar(res.composicion), ops: res.ops, uso: res.uso, modelo: res.modelo });
