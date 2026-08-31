@@ -49,7 +49,7 @@ import { animadoresDeCapa, estiradosDeCapa, type AnimadorAE } from "@/lib/motion
 import {
   capasPorLinea,
   cajaMascara,
-  instanteMedicion,
+  instantesMedicion,
   mascaraTexto,
   sinRecorte,
   soloRecorte,
@@ -959,8 +959,9 @@ function emitirCapaTexto(
     // reposo y arma la caja del motor (ventana con hold keys)
     if (conMascara) {
       const g = mascaraTexto(capa);
+      const instantes = instantesMedicion(capa).map((t) => num(redondear(t / 1000))).join(", ");
       L.push(
-        `__mascaraTexto(capa, ${num(g.padX)}, ${num(g.arriba)}, ${num(g.alto)}, ${num(redondear(instanteMedicion(capa) / 1000))}, ${clavesVentana(ventanasMascara(capa))});`,
+        `__mascaraTexto(capa, ${num(g.padX)}, ${num(g.arriba)}, ${num(g.alto)}, [${instantes}], ${clavesVentana(ventanasMascara(capa))});`,
       );
     }
     emitirTransform(L, capaHorneo, desplazarY, sinAnimacion, false, animTexto?.claves ?? null);
@@ -988,8 +989,21 @@ function emitirCapa(
     // RENGLÓN (cada una con su mask, su timing y sus animators) — el
     // porqué vive en revelado-ae-puro
     const partes = capasPorLinea(capa);
+    if (partes.length === 0) {
+      // todos los renglones en blanco: no hay tinta que enmascarar — la
+      // capa viaja igual por el camino de siempre (nunca desaparecer muda)
+      emitirCapaTexto(L, capa, sinAnimacion, compHorneo, null, false, null);
+      return;
+    }
+    // «azar» por caracteres/palabras multilínea: cada renglón baraja lo
+    // suyo (Randomize del selector), no el texto entero — degradar CON aviso
+    const azarPorRenglon =
+      partes.length > 1 &&
+      (capa.division === "caracteres" || capa.division === "palabras") &&
+      [capa.entrada, capa.salida].some((s) => s?.ordenEscalonado === "azar");
     const nota = partes.length > 1
-      ? `capa partida por renglon para el revelado (${partes.length} capas, una mask por linea)`
+      ? `capa partida por renglon para el revelado (${partes.length} capas, una mask por linea)` +
+        (azarPorRenglon ? "; el orden azar se baraja POR RENGLON, no sobre el texto entero" : "")
       : null;
     for (const parte of partes) {
       emitirCapaTexto(L, parte.capa, sinAnimacion, compHorneo, parte.desplazarY, true, nota);
@@ -1375,12 +1389,21 @@ function __mascara(capa, x1, y1, x2, y2, claves) {
   } catch (e) { __avisar("mascara del revelado", e); }
 }
 // La mask de un renglon de texto: el ancho se mide en AE (sourceRectAtTime
-// en un instante de REPOSO, con la fuente real ya fijada); el alto es la
-// caja del motor relativa a la baseline (el y=0 de la capa de texto).
-function __mascaraTexto(capaTexto, padX, arriba, alto, tMed, claves) {
+// en instantes de REPOSO, con la fuente real ya fijada; con contador se
+// mide tambien al arrancar la salida y se toma la UNION -- el texto pudo
+// ganar digitos); el alto es la caja del motor relativa a la baseline
+// (el y=0 de la capa de texto).
+function __mascaraTexto(capaTexto, padX, arriba, alto, tMeds, claves) {
   try {
-    var r = capaTexto.sourceRectAtTime(tMed, false);
-    __mascara(capaTexto, r.left - padX, arriba, r.left + r.width + padX, arriba + alto, claves);
+    var izq = null;
+    var der = null;
+    for (var i = 0; i < tMeds.length; i++) {
+      var r = capaTexto.sourceRectAtTime(tMeds[i], false);
+      if (izq === null || r.left < izq) izq = r.left;
+      if (der === null || r.left + r.width > der) der = r.left + r.width;
+    }
+    if (izq === null) return;
+    __mascara(capaTexto, izq - padX, arriba, der + padX, arriba + alto, claves);
   } catch (e) { __avisar("mascara del revelado (texto)", e); }
 }
 function __eases(par, n) {
@@ -1540,7 +1563,12 @@ export function generarScriptAE(
     // quieras) y el movimiento queda en la misma grilla que el preview
     const dims = `${num(escena.ancho)}, ${num(escena.alto)}, 1, ${dur}, ${num(escena.fpsAnimacion ?? escena.fps)}`;
     const conCamara = Boolean(escena.camara) && !sinAnimacion;
-    totalCapas += escena.capas.length;
+    // capas REALES emitidas: el revelado multilínea parte una en N (y con
+    // todos los renglones en blanco cae al camino viejo: sigue siendo 1)
+    totalCapas += escena.capas.reduce((suma, c) => {
+      if (sinAnimacion || c.tipo !== "texto" || !tieneRecorteAE(c)) return suma + 1;
+      return suma + Math.max(1, capasPorLinea(c).length);
+    }, 0);
 
     L.push(``);
     L.push(`// --- escena: ${ascii(escena.nombre)} ---`);

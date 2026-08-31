@@ -4,7 +4,7 @@ import {
   capasPorLinea,
   cajaMascara,
   esRecorte,
-  instanteMedicion,
+  instantesMedicion,
   mascaraTexto,
   sinRecorte,
   soloRecorte,
@@ -94,14 +94,36 @@ test("mascaraTexto: la caja del renglón relativa a la baseline, glifo completo 
   assert.equal(apretado.alto, 72);
 });
 
-test("instanteMedicion: un momento de reposo — después de la entrada; sin entrada, el 0", () => {
+test("instantesMedicion: un momento de reposo — después de la entrada; sin entrada, el 0", () => {
   const capa = texto({
     texto: "AB CD",
     division: "caracteres",
     entrada: { preset: "revelar", en: 200, duracion: 600, escalonado: 40 },
   });
-  assert.equal(instanteMedicion(capa), 921); // 200 + 40×3 + 600 + 1
-  assert.equal(instanteMedicion(texto({ salida: { preset: "ocultar", en: 2000, duracion: 300 } })), 0);
+  assert.deepEqual(instantesMedicion(capa), [921]); // 200 + 40×3 + 600 + 1
+  assert.deepEqual(instantesMedicion(texto({ salida: { preset: "ocultar", en: 2000, duracion: 300 } })), [0]);
+});
+
+test("instantesMedicion con CONTADOR y salida que recorta: se mide también al arrancar la salida", () => {
+  // el contador sigue cambiando el texto después del reposo de la entrada:
+  // «STOCK:9» puede ser «STOCK:100» cuando la salida vuelve a recortar
+  const capa = texto({
+    texto: "STOCK:9",
+    pistas: { numero: [{ t: 0, v: 9 }, { t: 2500, v: 100 }] },
+    entrada: { preset: "revelar", en: 0, duracion: 500 },
+    salida: { preset: "ocultar", en: 3000, duracion: 400 },
+  });
+  assert.deepEqual(instantesMedicion(capa), [501, 3000]);
+  // sin contador, o con salida que NO recorta, un solo instante alcanza
+  assert.deepEqual(instantesMedicion(texto({
+    entrada: { preset: "revelar", en: 0, duracion: 500 },
+    salida: { preset: "ocultar", en: 3000, duracion: 400 },
+  })), [501]);
+  assert.deepEqual(instantesMedicion(texto({
+    pistas: { numero: [{ t: 0, v: 9 }] },
+    entrada: { preset: "revelar", en: 0, duracion: 500 },
+    salida: { preset: "desvanecer", en: 3000, duracion: 400 },
+  })), [501]);
 });
 
 /* ——— la partición del viaje (shapes) ————————————————————————— */
@@ -244,8 +266,8 @@ test("multilínea con revelado → una capa por renglón, cada una con su mask, 
   assert.match(jsx, /"ADBE Position"\)\.setValue\(\[960, 574\.5\]\);/);
   // el timing corrido del renglón 2 (en 200+140) y su ventana propia
   assert.match(jsx, /\{t: 0\.34, v: 0, eo: /);
-  assert.match(jsx, /__mascaraTexto\(capa, 15, -51, 72, 0\.801, \[\[0, true\], \[0\.8, false\], \[3, true\]\]\);/);
-  assert.match(jsx, /__mascaraTexto\(capa, 15, -51, 72, 0\.941, \[\[0, true\], \[0\.94, false\], \[3, true\]\]\);/);
+  assert.match(jsx, /__mascaraTexto\(capa, 15, -51, 72, \[0\.801\], \[\[0, true\], \[0\.8, false\], \[3, true\]\]\);/);
+  assert.match(jsx, /__mascaraTexto\(capa, 15, -51, 72, \[0\.941\], \[\[0, true\], \[0\.94, false\], \[3, true\]\]\);/);
   // dos masks, una por renglón (llamadas emitidas, no la definición del helper)
   assert.equal((jsx.match(/^__mascaraTexto\(capa, /gm) ?? []).length, 2);
 });
@@ -295,6 +317,41 @@ test("sin animación (solo diseño) no hay mask ni partición por renglón", () 
   assert.match(jsx, /addText\("UNO\\nDOS"\)/);
   assert.ok(!/^__mascaraTexto\(capa, /m.test(jsx), "sin mask en solo diseño");
   assert.ok(!jsx.includes(". linea 1"), "sin partición");
+});
+
+test("texto con TODOS los renglones en blanco no desaparece: cae al camino de siempre", () => {
+  const jsx = generarScriptAE([comp([texto({
+    texto: " \n\n ",
+    entrada: { preset: "revelar", en: 0, duracion: 500 },
+  })])]);
+  assert.match(jsx, /addText\(/); // la capa sigue existiendo en AE
+  assert.ok(!/^__mascaraTexto\(capa, /m.test(jsx), "sin mask: no hay tinta que enmascarar");
+  assert.ok(!jsx.includes(". linea 1"), "sin partición");
+});
+
+test("azar por caracteres multilínea: el barajado queda POR RENGLON y el comentario lo avisa", () => {
+  const jsx = generarScriptAE([comp([texto({
+    texto: "AB\nCD",
+    division: "caracteres",
+    entrada: { preset: "revelar", en: 0, duracion: 500, escalonado: 35, ordenEscalonado: "azar" },
+  })])]);
+  assert.match(jsx, /el orden azar se baraja POR RENGLON, no sobre el texto entero/);
+  // por líneas el azar viaja EXACTO en los delays: sin aviso
+  const porLineas = generarScriptAE([comp([texto({
+    texto: "AB\nCD",
+    division: "lineas",
+    entrada: { preset: "revelar", en: 0, duracion: 500, escalonado: 140, ordenEscalonado: "azar" },
+  })])]);
+  assert.ok(!porLineas.includes("azar se baraja POR RENGLON"), "por líneas no degrada");
+});
+
+test("el alert final cuenta las capas REALMENTE emitidas (el renglón partido suma)", () => {
+  const jsx = generarScriptAE([comp([texto({
+    texto: "UNO\nDOS",
+    division: "lineas",
+    entrada: { preset: "revelar", en: 0, duracion: 500 },
+  })])]);
+  assert.match(jsx, /2 capa\(s\)/);
 });
 
 test("el generador sigue siendo determinista con revelado partido", () => {

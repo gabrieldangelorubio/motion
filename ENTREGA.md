@@ -494,8 +494,15 @@ por interlineado donde el motor usa altoUnidad (nunca menos que 1.2× el
 cuerpo) — con interlineado apretado el texto asomaba bajo la máscara.
 Lo que sigue degradando CON AVISO: los overshoots internos del preset
 (pop) barren directo, orden centro/bordes por caracteres/palabras queda
-desde el inicio (azar sí viaja: Randomize Order; por líneas ahora van
-todos exactos). Y los **estirados por letra**
+desde el inicio, y azar por caracteres/palabras multilínea se baraja POR
+RENGLÓN (por líneas van todos exactos). La review adversarial (Sonnet,
+según TOKENOMICS) cazó y se corrigió: el texto con TODOS los renglones
+en blanco desaparecía del export (ahora cae al camino de siempre), el
+azar por renglón degradaba sin aviso, con CONTADOR la mask se medía una
+sola vez y podía quedar angosta en la salida (ahora se mide también al
+arrancar la salida y el script toma la unión), y el alert final contaba
+capas del modelo en vez de las realmente emitidas. Y los **estirados por
+letra**
 (`estirar_letras` del director: «estirá la O» — escala no uniforme por
 rango de caracteres, la letra ancha EMPUJA a las demás, pintada desde la
 baseline) viajan como Scale animator con el selector clavado en la letra.
@@ -619,7 +626,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **297
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **301
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;

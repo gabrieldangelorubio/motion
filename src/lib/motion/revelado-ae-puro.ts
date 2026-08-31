@@ -95,14 +95,24 @@ export function mascaraTexto(capa: CapaTexto): { padX: number; arriba: number; a
   return { padX: tamano * 0.25, arriba: -tamano * 0.85, alto: altoUnidad(capa) };
 }
 
-/** El instante (ms) para MEDIR el ancho del renglón en AE: un momento de
-    reposo — después de que la entrada terminó (los animators ya no corren
-    nada), antes de la salida. Sin entrada, el 0 sirve: una salida todavía
-    no desplazó nada. */
-export function instanteMedicion(capa: CapaTexto): number {
-  if (!capa.entrada) return 0;
+/** Los instantes (ms) para MEDIR el ancho del renglón en AE — momentos de
+    reposo: después de que la entrada terminó (los animators ya no corren
+    nada), antes de la salida; sin entrada, el 0 sirve (una salida todavía
+    no desplazó nada). Con CONTADOR («pistas.numero») el texto sigue
+    cambiando después de esa medición: si la salida vuelve a recortar, se
+    mide también en su arranque y el script se queda con la UNIÓN — el
+    motor re-mide cada frame, acá con dos instantes alcanza para que la
+    caja nunca quede angosta. */
+export function instantesMedicion(capa: CapaTexto): number[] {
   const n = contarUnidades(capa.texto, capa.division);
-  return capa.entrada.en + (capa.entrada.escalonado ?? 0) * Math.max(0, n - 1) + capa.entrada.duracion + 1;
+  const reposo = capa.entrada
+    ? capa.entrada.en + (capa.entrada.escalonado ?? 0) * Math.max(0, n - 1) + capa.entrada.duracion + 1
+    : 0;
+  const lista = [reposo];
+  if (capa.pistas?.numero?.length && capa.salida && esRecorte(capa.salida)) {
+    lista.push(capa.salida.en);
+  }
+  return lista;
 }
 
 /** La pseudo-capa con SOLO los segmentos de recorte, parada en el origen:

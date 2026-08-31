@@ -181,7 +181,7 @@ test("revelar SIN división: animator de Position + MASCARA real (ya no keyframe
   assert.match(jsx, /__animador\(capa, "entrada revelar", 4, false, "ADBE Text Percent Start", \[\["ADBE Text Position 3D", \[0, 158\.4\]\]\]/);
   // la MASK con la caja del motor: padX 30, arriba -102, alto 144; ventana
   // [caja hasta el fin de la entrada, libre después] con hold
-  assert.match(jsx, /__mascaraTexto\(capa, 30, -102, 144, 0\.801, \[\[0, true\], \[0\.8, false\]\]\);/);
+  assert.match(jsx, /__mascaraTexto\(capa, 30, -102, 144, \[0\.801\], \[\[0, true\], \[0\.8, false\]\]\);/);
   assert.match(jsx, /revelado con MASCARA real/);
   assert.ok(!jsx.includes("la MASCARA del revelado no viaja"), "ya no queda como pendiente");
   // el revelado NO viaja además como keyframes de transform (sería doble)

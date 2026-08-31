@@ -31,8 +31,12 @@
   los dy por interlineado donde el motor usa altoUnidad (con interlineado
   apretado el texto asomaba bajo la máscara). MEDIA con revelado sigue
   anotada (su encaje «cubrir» ya ocupa la mask del footage). Todo en
-  `revelado-ae-puro.ts` + tests (297 verdes, sabotajes 32-34 en rojo
-  exacto); review adversarial Sonnet según TOKENOMICS.
+  `revelado-ae-puro.ts` + tests (301 verdes, sabotajes 32-34 en rojo
+  exacto). La review adversarial (Sonnet, según TOKENOMICS) encontró 4
+  reales y se corrigieron: todos-los-renglones-vacíos desaparecía del
+  export, azar por caracteres multilínea degradaba sin aviso, la mask con
+  contador se medía una sola vez (ahora unión con el arranque de la
+  salida), y el alert contaba capas del modelo, no las emitidas.
 
 ### [HECHO] Costo por dirección a la vista (2026-08-28, tanda 17)
 - **Hecho:** cada respuesta del director cierra con su META: «20 pasos ·
