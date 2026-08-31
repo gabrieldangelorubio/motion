@@ -33,6 +33,7 @@ import {
   quitarKeyframe,
   quitarPoseCamara,
   definirTemblorCamara,
+  desplazarEnZ,
   desplazarTiempoCapas,
   estirarTiempoCapas,
 } from "@/lib/motion/herramientas-puro";
@@ -1652,6 +1653,27 @@ export function Editor({
     setSeleccionId(null);
   }, [registrar]);
 
+  // ⌘A: todas las capas reales (el video de referencia no es operable)
+  const seleccionarTodas = useCallback(() => {
+    const ids = compRef.current.capas.filter((c) => c.tipo !== "video").map((c) => c.id);
+    setSeleccionIds(ids);
+    setSeleccionId(ids[ids.length - 1] ?? null);
+  }, []);
+
+  // ⌘] / ⌘[: la selección sube o baja un escalón en el z-order (como AE)
+  const moverSeleccionEnZ = useCallback((direccion: 1 | -1) => {
+    const ids = seleccionIdsRef.current.length
+      ? seleccionIdsRef.current
+      : seleccionRef.current && seleccionRef.current !== CAMARA_ID
+        ? [seleccionRef.current]
+        : [];
+    if (!ids.length) return;
+    const nueva = desplazarEnZ(compRef.current, ids, direccion);
+    if (nueva === compRef.current) return;
+    registrar();
+    setComposicion(nueva);
+  }, [registrar]);
+
   // ——— Atajos (§8.1): un solo keydown, con el guard de inputs ———
   useEffect(() => {
     const alTeclear = (e: KeyboardEvent) => {
@@ -1673,6 +1695,12 @@ export function Editor({
       } else if (meta && e.key === "v" && portapapelesRef.current) {
         e.preventDefault();
         pegarKf();
+      } else if (meta && e.key === "a") {
+        e.preventDefault();
+        seleccionarTodas();
+      } else if (meta && (e.key === "]" || e.key === "[")) {
+        e.preventDefault();
+        moverSeleccionEnZ(e.key === "]" ? 1 : -1);
       } else if (meta && e.key === "0") {
         e.preventDefault();
         lienzoRef.current?.escalaUno();
@@ -1696,7 +1724,7 @@ export function Editor({
     };
     window.addEventListener("keydown", alTeclear);
     return () => window.removeEventListener("keydown", alTeclear);
-  }, [deshacer, rehacer, saltarFrame, copiarKfSeleccionado, pegarKf, borrarKfSeleccionado, borrarSeleccionadas, alternarPlay]);
+  }, [deshacer, rehacer, saltarFrame, copiarKfSeleccionado, pegarKf, borrarKfSeleccionado, borrarSeleccionadas, alternarPlay, seleccionarTodas, moverSeleccionEnZ]);
 
   // Selección con las consecuencias juntas: al cambiar de capa, un keyframe
   // elegido de OTRA capa se suelta (borrar/copiar operan sobre lo que se ve

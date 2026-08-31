@@ -156,6 +156,31 @@ export function moverCapasJuntoA(
   };
 }
 
+/**
+ * Corre la selección UN escalón en el z-order: `direccion` +1 la acerca al
+ * frente (más adelante en `capas`, tapa más), −1 la manda hacia el fondo.
+ * La selección se compacta en bloque (orden interno intacto) y salta UNA
+ * capa vecina no seleccionada por pulsación — el gesto de ⌘] / ⌘[ en AE.
+ * Los videos de referencia no entran al bloque y son piso: nada puede
+ * meterse debajo de ellos. Si el orden de ids no cambia, devuelve la misma
+ * composición (así el caller no registra un undo vacío).
+ */
+export function desplazarEnZ(comp: Composicion, ids: string[], direccion: 1 | -1): Composicion {
+  const set = new Set(ids);
+  const bloque = comp.capas.filter((c) => set.has(c.id) && c.tipo !== "video");
+  if (bloque.length === 0) return comp;
+  const enBloque = new Set(bloque.map((c) => c.id));
+  const resto = comp.capas.filter((c) => !enBloque.has(c.id));
+  const primero = comp.capas.findIndex((c) => enBloque.has(c.id));
+  const p = comp.capas.slice(0, primero).filter((c) => !enBloque.has(c.id)).length;
+  const primeraNoVideo = resto.findIndex((c) => c.tipo !== "video");
+  const piso = primeraNoVideo < 0 ? resto.length : primeraNoVideo;
+  const nuevoP = Math.min(Math.max(p + direccion, piso), resto.length);
+  const capas = [...resto.slice(0, nuevoP), ...bloque, ...resto.slice(nuevoP)];
+  const igual = capas.every((c, i) => c.id === comp.capas[i].id);
+  return igual ? comp : { ...comp, capas };
+}
+
 /** Posiciones ABSOLUTAS para varias capas de una: la base del drag de una
     pantalla entera (el caller calcula origen + delta; acá no hay acumulación
     de error por deltas relativos). */

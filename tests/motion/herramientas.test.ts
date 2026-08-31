@@ -143,3 +143,45 @@ test("escenas: la nueva hereda el formato, la duplicada es documento nuevo, y el
   assert.deepEqual(rangoDeExport(5000, 30, -50, 99999), { desde: 0, frames: 150 });
   assert.equal(rangoDeExport(5000, 30, 4999, 4999).frames, 1, "nunca menos de un frame");
 });
+
+test("desplazarEnZ corre la selección un escalón, compacta, y respeta el piso de video", async () => {
+  const { desplazarEnZ, crearComposicion } = await import("@/lib/motion/herramientas-puro");
+  const video = (id: string): import("@/lib/motion/modelo").CapaVideo => ({
+    id,
+    nombre: "Ref",
+    tipo: "video",
+    videoId: "v1",
+    ancho: 1920,
+    alto: 1080,
+    ajuste: "cubrir",
+    referencia: true,
+    x: 0,
+    y: 0,
+  });
+  const compDe = (ids: string[], conVideo = false) => ({
+    ...crearComposicion({ nombre: "z" }),
+    capas: [...(conVideo ? [video("ref")] : []), ...ids.map(capaNueva)] as import("@/lib/motion/modelo").Capa[],
+  });
+  const orden = (c: { capas: { id: string }[] }) => c.capas.map((k) => k.id).join(",");
+
+  // +1 acerca al frente (más adelante en el array); −1 manda al fondo
+  assert.equal(orden(desplazarEnZ(compDe(["a", "b", "c"]), ["b"], 1)), "a,c,b");
+  assert.equal(orden(desplazarEnZ(compDe(["a", "b", "c"]), ["b"], -1)), "b,a,c");
+
+  // en el tope o en el fondo: MISMA referencia (el caller no registra undo)
+  const tope = compDe(["a", "b"]);
+  assert.equal(desplazarEnZ(tope, ["b"], 1), tope);
+  assert.equal(desplazarEnZ(tope, ["a"], -1), tope);
+  assert.equal(desplazarEnZ(tope, [], 1), tope);
+  assert.equal(desplazarEnZ(tope, ["no-existe"], 1), tope);
+
+  // selección salteada: se compacta en bloque conservando el orden interno
+  assert.equal(orden(desplazarEnZ(compDe(["a", "b", "c", "d"]), ["a", "c"], 1)), "b,a,c,d");
+  assert.equal(orden(desplazarEnZ(compDe(["a", "b", "c", "d"]), ["b", "d"], -1)), "b,d,a,c");
+
+  // el video de referencia es PISO: nada baja debajo de él, y él nunca se mueve
+  const conRef = compDe(["a", "b"], true);
+  assert.equal(desplazarEnZ(conRef, ["a"], -1), conRef, "a ya está apoyada sobre el video");
+  assert.equal(orden(desplazarEnZ(conRef, ["b"], -1)), "ref,b,a");
+  assert.equal(orden(desplazarEnZ(conRef, ["ref", "a"], 1)), "ref,b,a", "el video no entra al bloque");
+});

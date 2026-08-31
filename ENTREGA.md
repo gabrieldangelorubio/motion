@@ -41,7 +41,12 @@ NO seleccionada: seleccionás adentro del frame sin moverlo — la pantalla
 se mueve arrastrando la placa ya elegida — y la placa sólo entra al
 marquee si el rectángulo la encierra entera; en el TIMELINE también hay
 marquee estilo AE: arrastrás por el fondo de las filas y el rectángulo
-elige esas capas, con shift+click en filas y gutter; shift+click acumula en lienzo y panel,
+elige esas capas, con shift+click en filas y gutter — y si seguís
+arrastrando más allá del borde, el panel SCROLLEA solo (rAF, velocidad
+proporcional al exceso) y el rectángulo va agarrando las filas que
+estaban fuera de vista, con la selección calculada en coordenadas de
+contenido para que el scroll de mitad de gesto no la corra; ⌘A
+selecciona TODAS las capas (el video de referencia nunca); shift+click acumula en lienzo y panel,
 drag de una seleccionada mueve todas juntas, Supr borra la selección
 entera; y la S sostenida hace que el playhead SIGA al mouse) (hit-test con rotación y escala, umbral 4px,
 Shift = eje dominante, ⌘ = sin snapping, capas bloqueadas seleccionables
@@ -51,7 +56,13 @@ de capas **agrupado por pantalla** (cabecera colapsable por frame de Figma
 con contador, como en Figma; reorden del z-order arrastrando filas — capa
 dentro de su pantalla, pantallas enteras entre sí, sueltas entre sueltas —
 en vivo con un checkpoint por gesto; borrar por fila o con Supr, la placa
-borra su pantalla completa), undo por snapshots, autosave con CAS, **import de una pantalla de
+borra su pantalla completa; **convención visual de AE/Figma en capas Y
+timeline** (2026-08-31): la fila de ARRIBA tapa a la de abajo — el modelo
+sigue siendo `capas[0]` = fondo, los paneles pintan el array al revés y el
+drag compensa el sentido — y **⌘] / ⌘[ mueven la selección un escalón en
+el z-order** (compacta el bloque conservando el orden interno, salta UNA
+vecina por pulsación, clampea en tope y fondo, el video de referencia es
+piso y no entra al bloque; sin cambio real no se registra undo), undo por snapshots, autosave con CAS, **import de una pantalla de
 Figma** (plugin propio en `figma-plugin/` → JSON por copy/paste →
 normalizador puro con degradación por-nodo y avisos visibles; texto real,
 formas nativas, lo demás rasterizado a data-uri que el editor resuelve; el
@@ -679,7 +690,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **322
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **323
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -754,7 +765,11 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   armarPrimerUsuario ignorando el contexto de referencias → falló exacto
   el test del primer turno. (39) mimeParaGemini dejando pasar quicktime
   sin traducir → falló exacto. (40) el fps del muestreo denso quitado de
-  partesDeVideo → falló exacto. Restaurados, todos verdes. El video de referencia
+  partesDeVideo → falló exacto. (41) la rotación del trazo perdida en el
+  normalizador de Figma → falló exacto el test del trazo rotado v11.
+  (42) piso de video de desplazarEnZ quitado (clamp a 0: una capa podía
+  meterse DEBAJO del video de referencia) → falló exactamente «el video
+  de referencia es PISO». Restaurados, todos verdes. El video de referencia
   además se verificó END-TO-END en Chromium real (Playwright: webm
   generado en la página → subido por el botón → capa al fondo con chip
   REF → el canvas pinta el FRAME del video, pixel verificado → el archivo
@@ -765,7 +780,13 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   desalineado de la onda) antes de quedar verdes: discriminan; el modal
   «Palabras» cerró con verificar36 (16/16: mover con reorden y re-mover,
   renombrar, agregar, Supr+Ctrl-Z, Guardar persiste tras recarga, Escape
-  no persiste).
+  no persiste). La tanda de z-order del timeline se verificó end-to-end
+  (verificar-zorden, 13/13: convención frente-arriba en gutter y panel,
+  ⌘A, ⌘]/⌘[ con clamps, y el marquee con auto-scroll agarrando filas fuera
+  de vista) — y ese e2e cazó un bug real antes de entregar: el rectángulo
+  del marquee (absoluto) agrandaba el área scrolleable al crecer y el
+  auto-scroll se retroalimentaba hasta el infinito; quedó clampeado al
+  contenido.
 
 ## Qué necesita cablearse de su lado
 
@@ -795,7 +816,8 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   lienzo se ve y panea; el editor completo es de escritorio (precedente
   AdiosJam: en teléfono, visor) — captura en la entrega.
 - Scrub frame a frame, espacio para play/pausa, ⌘0 / ⇧1, flechas, undo con
-  ⌘Z (visibilidad, drags de spans y keyframes verificados con capturas
+  ⌘Z, ⌘A selecciona todas las capas y ⌘] / ⌘[ mueven la selección en el
+  z-order (visibilidad, drags de spans y keyframes verificados con capturas
   antes/después: dos gestos, dos pasos de undo).
 - Timeline redimensionable con la agarradera; drag de span de entrada y de
   un keyframe con snap al frame, verificados en Chromium.

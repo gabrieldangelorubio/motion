@@ -13,6 +13,30 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Timeline con jerarquía de AE: z-order, ⌘A y marquee que scrollea (2026-08-31, tanda 23)
+- **Hecho (pedido de Gabriel: «el orden de las capas es muy importante…
+  qué es lo que tapa qué… como After Effects»):** (a) **convención visual
+  volteada** en el panel de capas Y el timeline: la fila de ARRIBA tapa a
+  la de abajo, como AE/Figma — el modelo no cambia (`capas[0]` = fondo,
+  describir/export/agente intactos), los paneles pintan el array al revés
+  y el drag del panel niega `despues`; gutter, pistas y recuadro de
+  selección salen de UNA misma lista invertida (`filasTL`) para que nada
+  se desalinee. (b) **⌘] / ⌘[**: `desplazarEnZ` pura — la selección se
+  compacta en bloque (orden interno intacto) y salta UNA vecina por
+  pulsación, clamp en tope/fondo, el video de referencia es piso y nunca
+  entra al bloque, sin cambio real no hay undo. (c) **⌘A** selecciona
+  todas las capas (video excluido). (d) **marquee con AUTO-SCROLL**:
+  arrastrar más allá del borde scrollea solo (rAF, velocidad proporcional
+  al exceso, zona de 24px) y la selección se calcula en coordenadas de
+  contenido — scrollear a mitad de gesto no la corre. Verificado: unit
+  (desplazarEnZ: sube/baja/clamp/compacta/piso/no-op) + sabotaje 42 +
+  Playwright end-to-end (verificar-zorden, 13/13), que además cazó un bug
+  real: el rectángulo del marquee agrandaba el área scrolleable y el
+  auto-scroll se retroalimentaba infinito — quedó clampeado al contenido.
+- **Anotado:** drag para reordenar directo en el gutter del timeline
+  (hoy el reorden por drag vive en el panel de capas; en el timeline es
+  ⌘]/⌘[) — si Gabriel lo pide, es la próxima muesca de esta tanda.
+
 ### [HECHO] Todo lo solo-borde es TRAZO dibujable (2026-08-31, tanda 22, plugin v11)
 - **Hecho (ronda de Gabriel: «las líneas deberían dibujarse como path»):**
   sus recuadros contorno (RECT sin fill), elipses y LINEs verticales no

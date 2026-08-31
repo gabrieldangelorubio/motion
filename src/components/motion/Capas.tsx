@@ -10,6 +10,11 @@
    entre pantallas), en vivo y con UN checkpoint por gesto (§8.3). Cada fila
    tiene ocultar y borrar; borrar la placa borra la pantalla completa. La
    visibilidad de hover se ve siempre con puntero grueso (coarse:).
+
+   CONVENCIÓN VISUAL (como AE y Figma): la fila de ARRIBA tapa a la de abajo.
+   En el modelo `capas[0]` es el fondo, así que el panel pinta el array AL
+   REVÉS; el drag lo compensa negando `despues` (soltar visualmente abajo de
+   una fila = quedar ANTES en el array).
 ----------------------------------------------------------------------------- */
 
 import { useRef, useState } from "react";
@@ -117,7 +122,8 @@ export function Capas({
       const otroId = el.dataset.filaId!;
       if (otroId === gesto.id || el.dataset.filaCont !== gesto.cont) return;
       const r = el.getBoundingClientRect();
-      const despues = ev.clientY > r.top + r.height / 2;
+      // display invertido: la mitad de abajo de la fila = ANTES en el array
+      const despues = !(ev.clientY > r.top + r.height / 2);
       if (gesto.cont === PANTALLAS) onReordenarPantalla(gesto.id, otroId, despues);
       else onReordenarCapa(gesto.id, otroId, despues);
     };
@@ -199,7 +205,8 @@ export function Capas({
     );
   };
 
-  const elementos = elementosDe(composicion);
+  // frente arriba: el array va fondo→frente, el panel lo pinta al revés
+  const elementos = elementosDe(composicion).reverse();
   const seleccionada = composicion.capas.find((c) => c.id === seleccionId);
 
   // ——— SUBGRUPOS (grupos de Figma) adentro de una pantalla: sub-nivel
@@ -208,7 +215,7 @@ export function Capas({
   // bloque); las capas siguen sueltas en el modelo.
   const [subAbiertos, setSubAbiertos] = useState<Set<string>>(new Set());
   const filasConSubgrupos = (miembros: Capa[], cont: string) =>
-    filasDeCapas(miembros).map((f) => {
+    filasDeCapas([...miembros].reverse()).map((f) => {
       if (f.tipo === "capa") return fila(f.capa, cont, true);
       const ids = f.capas.map((c) => c.id);
       const abierto = subAbiertos.has(f.id) || ids.includes(seleccionId ?? "");

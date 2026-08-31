@@ -383,21 +383,50 @@ export function LineaDeTiempo({
   const [gruposAbiertos, setGruposAbiertos] = useState<string[]>([]);
   const alBajarFilas = (e: React.PointerEvent) => {
     const cont = filasRef.current;
-    if (!cont || e.button !== 0) return;
+    const scroller = cont?.parentElement; // el div overflow-y-auto que envuelve gutter + filas
+    if (!cont || !scroller || e.button !== 0) return;
     e.preventDefault(); // que el marquee no arranque una selección de texto
-    const rect = cont.getBoundingClientRect();
     const filaEl = (e.target as HTMLElement).closest?.("[data-fila-tl]") as HTMLElement | null;
     const capaId = filaEl?.dataset.filaTl ?? null;
-    const origen = { x: e.clientX, y: e.clientY, movio: false };
+    // el origen vive en coordenadas de CONTENIDO: sobrevive al auto-scroll
+    const rect0 = cont.getBoundingClientRect();
+    const origen = { x: e.clientX - rect0.left, y: e.clientY - rect0.top, movio: false };
+    const puntero = { x: e.clientX, y: e.clientY };
     const shift = e.shiftKey;
-    const alMover = (ev: PointerEvent) => {
-      if (Math.abs(ev.clientX - origen.x) + Math.abs(ev.clientY - origen.y) > 3) origen.movio = true;
+    let rafId = 0;
+    const pintar = () => {
+      // clampear al contenido: si el rectángulo (absoluto) se saliera, AGRANDA
+      // el área scrolleable y el auto-scroll se retroalimenta hasta el infinito
+      const r = cont.getBoundingClientRect();
+      const x1 = Math.min(Math.max(puntero.x - r.left, 0), r.width);
+      const y1 = Math.min(Math.max(puntero.y - r.top, 0), r.height);
+      setMarquee({ x0: origen.x, y0: origen.y, x1, y1 });
+    };
+    // arrastrar más allá del borde del panel SCROLLEA solo (como en AE):
+    // el rectángulo sigue creciendo y agarra filas que estaban fuera de vista
+    const paso = () => {
+      rafId = requestAnimationFrame(paso);
       if (!origen.movio) return;
-      setMarquee({ x0: origen.x - rect.left, y0: origen.y - rect.top, x1: ev.clientX - rect.left, y1: ev.clientY - rect.top });
+      const rs = scroller.getBoundingClientRect();
+      const porArriba = rs.top + 24 - puntero.y;
+      const porAbajo = puntero.y - (rs.bottom - 24);
+      if (porArriba <= 0 && porAbajo <= 0) return;
+      if (porArriba > 0) scroller.scrollTop -= Math.min(28, porArriba * 0.6);
+      else scroller.scrollTop += Math.min(28, porAbajo * 0.6);
+      pintar();
+    };
+    const alMover = (ev: PointerEvent) => {
+      puntero.x = ev.clientX;
+      puntero.y = ev.clientY;
+      const r = cont.getBoundingClientRect();
+      if (Math.abs(ev.clientX - r.left - origen.x) + Math.abs(ev.clientY - r.top - origen.y) > 3) origen.movio = true;
+      if (!origen.movio) return;
+      pintar();
     };
     const alSoltar = (ev: PointerEvent) => {
       window.removeEventListener("pointermove", alMover);
       window.removeEventListener("pointerup", alSoltar);
+      cancelAnimationFrame(rafId);
       setMarquee(null);
       if (!origen.movio) {
         if (!capaId) return; // el fondo (o la fila de cámara, que se maneja sola)
@@ -405,21 +434,32 @@ export function LineaDeTiempo({
         else onSeleccionar(capaId);
         return;
       }
-      // filas que cruza el rectángulo (alcanza el rango vertical: una fila
-      // ocupa todo el ancho, el eje X del marquee no discrimina capas)
-      const y0 = Math.min(origen.y, ev.clientY);
-      const y1 = Math.max(origen.y, ev.clientY);
+      // filas que cruza el rectángulo, comparadas en coordenadas de CONTENIDO
+      // (si hubo auto-scroll a mitad de gesto, el cálculo no se corre); el
+      // rango vertical alcanza: una fila ocupa todo el ancho
+      const r = cont.getBoundingClientRect();
+      const yFin = ev.clientY - r.top;
+      const y0 = Math.min(origen.y, yFin);
+      const y1 = Math.max(origen.y, yFin);
       const ids = [...cont.querySelectorAll<HTMLElement>("[data-fila-tl], [data-fila-tl-grupo]")]
         .filter((el) => {
-          const r = el.getBoundingClientRect();
-          return r.top < y1 && r.bottom > y0;
+          const fr = el.getBoundingClientRect();
+          return fr.top - r.top < y1 && fr.bottom - r.top > y0;
         })
         .flatMap((el) => (el.dataset.filaTl ? [el.dataset.filaTl] : (el.dataset.filaTlGrupo?.split(",") ?? [])));
       if (ids.length && onSeleccionarVarias) onSeleccionarVarias(ids);
     };
     window.addEventListener("pointermove", alMover);
     window.addEventListener("pointerup", alSoltar);
+    rafId = requestAnimationFrame(paso);
   };
+
+  // Filas en CONVENCIÓN VISUAL (como AE y Figma): la de arriba tapa a la de
+  // abajo. El array `capas` va fondo→frente, así que la timeline lo pinta al
+  // revés — invertir ANTES de agrupar mantiene los subgrupos consecutivos y
+  // ya deja sus capas internas en orden visual. Gutter, pistas y el recuadro
+  // de selección salen TODOS de esta misma lista (invariante de alineación).
+  const filasTL = filasDeCapas([...composicion.capas].reverse());
 
   // Una fila de capa del timeline (suelta, o adentro de un subgrupo
   // expandido — ahí con un tinte para leer la pertenencia).
@@ -652,7 +692,7 @@ export function LineaDeTiempo({
           {/* MISMAS filas que las pistas de la derecha (subgrupos plegados
               incluidos): si acá hubiera una fila por capa plana, con un
               grupo plegado los nombres quedarían corridos de sus barras */}
-          {filasDeCapas(composicion.capas).flatMap((fila) => {
+          {filasTL.flatMap((fila) => {
             const nombreDeCapa = (capa: (typeof composicion.capas)[number], anidada: boolean) => {
               const activa = seleccionId === capa.id || seleccionIds.includes(capa.id);
               return (
@@ -723,7 +763,7 @@ export function LineaDeTiempo({
             }}
           />
         )}
-        {filasDeCapas(composicion.capas).flatMap((fila) => {
+        {filasTL.flatMap((fila) => {
           // ——— fila de SUBGRUPO (grupo de Figma): una sola fila plegable —
           // el logo con 30 letras no come 30 filas; expandís cuando lo
           // querés animar por partes. La barra mueve el bloque entero.
@@ -791,7 +831,7 @@ export function LineaDeTiempo({
           if (!rango) return null;
           // filas VISIBLES (los subgrupos plegados colapsan el conteo):
           // cada entrada lista los ids que esa fila representa
-          const visibles: string[][] = filasDeCapas(composicion.capas).flatMap((fila) => {
+          const visibles: string[][] = filasTL.flatMap((fila) => {
             if (fila.tipo === "capa") return [[fila.capa.id]];
             const ids = fila.capas.map((c) => c.id);
             return gruposAbiertos.includes(fila.id)
