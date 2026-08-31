@@ -33,7 +33,20 @@
   ver_composicion de entrada. Verificado: unit (mime quicktime→mov,
   prompt, partes con fps, contexto) + sabotajes 39-40 + Playwright
   (el video viaja en el POST, el evento del analista entra al log y al
-  taxímetro).
+  taxímetro). NOTA de honestidad (la review lo marcó): los verificadores
+  Playwright son ANDAMIAJE y viven fuera del repo, como los verificarNN
+  de todas las tandas — la cobertura reproducible del repo son los tests
+  de node:test.
+- La review adversarial (Sonnet, TOKENOMICS) encontró 8; corregidos: el
+  fetch del analista sin try/catch ROMPÍA el turno entero ante un fallo
+  de red (ahora degrada a frames, siempre); le faltaba el retry de
+  thinkingConfig que loopGemini sí tiene; timeout propio de 45s (el
+  analista no se come el maxDuration del director); 4 intentos y el
+  último error real en el mensaje de agotados; PRIORIDAD explícita en el
+  prompt cuando hay locución Y análisis (la locución manda los «en», el
+  análisis aporta el carácter); tope de 8000 chars al texto del análisis;
+  aritmética del base64 corregida a ×4/3; y anotado que bodySizeLimit no
+  protege route handlers (el límite real lo pone la plataforma).
 - **Pendiente natural:** el File API de Gemini para videos >13MB; y la
   medición CV real (M8) cuando el criterio del analista no alcance.
 

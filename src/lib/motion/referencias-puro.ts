@@ -49,8 +49,8 @@ export function tipoPorNombre(nombre: string): string {
 
 /** Tope del ARCHIVO de video que viaja inline al analista (Gemini lee el
     video nativo por generateContent; el request inline aguanta ~20MB y el
-    base64 infla ×1.37 — 13MB de archivo deja margen para el prompt). Un
-    video más pesado degrada a frames-solos, avisado. */
+    base64 infla ×4/3 — 13MB de archivo ≈ 17.4M chars, margen para el
+    prompt). Un video más pesado degrada a frames-solos, avisado. */
 export const LIMITE_BYTES_VIDEO = 13_000_000;
 
 /** El MIME como lo espera Gemini (File.type dice video/quicktime para un

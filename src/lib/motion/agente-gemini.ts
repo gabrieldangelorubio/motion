@@ -113,49 +113,72 @@ export async function analizarVideoGemini(opts: {
   let modeloVivo = opts.modelo;
   let reintentoModelo = false;
   let conFps = true;
-  for (let intento = 0; intento < 3; intento++) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modeloVivo)}:generateContent`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-goog-api-key": opts.apiKey },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: partesDeVideo(opts.mime, opts.datosBase64, opts.prompt, conFps ? 10 : undefined) }],
-        ...(configGeneracion(modeloVivo) ? { generationConfig: configGeneracion(modeloVivo) } : {}),
-      }),
-    });
-    if (!res.ok) {
-      const detalle = await res.text().catch(() => "");
-      const sugerido = res.status === 404 && !reintentoModelo ? modeloSugerido(detalle, modeloVivo) : null;
-      if (sugerido) {
-        reintentoModelo = true;
-        modeloVivo = sugerido;
-        continue;
+  let conPensamiento = true;
+  let ultimoDetalle = "";
+  // 4 intentos: alcanza para 404-modelo + 400-fps + 400-thinking + éxito
+  for (let intento = 0; intento < 4; intento++) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modeloVivo)}:generateContent`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": opts.apiKey },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: partesDeVideo(opts.mime, opts.datosBase64, opts.prompt, conFps ? 10 : undefined) }],
+          ...(conPensamiento && configGeneracion(modeloVivo)
+            ? { generationConfig: configGeneracion(modeloVivo) }
+            : {}),
+        }),
+        // el analista corre DENTRO del presupuesto del turno (maxDuration):
+        // acotado para que un cuelgue no se coma el tiempo del director
+        signal: AbortSignal.timeout(45_000),
+      });
+      if (!res.ok) {
+        const detalle = await res.text().catch(() => "");
+        ultimoDetalle = `${res.status}: ${detalle.slice(0, 200)}`;
+        const sugerido = res.status === 404 && !reintentoModelo ? modeloSugerido(detalle, modeloVivo) : null;
+        if (sugerido) {
+          reintentoModelo = true;
+          modeloVivo = sugerido;
+          continue;
+        }
+        if (res.status === 400 && conFps && /video_?metadata|fps/i.test(detalle)) {
+          conFps = false;
+          continue;
+        }
+        // mismo retry que loopGemini: modelo que rechaza thinkingConfig
+        if (res.status === 400 && conPensamiento && /thinking/i.test(detalle)) {
+          conPensamiento = false;
+          continue;
+        }
+        return { ok: false, error: `El analista (${modeloVivo}) respondió ${ultimoDetalle}` };
       }
-      if (res.status === 400 && conFps && /video_?metadata|fps/i.test(detalle)) {
-        conFps = false;
-        continue;
-      }
-      return { ok: false, error: `El analista (${modeloVivo}) respondió ${res.status}: ${detalle.slice(0, 300)}` };
+      const datos = (await res.json()) as {
+        candidates?: { content?: { parts?: ParteGemini[] } }[];
+        usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
+      };
+      const um = datos.usageMetadata;
+      const uso: UsoTokens = {
+        entrada: um?.promptTokenCount ?? 0,
+        salida: (um?.candidatesTokenCount ?? 0) + (um?.thoughtsTokenCount ?? 0),
+        pensamiento: um?.thoughtsTokenCount ?? 0,
+      };
+      const texto = (datos.candidates?.[0]?.content?.parts ?? [])
+        .filter((p): p is { text: string } => "text" in p)
+        .map((p) => p.text)
+        .join("\n")
+        .trim();
+      if (!texto) return { ok: false, error: "El analista no devolvió texto" };
+      return { ok: true, texto, uso, modelo: modeloVivo };
+    } catch (e) {
+      // red caída / timeout: el analista DEGRADA (frames-solos), jamás
+      // rompe el turno del director
+      return {
+        ok: false,
+        error: `El analista no pudo leer el video: ${e instanceof Error ? e.message : "error de red"}`,
+      };
     }
-    const datos = (await res.json()) as {
-      candidates?: { content?: { parts?: ParteGemini[] } }[];
-      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
-    };
-    const um = datos.usageMetadata;
-    const uso: UsoTokens = {
-      entrada: um?.promptTokenCount ?? 0,
-      salida: (um?.candidatesTokenCount ?? 0) + (um?.thoughtsTokenCount ?? 0),
-      pensamiento: um?.thoughtsTokenCount ?? 0,
-    };
-    const texto = (datos.candidates?.[0]?.content?.parts ?? [])
-      .filter((p): p is { text: string } => "text" in p)
-      .map((p) => p.text)
-      .join("\n")
-      .trim();
-    if (!texto) return { ok: false, error: "El analista no devolvió texto" };
-    return { ok: true, texto, uso, modelo: modeloVivo };
   }
-  return { ok: false, error: "El analista no pudo leer el video (reintentos agotados)" };
+  return { ok: false, error: `El analista no pudo leer el video (reintentos agotados; último error ${ultimoDetalle || "desconocido"})` };
 }
 
 /** El loop agéntico contra Gemini. `ejecutar` cierra sobre la composición

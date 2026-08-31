@@ -73,7 +73,9 @@ export async function POST(pedido: Request): Promise<Response> {
         ? cuerpo.contextoReferencias.slice(0, 4000)
         : undefined;
     // el VIDEO para el analista, saneado: mime que Gemini declare y tamaño
-    // inline (el base64 infla ×1.37; 19M chars ≈ 14MB de archivo)
+    // inline (el base64 infla ×4/3: 19M chars ≈ 14MB de archivo). OJO: el
+    // bodySizeLimit de next.config es de SERVER ACTIONS y no protege este
+    // route handler — el límite real del body lo pone la plataforma
     const videoCrudo = cuerpo.videoReferencia;
     const mimeVideo = typeof videoCrudo?.mime === "string" ? mimeParaGemini(videoCrudo.mime) : "";
     const videoReferencia =
@@ -119,7 +121,9 @@ export async function POST(pedido: Request): Promise<Response> {
                 prompt: promptAnalisisReferencia(videoReferencia.nombre, videoReferencia.duracionMs),
               });
               if (analisis.ok) {
-                contextoFinal = contextoConAnalisis(contextoReferencias ?? "", analisis.texto, analisis.modelo);
+                // el análisis con tope, como todo contexto del route (un
+                // video largo puede producir una lectura interminable)
+                contextoFinal = contextoConAnalisis(contextoReferencias ?? "", analisis.texto.slice(0, 8000), analisis.modelo);
                 console.log(`[agente] analista de referencia: ${analisis.modelo} · ${((Date.now() - t0) / 1000).toFixed(1)}s`);
                 emitir({ tipo: "analisis", modelo: analisis.modelo, uso: analisis.uso, ms: Date.now() - t0, resumen: analisis.texto.slice(0, 240) });
               } else {
