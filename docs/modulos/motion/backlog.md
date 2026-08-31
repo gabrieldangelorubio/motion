@@ -29,6 +29,13 @@
   la revive). Verificado: unit (filtro, pintado, AE, guard, serializar) +
   sabotajes 35-36 + Playwright end-to-end en Chromium real (webm generado
   en la página, subido, pixel del frame verificado, IndexedDB persiste).
+  La review adversarial (Sonnet, TOKENOMICS) encontró 3 reales,
+  corregidos: `reordenar_capas` esquivaba el guard (la lista de ids no
+  pasa por capaId) y el director podía subir el video al frente — ahora
+  queda CLAVADO al fondo, con o sin su id en el orden; el test del guard
+  probaba un nombre de tool inexistente («borrar_capa» → «quitar_capa»);
+  y los objectURL de los `<video>` no se revocaban (ahora: en el path de
+  error de subir y al desmontar el editor).
   Pendiente natural (P2): el archivo al catálogo de diosa para viajar
   entre máquinas; sugerir el TEMPO de la escena desde la duración del
   video (como hace el audio).

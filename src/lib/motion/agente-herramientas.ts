@@ -455,13 +455,22 @@ export function ejecutarHerramienta(
 
     case "reordenar_capas": {
       if (!Array.isArray(input.orden)) return fallo(comp, "orden tiene que ser la lista completa de ids, de fondo a frente");
-      const orden = input.orden.map(String);
-      const idsActuales = comp.capas.map((c) => c.id).sort();
+      // el VIDEO DE REFERENCIA queda CLAVADO al fondo: el guard global no
+      // alcanza (acá viaja una lista, no un capaId) y el reorden es la vía
+      // por la que el director podría taparlo todo — se acepta el orden con
+      // o sin sus ids, pero su posición no se negocia
+      const referencia = comp.capas.filter((c) => c.tipo === "video");
+      const idsReferencia = new Set(referencia.map((c) => c.id));
+      const orden = input.orden.map(String).filter((id) => !idsReferencia.has(id));
+      const idsActuales = comp.capas.filter((c) => c.tipo !== "video").map((c) => c.id).sort();
       if (JSON.stringify([...orden].sort()) !== JSON.stringify(idsActuales)) {
         return fallo(comp, `orden tiene que contener exactamente los ids actuales: ${idsActuales.join(", ")}`);
       }
       const porId = new Map(comp.capas.map((c) => [c.id, c]));
-      return exito({ ...comp, capas: orden.map((id) => porId.get(id)!) }, "z-order actualizado");
+      return exito(
+        { ...comp, capas: [...referencia, ...orden.map((id) => porId.get(id)!)] },
+        `z-order actualizado${referencia.length ? " (el video de referencia sigue al fondo)" : ""}`,
+      );
     }
 
     default:

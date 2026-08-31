@@ -149,7 +149,7 @@ test("cualquier herramienta del director que apunte al video de referencia se re
   const escena = comp([video(), titulo()]);
   for (const [herramienta, entrada] of [
     ["editar_capa", { capaId: "ref", x: 100 }],
-    ["borrar_capa", { capaId: "ref" }],
+    ["quitar_capa", { capaId: "ref" }],
     ["definir_entrada", { capaId: "ref", preset: "revelar", en: 0, duracion: 500 }],
   ] as const) {
     const res = ejecutarHerramienta(escena, herramienta, entrada);
@@ -159,4 +159,19 @@ test("cualquier herramienta del director que apunte al video de referencia se re
   // las herramientas sobre OTRAS capas siguen andando igual
   const ok = ejecutarHerramienta(escena, "editar_capa", { capaId: "t", x: 100 });
   assert.notEqual(ok.comp, escena);
+});
+
+test("reordenar_capas no puede subir el video: queda CLAVADO al fondo, con o sin su id en el orden", () => {
+  const escena = comp([video(), titulo()]);
+  // el director intenta ponerlo al FRENTE (la vía que esquivaba el guard)
+  const alFrente = ejecutarHerramienta(escena, "reordenar_capas", { orden: ["t", "ref"] });
+  assert.deepEqual(alFrente.comp.capas.map((c) => c.id), ["ref", "t"], "el video sigue primero (el fondo)");
+  assert.match(alFrente.resultado, /sigue al fondo/);
+  // el orden SIN el id de la referencia también vale (su posición no se negocia)
+  const sinRef = ejecutarHerramienta(escena, "reordenar_capas", { orden: ["t"] });
+  assert.deepEqual(sinRef.comp.capas.map((c) => c.id), ["ref", "t"]);
+  // y un reorden normal de las demás capas sigue andando
+  const dos = comp([video(), titulo(), { ...titulo(), id: "t2", nombre: "Otro" }]);
+  const res = ejecutarHerramienta(dos, "reordenar_capas", { orden: ["t2", "t", "ref"] });
+  assert.deepEqual(res.comp.capas.map((c) => c.id), ["ref", "t2", "t"]);
 });

@@ -300,6 +300,20 @@ export function Editor({
       if (capa.tipo === "video") asegurarVideo(capa.videoId);
     }
   }, [composicion, asegurarVideo]);
+  // al desmontar el editor, los objectURL de los <video> se revocan (el
+  // audio hace lo mismo en cada swap; acá el ciclo de vida es la sesión)
+  useEffect(() => {
+    const videos = videosRef.current;
+    return () => {
+      for (const el of videos.values()) {
+        if (el instanceof HTMLVideoElement) {
+          el.pause();
+          URL.revokeObjectURL(el.src);
+        }
+      }
+      videos.clear();
+    };
+  }, []);
   /** Esclaviza cada <video> al reloj: en play corrige deriva grande y lo
       mantiene andando (mudo); en pausa/scrub busca el frame exacto. */
   const sincronizarVideos = useCallback((tMs: number, enPlay: boolean) => {
@@ -916,6 +930,7 @@ export function Editor({
       el.onerror = () => resolver(false);
     });
     if (!cargo) {
+      URL.revokeObjectURL(el.src); // el blob huérfano no se queda vivo
       setAvisoGuardado(t("Ese archivo no se pudo leer como video"));
       return;
     }
