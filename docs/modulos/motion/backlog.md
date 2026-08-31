@@ -13,6 +13,30 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] El ANALISTA de referencias: Flash ve el video entero (2026-08-31, tanda 21)
+- **Hecho (pedido de Gabriel tras la primera prueba real):** 8 frames
+  uniformes no alcanzan para leer motion (el movimiento vive ENTRE los
+  frames — el propio research lo anticipaba). Ahora el pipeline es
+  TOKENOMICS puro: el CLIENTE manda además el VIDEO entero (≤13MB inline;
+  base64, nunca a disco), la ruta se lo da a un ANALISTA barato
+  (`MOTION_REFERENCIA_MODELO`, default gemini-3.6-flash) que lo VE nativo
+  con muestreo denso (fps 10 por videoMetadata, con degradación si el
+  modelo lo rechaza) y un prompt de analista de motion: carácter global,
+  línea de tiempo con timestamps, easings en el vocabulario de la casa,
+  staggers con Δt, cámara, mecanismos de kinetic type — sin contenido
+  ajeno. Ese análisis viaja al DIRECTOR como lectura PRINCIPAL (regla
+  nueva en el system prompt; los frames quedan de apoyo) y su costo entra
+  al taxímetro con línea propia en el log. Sin GEMINI_API_KEY o con fallo
+  del analista degrada a frames-solos, avisado. También de esa prueba:
+  describir ahora muestra el ID de cada capa (el director lo adivinaba
+  por nombre y quemaba pasos en errores) y el prompt prohíbe el
+  ver_composicion de entrada. Verificado: unit (mime quicktime→mov,
+  prompt, partes con fps, contexto) + sabotajes 39-40 + Playwright
+  (el video viaja en el POST, el evento del analista entra al log y al
+  taxímetro).
+- **Pendiente natural:** el File API de Gemini para videos >13MB; y la
+  medición CV real (M8) cuando el criterio del analista no alcance.
+
 ### [HECHO] Chip de versión + el video en la tarjeta de arranque (2026-08-31, tanda 19b)
 - **Hecho (pedido de Gabriel probando en su máquina):** (1) CHIP DE
   VERSIÓN abajo a la izquierda del lienzo — el SHA corto del commit del

@@ -47,6 +47,47 @@ export function tipoPorNombre(nombre: string): string {
   return "";
 }
 
+/** Tope del ARCHIVO de video que viaja inline al analista (Gemini lee el
+    video nativo por generateContent; el request inline aguanta ~20MB y el
+    base64 infla ×1.37 — 13MB de archivo deja margen para el prompt). Un
+    video más pesado degrada a frames-solos, avisado. */
+export const LIMITE_BYTES_VIDEO = 13_000_000;
+
+/** El MIME como lo espera Gemini (File.type dice video/quicktime para un
+    .mov; la API lo lista como video/mov). Devuelve "" si no es un video
+    que la API declare soportar. */
+export function mimeParaGemini(mime: string): string {
+  const m = mime.toLowerCase();
+  if (m === "video/quicktime") return "video/mov";
+  if (["video/mp4", "video/mpeg", "video/mov", "video/avi", "video/x-flv", "video/mpg", "video/webm", "video/wmv", "video/3gpp"].includes(m)) return m;
+  return "";
+}
+
+/** El prompt del ANALISTA de movimiento (Gemini Flash, que VE el video
+    entero): destilar la coreografía a un análisis que el director pueda
+    ejecutar con nuestro vocabulario — timestamps, dirección, easing
+    percibido, staggers, cámara y cortes. Nada de contenido ajeno. */
+export function promptAnalisisReferencia(nombre: string, duracionMs?: number): string {
+  const dur = duracionMs ? ` (dura ${(duracionMs / 1000).toFixed(1)}s)` : "";
+  return `Sos un analista de motion design. Mirá el video «${nombre}»${dur} COMPLETO y destilá su COREOGRAFÍA — el movimiento, no el contenido — para que otro director la reproduzca sobre otra pieza.
+
+Respondé en castellano, compacto y ejecutable, con esta estructura:
+1. CARÁCTER GLOBAL (1-2 líneas): ritmo (frenético/pausado), energía (snappy/suave/mecánico), si parece animado a bajos fps (stop-motion, en doses) o fluido.
+2. LÍNEA DE TIEMPO: cada evento de movimiento con su timestamp aproximado — «0.0-0.4s: el título entra desde abajo, frena suave (ease-out fuerte, tipo expo)». Incluí TODOS los cortes de escena/plano si los hay.
+3. POR ELEMENTO: qué se mueve, desde dónde, cuánto tarda, y el easing PERCIBIDO nombrado en este vocabulario: lineal, salidaSine/Quad/Cubic/Expo (frena suave→fuerte), entradaExpo (acelera al salir), salidaBack (pasa de largo y vuelve), salidaElastico (rebota elástico), salidaPique (pica como pelota), escalones (a saltos mecánicos), resortes. Si algo aparece/desaparece de golpe (sin interpolación), decilo: «corte seco» o «switch».
+4. STAGGERS: si hay elementos en cascada (letras, palabras, líneas, items), el orden (inicio/fin/centro/bordes/azar) y el Δt aproximado entre unidades en ms.
+5. CÁMARA: paneos, zooms, shakes — o «quieta».
+6. TEXTO EN MOVIMIENTO: si hay tipografía cinética, describí el MECANISMO (¿las palabras se reemplazan en el mismo lugar? ¿entran por máscara? ¿escalan? ¿cuántas palabras por segundo?).
+
+NO describas colores, marcas ni el contenido de los textos salvo que el mecanismo lo necesite. Números concretos siempre que puedas (ms, cantidad de unidades).`;
+}
+
+/** El bloque que viaja al DIRECTOR cuando el analista leyó el video
+    entero: el análisis es la lectura principal, los frames el apoyo. */
+export function contextoConAnalisis(contextoCliente: string, analisis: string, modelo: string): string {
+  return `${contextoCliente}\n\nANÁLISIS DEL MOVIMIENTO (un analista —${modelo}— vio el video COMPLETO frame a frame; esta es la lectura principal de la referencia, los frames adjuntos son apoyo visual):\n${analisis}`;
+}
+
 export type MetaReferencia = {
   nombre: string;
   tipo: "video" | "imagen";

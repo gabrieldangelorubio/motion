@@ -613,6 +613,17 @@ Nada más: cero librerías de animación, canvas o UI.
   selector de proveedor: `claude-*` → Anthropic, `gemini-*` → Gemini.
   Default: `gemini-3.6-flash` si hay GEMINI_API_KEY, si no
   `claude-opus-5`.
+- `MOTION_REFERENCIA_MODELO` (opcional) — el ANALISTA de referencias
+  (default `gemini-3.6-flash`): cuando adjuntás un VIDEO al chat del
+  director, este modelo lo ve ENTERO por la API de Gemini (video nativo,
+  muestreo denso a 10fps con degradación si el modelo no lo soporta) y
+  destila la coreografía —línea de tiempo con timestamps, easings en
+  nuestro vocabulario, staggers con Δt, cámara, mecanismos de kinetic
+  type— que el director toma como lectura PRINCIPAL (los 8 frames quedan
+  de apoyo visual). Necesita `GEMINI_API_KEY`; sin ella la referencia va
+  solo por frames, avisado en el log. El archivo viaja inline si pesa
+  ≤13MB (más pesado: solo frames); su costo entra al taxímetro como una
+  línea propia del log («analista de referencia»).
 - `MOTION_AGENTE_MODELO_FINO` (opcional) — el modelo del nivel «fino» del
   panel (default `claude-opus-5`). El panel del director tiene un selector
   rápido/fino: «rápido» usa el modelo económico de arriba, «fino» sube a
@@ -664,7 +675,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **317
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **321
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -737,7 +748,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   rechaza con guía». (37) el muestreo de referencia llegando al final
   exacto del video → falló exactamente «termina ANTES del final». (38)
   armarPrimerUsuario ignorando el contexto de referencias → falló exacto
-  el test del primer turno. Restaurados, todos verdes. El video de referencia
+  el test del primer turno. (39) mimeParaGemini dejando pasar quicktime
+  sin traducir → falló exacto. (40) el fps del muestreo denso quitado de
+  partesDeVideo → falló exacto. Restaurados, todos verdes. El video de referencia
   además se verificó END-TO-END en Chromium real (Playwright: webm
   generado en la página → subido por el botón → capa al fondo con chip
   REF → el canvas pinta el FRAME del video, pixel verificado → el archivo

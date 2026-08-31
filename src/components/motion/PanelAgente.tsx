@@ -191,14 +191,29 @@ export function PanelAgente({
       resto = lineas.pop() ?? "";
       for (const linea of lineas) {
         if (!linea.trim()) continue;
-        let evento: FinAgente & { tipo?: string; iteracion?: number; msModelo?: number };
+        let evento: FinAgente & { tipo?: string; iteracion?: number; msModelo?: number; ms?: number; resumen?: string };
         try {
           evento = JSON.parse(linea);
         } catch {
           continue;
         }
         const ts = ((performance.now() - t0) / 1000).toFixed(1);
-        if (evento.tipo === "paso") {
+        if (evento.tipo === "analisis") {
+          // el ANALISTA (Gemini) vio el video de la referencia completo
+          // antes de que el director arranque — su costo va al taxímetro
+          if (evento.error) {
+            log.push(`[+${ts}s] analista de referencia: ${evento.error}`);
+          } else {
+            const tokens = evento.uso ? formatearTokens(evento.uso.entrada + evento.uso.salida) : "";
+            log.push(`[+${ts}s] analista de referencia (${evento.modelo}): vio el video completo en ${(((evento.ms ?? 0)) / 1000).toFixed(1)}s · ${tokens}`);
+            if (evento.resumen) log.push(`  lectura: «${evento.resumen}…»`);
+            if (evento.modelo && evento.uso) {
+              const costo = costoUSD(evento.modelo, evento.uso);
+              if (costo !== null) setGasto((g) => g + costo);
+            }
+            setProgreso({ paso: 0, ultimaOp: t("el analista leyó la referencia — dirigiendo…") });
+          }
+        } else if (evento.tipo === "paso") {
           pasos = evento.iteracion ?? pasos;
           const opsPaso = evento.ops ?? [];
           // el razonamiento a la vista: «¿pensó o no pensó?» se responde acá
@@ -256,8 +271,8 @@ export function PanelAgente({
     setPensando(true);
     try {
       const t0 = performance.now();
-      const log: string[] = [`[+0.0s] pedido: «${pedido.slice(0, 200)}»${refDelPedido ? ` + referencia «${refDelPedido.meta.nombre}» (${refDelPedido.imagenes.length} imgs)` : ""}`];
-      setProgreso(null);
+      const log: string[] = [`[+0.0s] pedido: «${pedido.slice(0, 200)}»${refDelPedido ? ` + referencia «${refDelPedido.meta.nombre}» (${refDelPedido.imagenes.length} imgs${refDelPedido.archivo ? " + video para el analista" : ""})` : ""}`];
+      setProgreso(refDelPedido?.archivo ? { paso: 0, ultimaOp: t("el analista está viendo el video de la referencia…") } : null);
       setTranscurrido(0);
       const { fin, pasos } = await pedirAlAgente(
         {
@@ -270,6 +285,10 @@ export function PanelAgente({
           nivel,
           imagenes: refDelPedido?.imagenes,
           contextoReferencias: refDelPedido?.contexto,
+          // el video ENTERO para el analista (si entró en el límite inline)
+          videoReferencia: refDelPedido?.archivo
+            ? { ...refDelPedido.archivo, nombre: refDelPedido.meta.nombre, duracionMs: refDelPedido.meta.duracionMs }
+            : undefined,
         },
         log,
         t0,

@@ -1,14 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  LIMITE_BYTES_VIDEO,
   MAX_FRAMES_REFERENCIA,
+  contextoConAnalisis,
   contextoDeReferencias,
   instantesDeMuestreo,
+  mimeParaGemini,
   necesitaSeek,
+  promptAnalisisReferencia,
   tipoPorNombre,
 } from "@/lib/motion/referencias-puro";
 import { armarPrimerUsuario } from "@/lib/motion/agente";
-import { partesDeUsuario } from "@/lib/motion/agente-gemini";
+import { partesDeUsuario, partesDeVideo } from "@/lib/motion/agente-gemini";
 import type { Composicion } from "@/lib/motion/modelo";
 
 const comp: Composicion = {
@@ -85,6 +89,42 @@ test("armarPrimerUsuario intercala las referencias entre el estilo y el pedido",
   assert.ok(texto.indexOf("REFERENCIA ADJUNTA") < texto.indexOf("Pedido:"));
   // sin referencias, ni rastro
   assert.ok(!armarPrimerUsuario(comp, "hola").includes("REFERENCIA"));
+});
+
+/* ——— el ANALISTA: Gemini ve el video entero ————————————————————— */
+
+test("mimeParaGemini: quicktime se traduce a mov, lo soportado pasa, lo raro se rechaza", () => {
+  assert.equal(mimeParaGemini("video/quicktime"), "video/mov");
+  assert.equal(mimeParaGemini("video/mp4"), "video/mp4");
+  assert.equal(mimeParaGemini("video/webm"), "video/webm");
+  assert.equal(mimeParaGemini("application/octet-stream"), "");
+  assert.ok(LIMITE_BYTES_VIDEO > 5_000_000 && LIMITE_BYTES_VIDEO < 20_000_000, "el límite deja margen al request inline de ~20MB");
+});
+
+test("promptAnalisisReferencia pide la coreografía con NUESTRO vocabulario y sin contenido ajeno", () => {
+  const prompt = promptAnalisisReferencia("spot-nike", 3200);
+  assert.match(prompt, /«spot-nike»/);
+  assert.match(prompt, /dura 3\.2s/);
+  assert.match(prompt, /LÍNEA DE TIEMPO/);
+  assert.match(prompt, /salidaBack/); // el vocabulario de easings de la casa
+  assert.match(prompt, /escalones/);
+  assert.match(prompt, /STAGGERS/);
+  assert.match(prompt, /NO describas colores, marcas/);
+});
+
+test("contextoConAnalisis arma el bloque que el director toma como lectura PRINCIPAL", () => {
+  const bloque = contextoConAnalisis("REFERENCIA ADJUNTA «spot» (video de 2.0s): …", "0.0-0.4s: el título entra desde abajo", "gemini-3.6-flash");
+  assert.match(bloque, /^REFERENCIA ADJUNTA/);
+  assert.match(bloque, /ANÁLISIS DEL MOVIMIENTO \(un analista —gemini-3\.6-flash— vio el video COMPLETO/);
+  assert.match(bloque, /0\.0-0\.4s: el título entra desde abajo$/);
+});
+
+test("partesDeVideo: el video inline con muestreo DENSO (fps) antes del prompt; sin fps no viaja videoMetadata", () => {
+  const conFps = partesDeVideo("video/mp4", "AAAA", "analizá", 10);
+  assert.deepEqual(conFps[0], { inlineData: { mimeType: "video/mp4", data: "AAAA" }, videoMetadata: { fps: 10 } });
+  assert.deepEqual(conFps[1], { text: "analizá" });
+  const sinFps = partesDeVideo("video/mp4", "AAAA", "analizá");
+  assert.deepEqual(sinFps[0], { inlineData: { mimeType: "video/mp4", data: "AAAA" } });
 });
 
 test("los frames de referencia viajan a Gemini como inlineData ANTES del texto (mismo camino que la revisión)", () => {

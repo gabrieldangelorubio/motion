@@ -11,6 +11,8 @@ import type { Actor } from "@/lib/motion/modelo";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
 import { exigirEdicion } from "@/lib/motion/consultas";
 import { dirigirComposicion, type TurnoAgente } from "@/lib/motion/agente";
+import { analizarVideoGemini } from "@/lib/motion/agente-gemini";
+import { contextoConAnalisis, mimeParaGemini, promptAnalisisReferencia } from "@/lib/motion/referencias-puro";
 
 export const maxDuration = 300;
 
@@ -33,6 +35,9 @@ export async function POST(pedido: Request): Promise<Response> {
       imagenes?: { mime?: string; datosBase64?: string }[];
       /** el texto que explica los frames de referencia (opcional) */
       contextoReferencias?: string;
+      /** el VIDEO de referencia entero, para que el ANALISTA (Gemini) lo
+          vea frame a frame antes de dirigir (opcional) */
+      videoReferencia?: { mime?: string; datosBase64?: string; nombre?: string; duracionMs?: number };
       /** nivel del panel: «fino» = Opus para el planteo, «rapido» = el
           modelo económico del entorno (default) */
       nivel?: string;
@@ -67,6 +72,20 @@ export async function POST(pedido: Request): Promise<Response> {
       typeof cuerpo.contextoReferencias === "string" && cuerpo.contextoReferencias
         ? cuerpo.contextoReferencias.slice(0, 4000)
         : undefined;
+    // el VIDEO para el analista, saneado: mime que Gemini declare y tamaño
+    // inline (el base64 infla ×1.37; 19M chars ≈ 14MB de archivo)
+    const videoCrudo = cuerpo.videoReferencia;
+    const mimeVideo = typeof videoCrudo?.mime === "string" ? mimeParaGemini(videoCrudo.mime) : "";
+    const videoReferencia =
+      videoCrudo && mimeVideo && typeof videoCrudo.datosBase64 === "string" &&
+      videoCrudo.datosBase64.length > 0 && videoCrudo.datosBase64.length < 19_000_000
+        ? {
+            mime: mimeVideo,
+            datosBase64: videoCrudo.datosBase64,
+            nombre: typeof videoCrudo.nombre === "string" ? videoCrudo.nombre.slice(0, 120) : "referencia",
+            duracionMs: typeof videoCrudo.duracionMs === "number" ? videoCrudo.duracionMs : undefined,
+          }
+        : undefined;
     const nivel = cuerpo.nivel === "fino" || cuerpo.nivel === "rapido" ? cuerpo.nivel : undefined;
     const contextoEstilo =
       typeof cuerpo.contextoEstilo === "string" && cuerpo.contextoEstilo ? cuerpo.contextoEstilo.slice(0, 600) : undefined;
@@ -82,6 +101,33 @@ export async function POST(pedido: Request): Promise<Response> {
       async start(controlador) {
         const emitir = (e: unknown) => controlador.enqueue(codificador.encode(JSON.stringify(e) + "\n"));
         try {
+          // ——— EL ANALISTA primero: Gemini (barato) VE el video de la
+          // referencia completo y destila la coreografía; el director
+          // dirige con ese análisis como lectura principal. Sin key o con
+          // fallo, degrada a los frames de siempre — avisado, nunca roto.
+          let contextoFinal = contextoReferencias;
+          if (videoReferencia) {
+            if (!process.env.GEMINI_API_KEY) {
+              emitir({ tipo: "analisis", error: "sin GEMINI_API_KEY: la referencia va solo por frames (el analista de video necesita Gemini)" });
+            } else {
+              const t0 = Date.now();
+              const analisis = await analizarVideoGemini({
+                apiKey: process.env.GEMINI_API_KEY,
+                modelo: process.env.MOTION_REFERENCIA_MODELO || "gemini-3.6-flash",
+                mime: videoReferencia.mime,
+                datosBase64: videoReferencia.datosBase64,
+                prompt: promptAnalisisReferencia(videoReferencia.nombre, videoReferencia.duracionMs),
+              });
+              if (analisis.ok) {
+                contextoFinal = contextoConAnalisis(contextoReferencias ?? "", analisis.texto, analisis.modelo);
+                console.log(`[agente] analista de referencia: ${analisis.modelo} · ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+                emitir({ tipo: "analisis", modelo: analisis.modelo, uso: analisis.uso, ms: Date.now() - t0, resumen: analisis.texto.slice(0, 240) });
+              } else {
+                console.log(`[agente] analista de referencia FALLÓ: ${analisis.error}`);
+                emitir({ tipo: "analisis", error: analisis.error });
+              }
+            }
+          }
           const res = await dirigirComposicion(
             composicion,
             mensaje,
@@ -94,7 +140,7 @@ export async function POST(pedido: Request): Promise<Response> {
             imagenes.length ? imagenes : undefined,
             nivel,
             contextoEstilo,
-            contextoReferencias,
+            contextoFinal,
           );
           if (!res.ok) emitir({ tipo: "fin", error: res.error });
           else emitir({ tipo: "fin", respuesta: res.respuesta, snapshot: serializar(res.composicion), ops: res.ops, uso: res.uso, modelo: res.modelo });

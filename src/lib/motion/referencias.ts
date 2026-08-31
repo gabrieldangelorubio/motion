@@ -9,6 +9,7 @@
 
 import type { ImagenRevision } from "@/lib/motion/revision-puro";
 import {
+  LIMITE_BYTES_VIDEO,
   contextoDeReferencias,
   instantesDeMuestreo,
   necesitaSeek,
@@ -21,9 +22,26 @@ export type ReferenciaAdjunta = {
   imagenes: ImagenRevision[];
   /** el bloque de texto para el primer turno (contextoDeReferencias) */
   contexto: string;
+  /** el VIDEO entero (base64) para el ANALISTA del server (Gemini lo ve
+      frame a frame); ausente si pesa más del límite inline o es imagen —
+      en ese caso el director trabaja solo con los frames */
+  archivo?: { mime: string; datosBase64: string };
 };
 
 const ANCHO_MAX = 768;
+
+/** El archivo como base64 pelado (sin el prefijo data:). */
+function base64De(archivo: File): Promise<string> {
+  return new Promise((resolver, rechazar) => {
+    const lector = new FileReader();
+    lector.onload = () => {
+      const dataUrl = lector.result as string;
+      resolver(dataUrl.slice(dataUrl.indexOf(",") + 1));
+    };
+    lector.onerror = () => rechazar(lector.error);
+    lector.readAsDataURL(archivo);
+  });
+}
 
 function jpegDe(canvas: HTMLCanvasElement): ImagenRevision {
   const dataUrl = canvas.toDataURL("image/jpeg", 0.72);
@@ -115,7 +133,12 @@ export async function referenciaDeArchivo(archivo: File): Promise<ReferenciaAdju
       imagenes.push(jpegDe(canvas));
     }
     const meta: MetaReferencia = { nombre, tipo: "video", duracionMs, instantes };
-    return { meta, imagenes, contexto: contextoDeReferencias([meta]) };
+    // el archivo ENTERO para el analista del server, solo si entra inline
+    const archivoInline =
+      archivo.size <= LIMITE_BYTES_VIDEO
+        ? { mime: tipoArchivo, datosBase64: await base64De(archivo) }
+        : undefined;
+    return { meta, imagenes, contexto: contextoDeReferencias([meta]), archivo: archivoInline };
   } finally {
     video.removeAttribute("src");
     URL.revokeObjectURL(url);

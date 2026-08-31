@@ -15,7 +15,8 @@ import type { ImagenRevision } from "@/lib/motion/revision-puro";
 
 type ParteGemini =
   | { text: string }
-  | { inlineData: { mimeType: string; data: string } }
+  // videoMetadata: muestreo denso del VIDEO (fps) — solo junto a inlineData
+  | { inlineData: { mimeType: string; data: string }; videoMetadata?: { fps: number } }
   | { functionCall: { name: string; args: Record<string, unknown> } }
   | { functionResponse: { name: string; response: Record<string, unknown> } };
 
@@ -75,6 +76,86 @@ export function modeloSugerido(mensaje404: string, modeloActual: string): string
   const m = /use models\/([a-zA-Z0-9._-]+)/.exec(mensaje404);
   if (!m || m[1] === modeloActual) return null;
   return m[1];
+}
+
+/** Las partes del pedido de ANÁLISIS de un video de referencia: el video
+    inline + el prompt del analista. Con `fps` se pide muestreo DENSO
+    (Gemini por defecto muestrea 1 frame/s: en un clip corto de motion el
+    movimiento vive entre esos frames). Pura: testeable. */
+export function partesDeVideo(
+  mime: string,
+  datosBase64: string,
+  prompt: string,
+  fps?: number,
+): ParteGemini[] {
+  return [
+    {
+      inlineData: { mimeType: mime, data: datosBase64 },
+      ...(fps ? { videoMetadata: { fps } } : {}),
+    },
+    { text: prompt },
+  ];
+}
+
+/** UN pedido a Gemini con el VIDEO entero adentro: el analista de
+    movimiento (barato) lo ve frame a frame y devuelve el análisis que el
+    director usa como lectura principal. Muestreo denso (fps 10) con
+    degradación: si el modelo rechaza videoMetadata se reintenta sin él
+    (muestreo default 1fps), y un modelo retirado reintenta con el que el
+    404 sugiere — degradar, no romper. */
+export async function analizarVideoGemini(opts: {
+  apiKey: string;
+  modelo: string;
+  mime: string;
+  datosBase64: string;
+  prompt: string;
+}): Promise<{ ok: true; texto: string; uso: UsoTokens; modelo: string } | { ok: false; error: string }> {
+  let modeloVivo = opts.modelo;
+  let reintentoModelo = false;
+  let conFps = true;
+  for (let intento = 0; intento < 3; intento++) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modeloVivo)}:generateContent`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": opts.apiKey },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: partesDeVideo(opts.mime, opts.datosBase64, opts.prompt, conFps ? 10 : undefined) }],
+        ...(configGeneracion(modeloVivo) ? { generationConfig: configGeneracion(modeloVivo) } : {}),
+      }),
+    });
+    if (!res.ok) {
+      const detalle = await res.text().catch(() => "");
+      const sugerido = res.status === 404 && !reintentoModelo ? modeloSugerido(detalle, modeloVivo) : null;
+      if (sugerido) {
+        reintentoModelo = true;
+        modeloVivo = sugerido;
+        continue;
+      }
+      if (res.status === 400 && conFps && /video_?metadata|fps/i.test(detalle)) {
+        conFps = false;
+        continue;
+      }
+      return { ok: false, error: `El analista (${modeloVivo}) respondió ${res.status}: ${detalle.slice(0, 300)}` };
+    }
+    const datos = (await res.json()) as {
+      candidates?: { content?: { parts?: ParteGemini[] } }[];
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
+    };
+    const um = datos.usageMetadata;
+    const uso: UsoTokens = {
+      entrada: um?.promptTokenCount ?? 0,
+      salida: (um?.candidatesTokenCount ?? 0) + (um?.thoughtsTokenCount ?? 0),
+      pensamiento: um?.thoughtsTokenCount ?? 0,
+    };
+    const texto = (datos.candidates?.[0]?.content?.parts ?? [])
+      .filter((p): p is { text: string } => "text" in p)
+      .map((p) => p.text)
+      .join("\n")
+      .trim();
+    if (!texto) return { ok: false, error: "El analista no devolvió texto" };
+    return { ok: true, texto, uso, modelo: modeloVivo };
+  }
+  return { ok: false, error: "El analista no pudo leer el video (reintentos agotados)" };
 }
 
 /** El loop agéntico contra Gemini. `ejecutar` cierra sobre la composición
