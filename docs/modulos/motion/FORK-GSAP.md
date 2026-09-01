@@ -25,11 +25,13 @@ El fork la elimina:
 
 ## La arquitectura: GSAP ES el motor
 
-**La línea de tiempo de una composición ES un `gsap.timeline` de verdad**
-(tanda G2, `motor-gsap.ts`): cada pista de keyframes se compila a tweens
-`fromTo` con sus eases, cada segmento de entrada/salida a un tween de
-progreso por unidad (escalonado incluido), todo sobre PROXIES de valores —
-GSAP nunca toca el DOM. `estadoVivo(comp, t)` seekea el timeline pausado
+**La línea de tiempo de una composición SON timelines de GSAP de verdad**
+(tanda G2, `motor-gsap.ts`): la parte animada de cada CAPA se compila a un
+`gsap.timeline` propio — cada pista de keyframes a tweens `fromTo` con sus
+eases, cada segmento de entrada/salida a un tween de progreso por unidad
+(escalonado incluido), todo sobre PROXIES de valores — GSAP nunca toca el
+DOM. Timeline POR CAPA + cache de firmas por referencia: mover una capa no
+recompila nada, retimarla recompila solo la suya (~1ms). `estadoVivo(comp, t)` seekea el timeline pausado
 (`tl.time` es determinista: mismo t → mismo estado, en cualquier orden —
 verificado en Node y con tests de seek desordenado) y arma el estado con el
 MISMO ensamblador de `evaluar-puro` (offsets de presets, máscaras, motion

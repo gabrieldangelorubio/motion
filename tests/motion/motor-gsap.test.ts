@@ -128,6 +128,10 @@ const GRILLA = (duracion: number) => {
   const ts: number[] = [];
   for (let t = 0; t <= duracion; t += 137) ts.push(t);
   ts.push(0, 1, duracion - 1, duracion, duracion + 500);
+  // los INSTANTES EXACTOS de los keyframes/segmentos de compIntensa: las
+  // fronteras de sets y fromTo (holds incluidos) tienen que dar el mismo
+  // lado que interpolar — el paso de 137 no las pisa solo
+  ts.push(200, 500, 800, 1000, 1200, 1500, 2500, 3000, 3200, 3800, 4200);
   return ts;
 };
 
@@ -168,6 +172,43 @@ test("un segmento con en NEGATIVO cae al cálculo clásico (misma paridad, sin t
   for (const t of [0, 100, 300, 800]) {
     casiIgual(estadoVivo(comp, t), estadoEn(comp, t), `en<0 t=${t}`);
   }
+});
+
+test("t NEGATIVO da el estado inicial, no el final (el borde del -0 de Timeline.time)", () => {
+  // sin el clamp del seek, gsap con t<0 múltiplo «limpio» de la duración
+  // cae a renderizar la DURACIÓN entera — la entrada aparecía terminada
+  const comp = compIntensa();
+  for (const t of [-800, -400, -200, -100, -1]) {
+    casiIgual(estadoVivo(comp, t), estadoEn(comp, t), `t=${t}`);
+  }
+});
+
+test("FIRMA: un drag de posición NO recompila el timeline; retimar sí", async () => {
+  const { construccionesDeMotor } = await import("@/lib/motion/motor-gsap");
+  const comp = compIntensa();
+  estadoVivo(comp, 1000);
+  const base = construccionesDeMotor();
+
+  // edición de POSICIÓN (comp nueva, mismas referencias de pistas/segmentos):
+  // el motor anterior se reusa tal cual — cero rebuild durante un drag
+  const movida: Composicion = {
+    ...comp,
+    capas: comp.capas.map((c) => (c.id === "caja" ? ({ ...c, x: 1234 } as Capa) : c)),
+  };
+  const estado = estadoVivo(movida, 1000);
+  assert.equal(construccionesDeMotor(), base, "mover en x/y no reconstruye");
+  assert.equal(estado.capas.find((c) => c.capa.id === "caja")!.capa.x, 1234, "y la edición se ve igual");
+
+  // edición de TIMING (entrada nueva): eso SÍ recompila
+  const retimada: Composicion = {
+    ...comp,
+    capas: comp.capas.map((c) =>
+      c.id === "titulo" ? ({ ...c, entrada: { ...c.entrada!, en: 400 } } as Capa) : c,
+    ),
+  };
+  estadoVivo(retimada, 1000);
+  assert.equal(construccionesDeMotor(), base + 1, "retimar reconstruye una vez");
+  casiIgual(estadoVivo(retimada, 1000), estadoEn(retimada, 1000), "y con paridad");
 });
 
 test("cada composición NUEVA rebuildea su timeline (la identidad es la clave del cache)", () => {

@@ -31,13 +31,27 @@
   corren sobre estadoVivo; el clásico queda de referencia de paridad y
   para el .jsx legado. Segmento con en<0 cae al cálculo clásico
   (paridad igual). Perf: 0.05ms/frame el seek.
-- Verificado: 5 tests (PARIDAD en comp intensa que pisa todos los
+- Verificado: 7 tests (PARIDAD en comp intensa que pisa todos los
   caminos —escalonado azar, holds, eases GSAP, resortes, contador, trim,
-  fpsAnimacion— y en la fixture, con tolerancia 1e-4 px = el redondeo a
-  6 decimales de GSAP, medido; seek desordenado bit a bit; en negativo;
+  fpsAnimacion— más los instantes EXACTOS de cada keyframe, y en la
+  fixture; tolerancia 1e-4 px = el redondeo a 6 decimales de GSAP,
+  medido; seek desordenado bit a bit; t negativo; en negativo; firma;
   rebuild por identidad) + sabotaje 44 (seek sin ms→s → rojo exacto) +
   los dos e2e de Playwright re-corridos en verde sobre el build nuevo.
-  338 tests.
+  340 tests.
+- La review adversarial (Sonnet, TOKENOMICS) validó con scripts todos
+  los bordes (holds en frontera exacta, keyframes duplicados, timeline
+  vacío, concurrencia editor/minis, fugas — 100k builds con heap
+  estable) y trajo 2 reales + 1 menor, aplicados: (1) t NEGATIVO
+  disparaba un borde de gsap (el módulo interno da -0 y Timeline.time
+  cae a la DURACIÓN: renderizaba el FINAL) — el seek quedó clampeado a
+  ≥0, paridad intacta; (2) el rebuild NO era 0.5ms a escala real (5-22ms
+  con 20 capas de texto escalonado, y cada pointermove de un drag crea
+  una comp nueva) — rediseño: UN TIMELINE POR CAPA + cache de FIRMAS
+  por referencia (pistas/entrada/salida/n): mover en x/y no recompila
+  NADA (0 rebuilds en el benchmark de drag, 1.2ms/frame), retimar
+  recompila solo la capa tocada (~1ms); (3) el fallback de en<0 dejaba
+  tweens huérfanos — ahora valida la clase entera antes de crear.
 
 ### [HECHO] FORK GSAP, tanda G1: el puente de easings (2026-09-01)
 - **Decisión de Gabriel:** fork. La versión con export AE por keyframes
