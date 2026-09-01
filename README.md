@@ -10,15 +10,17 @@ estructura de carpetas, mismas convenciones: la integración es un `cp -R`.
 ```bash
 npm install
 npm run dev        # → http://localhost:3000/motion
-npm test           # 333 tests puros (node:test + tsx, sin base)
+npm test           # 338 tests puros (node:test + tsx, sin base)
 npx tsc --noEmit && npx eslint src tests
 ```
 
-> **FORK GSAP (2026-09-01):** esta rama prioriza calidad y vuelo de la
-> animación con el motor de easings de GSAP; AE queda solo para ensamblar
-> pantallas (recibe secuencias PNG con alfa). El porqué y el roadmap:
-> `docs/modulos/motion/FORK-GSAP.md`. La versión con export AE por
-> keyframes quedó congelada en la rama `ae-estable`.
+> **FORK GSAP (2026-09-01):** esta rama corre con **GSAP de motor** — la
+> línea de tiempo de la composición es un `gsap.timeline` pausado sobre
+> proxies de valores (`motor-gsap.ts`), seekeado determinista, con el
+> pintor canvas de siempre; cualquier ease de GSAP vale en todo el
+> sistema. AE queda solo para ensamblar pantallas (recibe secuencias PNG
+> con alfa). El porqué y el roadmap: `docs/modulos/motion/FORK-GSAP.md`.
+> La versión con export AE por keyframes quedó congelada en `ae-estable`.
 
 ## Qué mirar primero
 

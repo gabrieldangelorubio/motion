@@ -15,7 +15,8 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import type { Composicion } from "@/lib/motion/modelo";
-import { estadoEn, camaraEn } from "@/lib/motion/evaluar-puro";
+import { camaraEn } from "@/lib/motion/evaluar-puro";
+import { estadoVivo } from "@/lib/motion/motor-gsap";
 import { pintar, type Contexto2D, type FuentesDeMedia } from "@/lib/motion/pintar";
 import {
   camaraConZoom,
@@ -127,7 +128,7 @@ export const Lienzo = forwardRef<
     ctx.fillRect(0, 0, ancho, alto);
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.escala, cam.escala);
-    const estado = estadoEn(comp, t);
+    const estado = estadoVivo(comp, t);
     const vistaModo = obtenerVista?.() ?? "mundo";
 
     // Vista cámara: el preview del RENDER — la transformación de cámara se

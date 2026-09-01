@@ -2,7 +2,7 @@
    Export a MP4 — WebCodecs + mp4-muxer, frame-exacto (kit §10.3, opción a)
 
    El render es literalmente «seek + pintar + encode»: cada frame sale de la
-   MISMA pintar(estadoEn(comp, t)) del preview — lo que ves es lo que sale.
+   MISMA pintar(estadoVivo(comp, t)) del preview (motor GSAP) — lo que ves es lo que sale.
    MediaRecorder queda descartado a propósito (no es frame-exacto).
 
    Motion blur real por SUPERSAMPLING TEMPORAL: con muestras > 1 se pintan N
@@ -18,7 +18,8 @@
 
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
 import type { Composicion } from "@/lib/motion/modelo";
-import { estadoEn, sinCapasReferencia } from "@/lib/motion/evaluar-puro";
+import { sinCapasReferencia } from "@/lib/motion/evaluar-puro";
+import { estadoVivo } from "@/lib/motion/motor-gsap";
 import { pintar, type Contexto2D, type FuentesDeMedia } from "@/lib/motion/pintar";
 import { problemaDeFormatos, rangoDeExport } from "@/lib/motion/escenas-puro";
 import { recorteDeAudio } from "@/lib/motion/audio-puro";
@@ -233,10 +234,10 @@ export async function exportarMp4(
   const pintarFrame = (escena: Composicion, t: number) => {
     if (ctxSuper && superLienzo) {
       ctxSuper.setTransform(S, 0, 0, S, 0, 0);
-      pintar(estadoEn(escena, t), ctxSuper as unknown as Contexto2D, media, S);
+      pintar(estadoVivo(escena, t), ctxSuper as unknown as Contexto2D, media, S);
       ctx.drawImage(superLienzo, 0, 0, ancho, alto);
     } else {
-      pintar(estadoEn(escena, t), ctx as unknown as Contexto2D, media);
+      pintar(estadoVivo(escena, t), ctx as unknown as Contexto2D, media);
     }
   };
 
@@ -291,7 +292,7 @@ export async function exportarMp4(
  * Exporta una SECUENCIA PNG con canal alfa en un ZIP: las gráficas solas
  * sobre fondo transparente, para montarlas ENCIMA del video real en
  * AE/Premiere (el MP4 no lleva alfa; esta es la vía estándar de overlay).
- * Mismo motor determinista: cada frame es pintar(estadoEn(comp, t)) con el
+ * Mismo motor determinista: cada frame es pintar(estadoVivo(comp, t)) con el
  * fondo apagado. Con varias escenas, la numeración de frames es global.
  */
 export async function exportarPngSecuencia(
@@ -332,7 +333,7 @@ export async function exportarPngSecuencia(
     for (let frame = 0; frame < tramo.frames; frame++) {
       const t = tramo.desde + frame * duracionFrameMs;
       // fondo vacío → pintar deja el lienzo transparente
-      const estado = { ...estadoEn(tramo.comp, t), fondo: "" };
+      const estado = { ...estadoVivo(tramo.comp, t), fondo: "" };
       ctx.clearRect(0, 0, comp.ancho, comp.alto);
       if (ctxSuper && superLienzo) {
         ctxSuper.setTransform(1, 0, 0, 1, 0, 0);

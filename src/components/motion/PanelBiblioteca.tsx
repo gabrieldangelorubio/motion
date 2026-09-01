@@ -25,7 +25,7 @@ import {
   type ParBiblioteca,
 } from "@/lib/motion/biblioteca-puro";
 import type { Capa } from "@/lib/motion/modelo";
-import { estadoEn } from "@/lib/motion/evaluar-puro";
+import { estadoVivo } from "@/lib/motion/motor-gsap";
 import { pintar, type Contexto2D } from "@/lib/motion/pintar";
 import { t } from "@/lib/i18n/stub";
 import { Etiqueta } from "@/components/ui/Etiqueta";
@@ -62,7 +62,7 @@ function Tarjeta({
     // se recorta centrado en vertical (la demo vive en el medio del frame)
     const recorteY = (plantilla.alto * escala - canvas.height) / 2;
     ctx.setTransform(escala, 0, 0, escala, 0, -recorteY);
-    pintar(estadoEn(plantilla, tiempo), ctx as unknown as Contexto2D);
+    pintar(estadoVivo(plantilla, tiempo), ctx as unknown as Contexto2D);
   };
 
   useEffect(() => {

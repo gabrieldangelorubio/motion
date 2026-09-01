@@ -3,8 +3,12 @@
 > Contrato: `docs/kit-diosa-2026-08-26.md` (copia del kit recibido, sello `main=9a8e79ce`).
 
 > **FORK GSAP (2026-09-01)** — esta rama prioriza calidad y vuelo de la
-> animación con el motor de easings de GSAP (cualquier spec: back/elastic
-> paramétricos, steps(N), curvas SVG custom); AE queda SOLO para ensamblar
+> animación con GSAP DE MOTOR: la línea de tiempo de la composición es un
+> gsap.timeline pausado sobre proxies de valores (motor-gsap.ts,
+> `estadoVivo`), seekeado determinista frame a frame; el ensamblador
+> geométrico es compartido con el evaluador clásico (paridad testeada) y
+> cualquier ease de GSAP vale en todo el sistema (back/elastic
+> paramétricos, steps(N), curvas SVG custom). AE queda SOLO para ensamblar
 > pantallas y recibe secuencias PNG con alfa — el export .jsx por keyframes
 > es legado congelado en la rama `ae-estable`. Manifiesto y roadmap:
 > `docs/modulos/motion/FORK-GSAP.md`.
@@ -697,7 +701,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **333
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **338
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -778,8 +782,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   meterse DEBAJO del video de referencia) → falló exactamente «el video
   de referencia es PISO». (43) puente GSAP apagado en easing() (todo spec
   degradando a suave) → fallaron exactos los tres tests del overshoot
-  paramétrico, la curva custom y el motor entero. Restaurados, todos
-  verdes. El video de referencia
+  paramétrico, la curva custom y el motor entero. (44) seek del motor
+  GSAP sin la conversión ms→segundos → fallaron exactos los tests de
+  PARIDAD contra el evaluador clásico. Restaurados, todos verdes. El video de referencia
   además se verificó END-TO-END en Chromium real (Playwright: webm
   generado en la página → subido por el botón → capa al fondo con chip
   REF → el canvas pinta el FRAME del video, pixel verificado → el archivo

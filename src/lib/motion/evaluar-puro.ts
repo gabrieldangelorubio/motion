@@ -13,7 +13,7 @@
    4. motion blur sintetizado desde la velocidad del easing del segmento
 ----------------------------------------------------------------------------- */
 
-import type { Capa, Composicion, Keyframe, Segmento, TemblorCamara } from "@/lib/motion/modelo";
+import type { Capa, Composicion, Keyframe, NombrePropiedad, Segmento, TemblorCamara } from "@/lib/motion/modelo";
 import { easing, velocidadEn } from "@/lib/motion/easings-puro";
 import { interpolar, delaysEscalonado } from "@/lib/motion/keyframes-puro";
 import { compilarSegmento, type PresetCompilado, type PistaRelativa } from "@/lib/motion/presets-puro";
@@ -123,11 +123,14 @@ function aplicarSegmento(
   motionBlur: number,
   alto: number,
   factorTracking: number,
+  pExterno?: number,
 ): void {
   const inicio = seg.en + delay;
   const bruto = (t - inicio) / seg.duracion;
   const fn = easing(seg.easing);
-  const p = fn(Math.min(1, Math.max(0, bruto)));
+  // pExterno: el MOTOR GSAP ya evaluó el progreso con su tween (misma
+  // función de ease → mismo número); sin él, el evaluador clásico lo computa
+  const p = pExterno ?? fn(Math.min(1, Math.max(0, bruto)));
 
   // En presets `relativo` los dy son múltiplos del alto de la unidad, no px:
   // así «revelar» funciona igual en un título de 200px que en un caption de 18px.
@@ -173,19 +176,34 @@ export function textoConNumero(texto: string, valor: number): string {
   return texto.replace(/\d[\d.,]*/, String(Math.round(valor)));
 }
 
-function estadoDeCapa(capa: Capa, t: number): EstadoCapa {
+/**
+ * Lector de valores animados de UNA capa: el enchufe del MOTOR GSAP.
+ * `pista` devuelve el valor de una pista de keyframes en t (el motor lo lee
+ * de su proxy tweened; ausente → interpolar clásico); `progreso` el p 0–1 de
+ * un segmento por unidad (el motor lo lee del tween del segmento; undefined
+ * → el evaluador aplica el easing él mismo). El ensamblado (offsets, blur,
+ * recorte, clamps) es SIEMPRE éste — un solo cuerpo de verdad.
+ */
+export type LectorCapa = {
+  pista?: (prop: NombrePropiedad, pista: Keyframe[], t: number) => number;
+  progreso?: (clase: "entrada" | "salida", unidad: number) => number | undefined;
+};
+
+export function estadoDeCapa(capa: Capa, t: number, lector?: LectorCapa): EstadoCapa {
   const pistas = capa.pistas ?? {};
+  const leer = (prop: NombrePropiedad, pista: Keyframe[] | undefined, def: number) =>
+    pista?.length ? (lector?.pista ? lector.pista(prop, pista, t) : interpolar(pista, t)) : def;
   const base: EstadoCapa = {
     capa,
-    x: pistas.x ? interpolar(pistas.x, t) : capa.x,
-    y: pistas.y ? interpolar(pistas.y, t) : capa.y,
-    escala: pistas.escala ? interpolar(pistas.escala, t) : (capa.escala ?? 1),
-    rotacion: pistas.rotacion ? interpolar(pistas.rotacion, t) : (capa.rotacion ?? 0),
-    opacidad: pistas.opacidad ? interpolar(pistas.opacidad, t) : (capa.opacidad ?? 1),
+    x: leer("x", pistas.x, capa.x),
+    y: leer("y", pistas.y, capa.y),
+    escala: leer("escala", pistas.escala, capa.escala ?? 1),
+    rotacion: leer("rotacion", pistas.rotacion, capa.rotacion ?? 0),
+    opacidad: leer("opacidad", pistas.opacidad, capa.opacidad ?? 1),
     visible: !capa.oculta,
     textoVivo:
       capa.tipo === "texto" && pistas.numero
-        ? textoConNumero(capa.texto, interpolar(pistas.numero, t))
+        ? textoConNumero(capa.texto, leer("numero", pistas.numero, 0))
         : undefined,
     unidades: [],
   };
@@ -206,14 +224,10 @@ function estadoDeCapa(capa: Capa, t: number): EstadoCapa {
   }
 
   const esTrazo = capa.tipo === "trazo";
-  const trazoInicioBase = pistas.trazoInicio
-    ? interpolar(pistas.trazoInicio, t)
-    : esTrazo ? (capa.trazoInicio ?? 0) : 0;
-  const trazoFinBase = pistas.trazoFin
-    ? interpolar(pistas.trazoFin, t)
-    : esTrazo ? (capa.trazoFin ?? 1) : 1;
+  const trazoInicioBase = leer("trazoInicio", pistas.trazoInicio, esTrazo ? (capa.trazoInicio ?? 0) : 0);
+  const trazoFinBase = leer("trazoFin", pistas.trazoFin, esTrazo ? (capa.trazoFin ?? 1) : 1);
 
-  const desenfoqueBase = pistas.desenfoque ? interpolar(pistas.desenfoque, t) : 0;
+  const desenfoqueBase = leer("desenfoque", pistas.desenfoque, 0);
   for (let i = 0; i < n; i++) {
     const unidad: EstadoUnidad = {
       dx: 0, dy: 0, dEscala: 0, opacidad: 1, desenfoque: desenfoqueBase, blurX: 0, blurY: 0,
@@ -222,7 +236,11 @@ function estadoDeCapa(capa: Capa, t: number): EstadoCapa {
     // índice centrado para tracking: la unidad del medio queda en 0
     const factorTracking = i - (n - 1) / 2;
     for (const { seg, compilado, clase, delays } of segmentos) {
-      aplicarSegmento(unidad, seg, compilado, clase, t, delays[i], capa.motionBlur ?? 0, alto, factorTracking);
+      aplicarSegmento(
+        unidad, seg, compilado, clase, t, delays[i],
+        capa.motionBlur ?? 0, alto, factorTracking,
+        lector?.progreso?.(clase, i),
+      );
     }
     unidad.opacidad = Math.min(1, Math.max(0, unidad.opacidad));
     unidad.trazoInicio = Math.min(1, Math.max(0, unidad.trazoInicio));
@@ -351,7 +369,15 @@ export function cuantizarTiempo(t: number, fpsAnimacion?: number): number {
   return Math.floor(t / paso) * paso;
 }
 
-export function estadoEn(comp: Composicion, tReal: number): EstadoComposicion {
+/** El armador del estado con la resolución de capas INYECTABLE: el evaluador
+    clásico pasa estadoDeCapa pelado; el MOTOR GSAP (motor-gsap.ts) pasa una
+    versión que lee sus proxies tweened. Cámara, temblor y cuantizado son
+    idénticos en ambos mundos. */
+export function estadoEnCon(
+  comp: Composicion,
+  tReal: number,
+  capaEn: (capa: Capa, t: number) => EstadoCapa,
+): EstadoComposicion {
   // los BAJOS FPS son del motor, no del render: preview, export MP4 y
   // frames de revisión heredan el mismo escalonado por venir todos de acá
   const t = cuantizarTiempo(tReal, comp.fpsAnimacion);
@@ -366,7 +392,11 @@ export function estadoEn(comp: Composicion, tReal: number): EstadoComposicion {
     ancho: comp.ancho,
     alto: comp.alto,
     fondo: comp.fondo,
-    capas: comp.capas.filter((c) => !c.oculta).map((c) => estadoDeCapa(c, t)),
+    capas: comp.capas.filter((c) => !c.oculta).map((c) => capaEn(c, t)),
     camara,
   };
+}
+
+export function estadoEn(comp: Composicion, tReal: number): EstadoComposicion {
+  return estadoEnCon(comp, tReal, estadoDeCapa);
 }

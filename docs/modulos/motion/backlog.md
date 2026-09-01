@@ -13,6 +13,32 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] FORK GSAP, tanda G2: GSAP ES el motor (2026-09-01)
+- **Pedido de Gabriel («encontremos la manera de usar GSAP de motor») —
+  y sin perder nada:** un gsap.timeline PAUSADO es seekeable determinista
+  (tl.time: mismo t → mismo estado, en cualquier orden — verificado en
+  Node), así que GSAP puede ser dueño del tiempo Y los frames PNG siguen
+  exactos. `motor-gsap.ts`: la composición se compila a UN timeline sobre
+  PROXIES de valores (un {v} por pista → tweens fromTo con extremos
+  explícitos e immediateRender:false, sets para holds; un {p} por
+  segmento×unidad con el ease crudo de easings-puro — mismos números bit
+  a bit), timeline HUÉRFANO (fuera del globalTimeline, nadie lo tickea),
+  cache WeakMap por identidad de la comp (cada edición = comp nueva = 
+  rebuild, 0.5ms). `estadoVivo(comp,t)` seekea y arma el estado con el
+  MISMO ensamblador de evaluar-puro vía `LectorCapa` inyectable (un solo
+  cuerpo: offsets, máscaras, blur, cámara — nada puede divergir).
+  Preview (Lienzo), minis de biblioteca, export MP4 y secuencia PNG
+  corren sobre estadoVivo; el clásico queda de referencia de paridad y
+  para el .jsx legado. Segmento con en<0 cae al cálculo clásico
+  (paridad igual). Perf: 0.05ms/frame el seek.
+- Verificado: 5 tests (PARIDAD en comp intensa que pisa todos los
+  caminos —escalonado azar, holds, eases GSAP, resortes, contador, trim,
+  fpsAnimacion— y en la fixture, con tolerancia 1e-4 px = el redondeo a
+  6 decimales de GSAP, medido; seek desordenado bit a bit; en negativo;
+  rebuild por identidad) + sabotaje 44 (seek sin ms→s → rojo exacto) +
+  los dos e2e de Playwright re-corridos en verde sobre el build nuevo.
+  338 tests.
+
 ### [HECHO] FORK GSAP, tanda G1: el puente de easings (2026-09-01)
 - **Decisión de Gabriel:** fork. La versión con export AE por keyframes
   quedó congelada en la rama `ae-estable` (16a368d); esta rama prioriza

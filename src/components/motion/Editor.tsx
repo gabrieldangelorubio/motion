@@ -37,7 +37,8 @@ import {
   desplazarTiempoCapas,
   estirarTiempoCapas,
 } from "@/lib/motion/herramientas-puro";
-import { camaraEn, estadoEn, sinCapasReferencia } from "@/lib/motion/evaluar-puro";
+import { camaraEn, sinCapasReferencia } from "@/lib/motion/evaluar-puro";
+import { estadoVivo } from "@/lib/motion/motor-gsap";
 // olvidarVideo queda para la migración al catálogo: borrar la capa NO borra
 // el archivo local (el undo la puede traer de vuelta, como las fuentes)
 import { cargarVideoGuardado, recordarVideo } from "@/lib/motion/video-guardado";
@@ -1378,7 +1379,7 @@ export function Editor({
       ctx.fillStyle = "#17171b";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.setTransform(escala, 0, 0, escala, 0, 0);
-      pintar(estadoEn(comp, tiempo), ctx as unknown as Contexto2D, media, escala);
+      pintar(estadoVivo(comp, tiempo), ctx as unknown as Contexto2D, media, escala);
       const dataUrl = canvas.toDataURL("image/jpeg", 0.72);
       return { mime: "image/jpeg", datosBase64: dataUrl.slice(dataUrl.indexOf(",") + 1) };
     });

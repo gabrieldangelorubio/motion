@@ -23,20 +23,38 @@ El fork la elimina:
   más. Un easing GSAP que le llegue se hornea denso (muestrea la curva real),
   así ni el legado miente.
 
-## La arquitectura (por qué NO tiramos el motor canvas)
+## La arquitectura: GSAP ES el motor
 
-GSAP acá **no anima el DOM: presta su motor**. El lienzo canvas determinista
-—`estadoEn(comp, t)` → `pintar(estado, ctx)`, mismo frame siempre— es
-exactamente lo que una secuencia PNG con alfa necesita: seek exacto por
-frame, pixel-perfect, sin depender de captura de DOM. Lo que cambia es de
-dónde salen las **curvas y el tiempo**:
+**La línea de tiempo de una composición ES un `gsap.timeline` de verdad**
+(tanda G2, `motor-gsap.ts`): cada pista de keyframes se compila a tweens
+`fromTo` con sus eases, cada segmento de entrada/salida a un tween de
+progreso por unidad (escalonado incluido), todo sobre PROXIES de valores —
+GSAP nunca toca el DOM. `estadoVivo(comp, t)` seekea el timeline pausado
+(`tl.time` es determinista: mismo t → mismo estado, en cualquier orden —
+verificado en Node y con tests de seek desordenado) y arma el estado con el
+MISMO ensamblador de `evaluar-puro` (offsets de presets, máscaras, motion
+blur, cámara): un solo cuerpo de código, nada puede divergir. El canvas
+pinta lo que GSAP resolvió — preview, MP4 y secuencia PNG ven exactamente
+el mismo frame, y los PNG pixel-perfect salen de regalo, no de restricción.
 
-- `easings-gsap.ts` — el puente: `gsap.parseEase` + CustomEase entregan
-  funciones puras t∈[0,1]→p, cacheadas. Entran al motor por `easing()` sin
-  tocar `evaluar-puro`. El motion blur sintetizado (derivada) las come igual.
+Preview, export MP4 y secuencia PNG corren sobre `estadoVivo`. El evaluador
+clásico queda como REFERENCIA DE PARIDAD (los tests comparan ambos motores
+sobre una composición que pisa todos los caminos; tolerancia = el redondeo
+a 6 decimales de GSAP ≈ 1e-4 px, invisible) y como camino del `.jsx`
+legado. Por qué proxies y no GSAP-sobre-DOM: el entregable son frames con
+alfa pixel-perfect, y capturar DOM por frame es lento y aproximado; con
+proxies GSAP es dueño del tiempo, los tweens, los eases y el scheduling —
+lo que crece en G3 (solapamiento, labels, timeScale, timelines anidados) —
+y el render sigue siendo nuestro pintor determinista.
+
+- `easings-gsap.ts` — el puente de curvas: `gsap.parseEase` + CustomEase
+  como funciones puras t∈[0,1]→p, cacheadas y SONDEADAS (specs degenerados
+  degradan a suave). El motion blur sintetizado (derivada) las come igual.
 - Determinismo intacto: los eases de GSAP son cerrados. **RoughEase queda
   prohibido** (genera sus puntos con random al crearse: preview y export de
-  sesiones distintas verían curvas distintas).
+  sesiones distintas verían curvas distintas). El timeline vive HUÉRFANO
+  (paused + fuera del globalTimeline): nadie lo tickea, y el cache por
+  identidad de la composición (WeakMap) se limpia solo con cada edición.
 
 ## Qué ya entrega el fork (tanda G1, 2026-09-01)
 
@@ -56,7 +74,8 @@ dónde salen las **curvas y el tiempo**:
 
 ## Roadmap del fork
 
-- **G2 — presets con vuelo**: presets nuevos imposibles en AE-keyframes
+- **G2 — GSAP es el motor**: HECHO (2026-09-01) — ver arriba.
+- **G2b — presets con vuelo**: presets nuevos imposibles en AE-keyframes
   (overshoot paramétrico por preset, wiggle determinista por capa, física de
   caída/impulso), y parámetros de preset expuestos como diales.
 - **G3 — timeline pro**: más de un segmento por capa (énfasis en el medio,
