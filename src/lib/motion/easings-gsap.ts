@@ -36,6 +36,16 @@ export function easingGsap(spec: string): ((t: number) => number) | null {
       const parseada: unknown = gsap.parseEase(spec);
       fn = typeof parseada === "function" ? (parseada as (t: number) => number) : null;
     }
+    // SONDEO: parámetros degenerados parsean como función pero producen
+    // curvas rotas — «steps(0)» y «elastic.out(0,0)» dan NaN, «steps(-3)»
+    // da finitos que nunca llegan a 1. Probamos la función de verdad antes
+    // de certificarla: NaN en el medio, o extremos que no son 0→1, degradan
+    // a null (y easing() cae a suave)
+    if (fn) {
+      const mediosFinitos = [0.25, 0.5, 0.75].every((p) => Number.isFinite(fn!(p)));
+      const bordes = Math.abs(fn(0)) < 1e-6 && Math.abs(fn(1) - 1) < 1e-6;
+      if (!mediosFinitos || !bordes) fn = null;
+    }
   } catch {
     fn = null;
   }

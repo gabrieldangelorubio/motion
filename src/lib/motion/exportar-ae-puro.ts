@@ -223,8 +223,9 @@ export function easeDeTramo(
 ): { salida: [number, number]; entrada: [number, number] } | null {
   const real = nombre ?? "suave"; // ausente = el default de la casa
   if (real === "lineal") return null;
-  // un spec GSAP (fork) no tiene bezier propio: aproxima con el de la casa
-  const [x1, y1, x2, y2] = BEZIER_AE[real as NombreEasing] ?? BEZIER_AE.suave;
+  // un spec GSAP (fork) no tiene bezier propio: aproxima con el de la casa.
+  // Object.hasOwn: «toString» y compañía existen por prototipo y NO son beziers
+  const [x1, y1, x2, y2] = Object.hasOwn(BEZIER_AE, real) ? BEZIER_AE[real as NombreEasing] : BEZIER_AE.suave;
   const prom = dtSeg > 0 ? dv / dtSeg : 0;
   const vSalida = x1 <= 0.001 ? 0 : (y1 / x1) * prom;
   const vEntrada = x2 >= 0.999 ? 0 : ((1 - y2) / (1 - x2)) * prom;
@@ -638,7 +639,7 @@ function esSegmentoRalo(seg: Segmento, duracionComp: number): boolean {
   if (EASINGS_NO_RALOS.includes(nombreEase)) return false;
   // un ease GSAP (fork) no cabe en un tramo bezier de AE: horneado denso,
   // que muestrea la curva real — el .jsx legado sigue sin mentir
-  if (!(nombreEase in BEZIER_AE)) return false;
+  if (!Object.hasOwn(BEZIER_AE, nombreEase)) return false;
   if (seg.en < 0 || seg.en + seg.duracion > duracionComp) return false;
   if (seg.duracion <= 0) return false;
   const compilado = compilarSegmento(seg);

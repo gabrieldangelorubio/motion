@@ -123,15 +123,17 @@ export const EASINGS: Record<NombreEasing, (t: number) => number> = {
     parsea degrada a `suave` — el preview nunca revienta por un typo. */
 export function easing(nombre?: EasingSpec): (t: number) => number {
   if (!nombre) return EASINGS.suave;
-  const propia = EASINGS[nombre as NombreEasing];
-  if (propia) return propia;
+  // Object.hasOwn, no `in` ni acceso directo: «toString»/«hasOwnProperty»/
+  // «__proto__» EXISTEN en cualquier objeto por prototipo — sin este guard,
+  // tipearlos como spec devolvía basura no-función y reventaba el render
+  if (Object.hasOwn(EASINGS, nombre)) return EASINGS[nombre as NombreEasing];
   return easingGsap(nombre) ?? EASINGS.suave;
 }
 
 /** ¿El spec es un easing que el motor sabe resolver DE VERDAD (no el
     fallback)? La validación de las tools del director y del inspector. */
 export function esEasingConocido(nombre: string): boolean {
-  return nombre in EASINGS || easingGsap(nombre) !== null;
+  return Object.hasOwn(EASINGS, nombre) || easingGsap(nombre) !== null;
 }
 
 /**

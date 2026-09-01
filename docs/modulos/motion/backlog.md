@@ -29,6 +29,16 @@
   GSAP (no miente). RoughEase prohibido (random al crearse). Verificado:
   6 tests unit + sabotaje 43 (puente apagado → rojo exacto) + Playwright
   6/6 (sección, curvas, campo libre valida/aplica). 330 tests.
+- La review adversarial (Sonnet, TOKENOMICS) encontró 1 crítico + 1 real,
+  ambos aplicados: los nombres heredados de Object.prototype («toString»,
+  «hasOwnProperty», «__proto__»…) pasaban la validación por el `in` y el
+  acceso directo — tipearlos en el campo libre TIRABA ABAJO el árbol de
+  React (sin error boundary) y rompían render y export legado; ahora todo
+  lookup de EASINGS/BEZIER_AE usa Object.hasOwn. Y los parámetros
+  degenerados que parsean pero dan curvas rotas («steps(0)» → NaN,
+  «steps(-3)» → nunca llega a 1) se cazan con un SONDEO en el puente:
+  la función se prueba (medios finitos, extremos 0→1) antes de
+  certificarla, si no degrada a suave. 333 tests.
 
 ### [HECHO] Timeline con jerarquía de AE: z-order, ⌘A y marquee que scrollea (2026-08-31, tanda 23)
 - **Hecho (pedido de Gabriel: «el orden de las capas es muy importante…

@@ -49,6 +49,33 @@ test("esEasingConocido valida casa + GSAP y rechaza specs rotos (la validación 
   }
 });
 
+test("nombres heredados de Object.prototype NO son easings: ni válidos ni ejecutables", () => {
+  // sin Object.hasOwn, «hasOwnProperty» pasaba la validación y easing()
+  // devolvía la función del prototipo → crash del render con solo tipearla
+  for (const veneno of ["toString", "constructor", "valueOf", "hasOwnProperty", "__proto__", "propertyIsEnumerable"]) {
+    assert.ok(!esEasingConocido(veneno), `${veneno} no debe validar`);
+    const fn = easing(veneno);
+    assert.equal(fn, EASINGS.suave, `${veneno} degrada a suave`);
+    assert.equal(typeof fn(0.5), "number", `${veneno} evaluado da número`);
+  }
+});
+
+test("parámetros degenerados que dan NaN degradan a suave (el sondeo del puente)", () => {
+  for (const degenerado of ["steps(0)", "steps(-3)", "elastic.out(0,0)"]) {
+    assert.ok(!esEasingConocido(degenerado), `${degenerado} no debe validar`);
+    assert.equal(easing(degenerado), EASINGS.suave, `${degenerado} degrada a suave`);
+  }
+  // el sondeo no tira specs sanos: los destacados siguen todos válidos
+  assert.ok(esEasingConocido("elastic.out(1,0.5)"));
+});
+
+test("el export AE legado no revienta con un spec GSAP ni con nombres del prototipo", async () => {
+  const { easeDeTramo } = await import("@/lib/motion/exportar-ae-puro");
+  const base = easeDeTramo("suave", 100, 1);
+  assert.deepEqual(easeDeTramo("back.out(3)", 100, 1), base, "spec GSAP aproxima con suave");
+  assert.deepEqual(easeDeTramo("toString", 100, 1), base, "nombre del prototipo no destructura una función");
+});
+
 test("determinismo y cache: mismo spec, misma función, mismos valores", () => {
   const a = easing("elastic.out(1.2,0.4)");
   const b = easing("elastic.out(1.2,0.4)");
