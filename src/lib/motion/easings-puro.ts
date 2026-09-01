@@ -7,7 +7,8 @@
    cerrada — determinística, sin estado, apta para seek en cualquier orden.
 ----------------------------------------------------------------------------- */
 
-import type { NombreEasing } from "@/lib/motion/modelo";
+import type { EasingSpec, NombreEasing } from "@/lib/motion/modelo";
+import { easingGsap } from "@/lib/motion/easings-gsap";
 
 function bezier(x1: number, y1: number, x2: number, y2: number) {
   // Resolución estándar de una timing function CSS: Newton-Raphson sobre x.
@@ -116,8 +117,21 @@ export const EASINGS: Record<NombreEasing, (t: number) => number> = {
   resorteRebote: resorte(220, 12),
 };
 
-export function easing(nombre?: NombreEasing): (t: number) => number {
-  return (nombre && EASINGS[nombre]) || EASINGS.suave;
+/** Resuelve un easing: los nombres de la casa primero; cualquier otro
+    string se intenta como spec de GSAP (fork GSAP: «back.out(3)»,
+    «elastic.out(1.2,0.4)», «steps(8)», un path SVG). Un spec que no
+    parsea degrada a `suave` — el preview nunca revienta por un typo. */
+export function easing(nombre?: EasingSpec): (t: number) => number {
+  if (!nombre) return EASINGS.suave;
+  const propia = EASINGS[nombre as NombreEasing];
+  if (propia) return propia;
+  return easingGsap(nombre) ?? EASINGS.suave;
+}
+
+/** ¿El spec es un easing que el motor sabe resolver DE VERDAD (no el
+    fallback)? La validación de las tools del director y del inspector. */
+export function esEasingConocido(nombre: string): boolean {
+  return nombre in EASINGS || easingGsap(nombre) !== null;
 }
 
 /**

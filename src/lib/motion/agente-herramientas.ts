@@ -12,11 +12,12 @@
    vuelven en el resultado — verificación semántica barata.
 ----------------------------------------------------------------------------- */
 
-import { MEZCLAS, type Camara, type Capa, type CapaForma, type CapaTexto, type CapaTrazo, type CapaVector, type Composicion, type Keyframe, type MezclaCapa, type NombreEasing, type NombrePropiedad, type OrdenEscalonado, type Segmento, type TemblorCamara } from "@/lib/motion/modelo";
+import { MEZCLAS, type Camara, type Capa, type CapaForma, type CapaTexto, type CapaTrazo, type CapaVector, type Composicion, type Keyframe, type EasingSpec, type MezclaCapa, type NombrePropiedad, type OrdenEscalonado, type Segmento, type TemblorCamara } from "@/lib/motion/modelo";
 import { agregarCapa, editarCapa, quitarCapa, describir } from "@/lib/motion/herramientas-puro";
 import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
 import { CATEGORIAS, escalonadoSano, nombresPresets, PRESETS } from "@/lib/motion/presets-puro";
-import { EASINGS } from "@/lib/motion/easings-puro";
+import { EASINGS, esEasingConocido } from "@/lib/motion/easings-puro";
+import { EASINGS_GSAP_DESTACADOS } from "@/lib/motion/easings-gsap";
 import { validar } from "@/lib/motion/validar-puro";
 
 export type ResultadoHerramienta = {
@@ -31,8 +32,11 @@ export type ResultadoHerramienta = {
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 const numero = (v: unknown, def: number) => (typeof v === "number" && Number.isFinite(v) ? v : def);
 
-function easingValido(v: unknown): NombreEasing | undefined {
-  return typeof v === "string" && v in EASINGS ? (v as NombreEasing) : undefined;
+function easingValido(v: unknown): EasingSpec | undefined {
+  if (typeof v !== "string") return undefined;
+  // fork GSAP: además de los nombres de la casa, cualquier spec de GSAP
+  // que parsee de verdad («back.out(3)», «steps(8)», un path SVG)
+  return esEasingConocido(v) ? v : undefined;
 }
 
 function ordenValido(v: unknown): OrdenEscalonado | undefined {
@@ -485,7 +489,7 @@ const PROPS_SEGMENTO = {
   preset: { type: "string", description: "nombre del preset" },
   en: { type: "number", description: "ms donde empieza" },
   duracion: { type: "number", description: "ms que dura" },
-  easing: { type: "string", description: `uno de: ${Object.keys(EASINGS).join(", ")}` },
+  easing: { type: "string", description: `uno de: ${Object.keys(EASINGS).join(", ")} — o CUALQUIER ease de GSAP: back.out(N) con el overshoot a medida, elastic.out(amp,periodo), bounce.out, steps(N), o una curva custom como path SVG (M0,0 C...)` },
   escalonado: { type: "number", description: "ms entre unidades si la capa está dividida (0 = sin escalonado)" },
   ordenEscalonado: { type: "string", enum: ["inicio", "fin", "centro", "bordes", "azar"] },
   params: { type: "object", description: "parámetros del preset, ej {distancia: 140}" },
@@ -730,5 +734,5 @@ export function catalogoParaPrompt(): string {
       .join(", ");
     return `- ${cat.nombre}: ${nombres}`;
   }).join("\n");
-  return `Presets disponibles, por categoría:\n${porCategoria}\n\nEasings disponibles: ${Object.keys(EASINGS).join(", ")}`;
+  return `Presets disponibles, por categoría:\n${porCategoria}\n\nEasings disponibles: ${Object.keys(EASINGS).join(", ")} — y ADEMAS cualquier ease de GSAP como string: back.out(N), elastic.out(amp,periodo), bounce.out/in, steps(N), expo.inOut, o una curva custom como path SVG. Destacados: ${EASINGS_GSAP_DESTACADOS.join(", ")}`;
 }

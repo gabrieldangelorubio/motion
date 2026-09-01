@@ -34,6 +34,7 @@ import type {
   Capa,
   CapaTexto,
   Composicion,
+  EasingSpec,
   Keyframe,
   MezclaCapa,
   NombreEasing,
@@ -216,13 +217,14 @@ const BEZIER_AE: Record<NombreEasing, [number, number, number, number]> = {
     velocidad promedio del tramo. `lineal` devuelve null (interpolación
     lineal nativa, sin ease que setear). */
 export function easeDeTramo(
-  nombre: NombreEasing | undefined,
+  nombre: EasingSpec | undefined,
   dv: number,
   dtSeg: number,
 ): { salida: [number, number]; entrada: [number, number] } | null {
   const real = nombre ?? "suave"; // ausente = el default de la casa
   if (real === "lineal") return null;
-  const [x1, y1, x2, y2] = BEZIER_AE[real] ?? BEZIER_AE.suave;
+  // un spec GSAP (fork) no tiene bezier propio: aproxima con el de la casa
+  const [x1, y1, x2, y2] = BEZIER_AE[real as NombreEasing] ?? BEZIER_AE.suave;
   const prom = dtSeg > 0 ? dv / dtSeg : 0;
   const vSalida = x1 <= 0.001 ? 0 : (y1 / x1) * prom;
   const vEntrada = x2 >= 0.999 ? 0 : ((1 - y2) / (1 - x2)) * prom;
@@ -621,7 +623,7 @@ function clavesHorneadas(comp: Composicion, capa: Capa, desplazarY: number): Cla
 // Los que rebotan o saltan de verdad en el motor (resortes, elastico, pique,
 // escalones) no caben en un solo tramo bezier de AE — van horneados densos.
 // Los back sí: su overshoot es un cubic-bezier y el temporal ease lo aproxima.
-const EASINGS_NO_RALOS: NombreEasing[] = [
+const EASINGS_NO_RALOS: EasingSpec[] = [
   "resorteSuave", "resorteTenso", "resorteRebote",
   "salidaElastico", "entradaElastico", "salidaPique", "entradaPique", "escalones",
 ];
@@ -632,7 +634,11 @@ const EASINGS_NO_RALOS: NombreEasing[] = [
     easing es un bezier de verdad. Los presets con puntos intermedios (pop,
     rebotar: el overshoot vive EN la pista) van horneados densos. */
 function esSegmentoRalo(seg: Segmento, duracionComp: number): boolean {
-  if (EASINGS_NO_RALOS.includes(seg.easing ?? "suave")) return false;
+  const nombreEase = seg.easing ?? "suave";
+  if (EASINGS_NO_RALOS.includes(nombreEase)) return false;
+  // un ease GSAP (fork) no cabe en un tramo bezier de AE: horneado denso,
+  // que muestrea la curva real — el .jsx legado sigue sin mentir
+  if (!(nombreEase in BEZIER_AE)) return false;
   if (seg.en < 0 || seg.en + seg.duracion > duracionComp) return false;
   if (seg.duracion <= 0) return false;
   const compilado = compilarSegmento(seg);

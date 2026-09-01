@@ -10,7 +10,7 @@
    igual que el export y AE la hereda fiel.
 ----------------------------------------------------------------------------- */
 
-import type { Composicion, NombreEasing, Segmento } from "@/lib/motion/modelo";
+import type { Composicion, EasingSpec, NombreEasing, Segmento } from "@/lib/motion/modelo";
 
 /** −1 = snappy · 0 = neutro · +1 = suave */
 export type Sensacion = number;
@@ -30,7 +30,7 @@ const ESCALERA = ["Sine", "Quad", "Cubic", "Quart", "Quint", "Expo"] as const;
 /** Corre un easing dentro de su familia según la sensación. Los de
     carácter (back, elástico, pique, circ, lineal, escalones) no se pisan:
     perderían lo que los hace ellos. */
-export function easingConSensacion(nombre: NombreEasing, s: Sensacion): NombreEasing {
+export function easingConSensacion(nombre: EasingSpec, s: Sensacion): EasingSpec {
   const m = /^(entradaSalida|entrada|salida)(Sine|Quad|Cubic|Quart|Quint|Expo)$/.exec(nombre);
   if (!m) return nombre;
   const salto = Math.round(-2 * clamp(s, -1, 1));

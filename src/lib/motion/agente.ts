@@ -75,6 +75,7 @@ none → lineal · sine/power1/power2/power3/power4/expo/circ .out → salidaSin
 - Presets de entrada/salida con contrato de identidad: toda entrada TERMINA en la posición/opacidad base de la capa; la salida parte de ahí. Los offsets del preset son relativos — la posición base (x,y) de la capa no cambia por animar.
 - Pistas crudas de keyframes (definir_pista) para trayectorias: valores ABSOLUTOS que pisan la base. Usalas para recorridos, holds y coreografía fina; usa presets para entradas/salidas estándar.
 - El easing vive en el keyframe de SALIDA de cada tramo. hold congela el valor.
+- MOTOR GSAP: además de los nombres de la casa, el campo easing acepta CUALQUIER spec de GSAP como string. Usalo cuando el carácter lo pida en vez de conformarte con el catálogo: overshoot a medida con back.out(N) (1.2 sutil, 4 exagerado cartoon), rebote elástico afinado con elastic.out(amplitud,periodo) (elastic.out(1,0.75) sereno, elastic.out(1.2,0.4) nervioso), bounce.out para caídas físicas, steps(N) para stop-motion del paso exacto, o una curva propia como path SVG («M0,0 C0.2,0 0.1,1 1,1»). Es tu herramienta para el VUELO fino: una referencia con un rebote particular se replica ajustando estos parámetros, no eligiendo el preset más parecido.
 - El usuario después corrige a mano en el editor: preferí pocas ediciones bien elegidas a muchas microscópicas, y nombres de capa claros.
 
 ${catalogoParaPrompt()}

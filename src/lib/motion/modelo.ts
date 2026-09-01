@@ -49,12 +49,18 @@ export type NombreEasing =
   | "resorteTenso"
   | "resorteRebote";
 
+/** Un easing del sistema: nombre de la casa, o CUALQUIER spec de GSAP
+    («back.out(3)», «elastic.out(1.2,0.4)», «steps(8)», un path SVG de
+    CustomEase) — fork GSAP. El `(string & {})` conserva el autocompletado
+    de los nombres de la casa sin cerrar la puerta al resto. */
+export type EasingSpec = NombreEasing | (string & {});
+
 export type Keyframe = {
   /** milisegundos desde el inicio de la composición */
   t: number;
   v: number;
   /** easing del TRAMO que sale de este keyframe (hacia el siguiente) */
-  easing?: NombreEasing;
+  easing?: EasingSpec;
   /** hold: el valor se mantiene hasta el próximo keyframe, sin interpolar */
   hold?: boolean;
 };
@@ -87,7 +93,7 @@ export type Segmento = {
   /** inicio del segmento, ms */
   en: number;
   duracion: number;
-  easing?: NombreEasing;
+  easing?: EasingSpec;
   /** ms entre unidades (caracteres/palabras) si la capa se divide */
   escalonado?: number;
   ordenEscalonado?: OrdenEscalonado;

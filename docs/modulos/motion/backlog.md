@@ -13,6 +13,23 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] FORK GSAP, tanda G1: el puente de easings (2026-09-01)
+- **Decisión de Gabriel:** fork. La versión con export AE por keyframes
+  quedó congelada en la rama `ae-estable` (16a368d); esta rama prioriza
+  calidad/vuelo con el motor de GSAP y AE queda SOLO para ensamblar
+  pantallas + cámara entre ellas, recibiendo secuencias PNG con alfa (ya
+  existía `exportarPngSecuencia`). Manifiesto y roadmap G2-G5 en
+  `FORK-GSAP.md`.
+- **Hecho (G1):** `easings-gsap.ts` — parseEase + CustomEase como funciones
+  puras cacheadas; `easing()` resuelve casa primero y CUALQUIER spec GSAP
+  después (typo degrada a suave); `EasingSpec` en el modelo (keyframes y
+  segmentos); selector con sección «GSAP paramétricos» + campo libre
+  validado en vivo; tools del director validan specs GSAP y el system
+  prompt le enseña los paramétricos; el .jsx legado hornea denso los specs
+  GSAP (no miente). RoughEase prohibido (random al crearse). Verificado:
+  6 tests unit + sabotaje 43 (puente apagado → rojo exacto) + Playwright
+  6/6 (sección, curvas, campo libre valida/aplica). 330 tests.
+
 ### [HECHO] Timeline con jerarquía de AE: z-order, ⌘A y marquee que scrollea (2026-08-31, tanda 23)
 - **Hecho (pedido de Gabriel: «el orden de las capas es muy importante…
   qué es lo que tapa qué… como After Effects»):** (a) **convención visual

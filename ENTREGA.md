@@ -1,6 +1,13 @@
-# ENTREGA — módulo motion (estado al 2026-08-31)
+# ENTREGA — módulo motion (estado al 2026-09-01)
 
 > Contrato: `docs/kit-diosa-2026-08-26.md` (copia del kit recibido, sello `main=9a8e79ce`).
+
+> **FORK GSAP (2026-09-01)** — esta rama prioriza calidad y vuelo de la
+> animación con el motor de easings de GSAP (cualquier spec: back/elastic
+> paramétricos, steps(N), curvas SVG custom); AE queda SOLO para ensamblar
+> pantallas y recibe secuencias PNG con alfa — el export .jsx por keyframes
+> es legado congelado en la rama `ae-estable`. Manifiesto y roadmap:
+> `docs/modulos/motion/FORK-GSAP.md`.
 
 ## Qué hace (hoy)
 
@@ -8,7 +15,7 @@ Motor puro de motion graphics (`lib/motion`): composición JSON versionada →
 `estadoEn(comp, t)` → `pintar(estado, ctx)` determinista sobre canvas 2D.
 Presets de entrada/salida con escalonado por caracteres/palabras (orden
 inicio/fin/centro/bordes/azar — el from de GSAP completo; azar es un
-barajado determinista), **35 easings con nombre**: el catálogo GSAP entero
+barajado determinista), **35 easings con nombre + CUALQUIER ease de GSAP como spec** (fork GSAP: `back.out(4)`, `elastic.out(1.2,0.4)`, `steps(8)`, paths SVG vía CustomEase — puente `easings-gsap.ts`, funciones puras cacheadas): el catálogo con nombre cubre la escuela GSAP entera
 — sine/quad/cubic/quart/quint/expo/circ en las tres direcciones, back
 completo, elastic real («salidaElastico», fórmula Penner), bounce real
 («salidaPique»), steps(10) («escalones») — más los resortes con física
@@ -690,7 +697,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **324
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **330
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -769,7 +776,10 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   normalizador de Figma → falló exacto el test del trazo rotado v11.
   (42) piso de video de desplazarEnZ quitado (clamp a 0: una capa podía
   meterse DEBAJO del video de referencia) → falló exactamente «el video
-  de referencia es PISO». Restaurados, todos verdes. El video de referencia
+  de referencia es PISO». (43) puente GSAP apagado en easing() (todo spec
+  degradando a suave) → fallaron exactos los tres tests del overshoot
+  paramétrico, la curva custom y el motor entero. Restaurados, todos
+  verdes. El video de referencia
   además se verificó END-TO-END en Chromium real (Playwright: webm
   generado en la página → subido por el botón → capa al fondo con chip
   REF → el canvas pinta el FRAME del video, pixel verificado → el archivo
