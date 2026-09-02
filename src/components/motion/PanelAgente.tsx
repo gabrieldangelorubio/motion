@@ -307,8 +307,10 @@ export function PanelAgente({
           contextoEstilo: obtenerContextoEstilo?.(),
           nivel,
           imagenes: [...lectura.imagenes, ...imagenesRef],
+          // el bloque de lectura viene sin la línea de referencia (el editor
+          // no sabe si hay una): se agrega acá, donde sí se sabe
           contextoLectura: lectura.contexto
-            ? lectura.contexto.replace(/\nLas \d+ imágenes que siguen[^\n]*/, "") +
+            ? lectura.contexto +
               (imagenesRef.length ? `\nLas ${imagenesRef.length} imágenes que siguen NO son el diseño: son la REFERENCIA ADJUNTA (ver su bloque).` : "")
             : undefined,
           contextoReferencias: refDelPedido?.contexto,

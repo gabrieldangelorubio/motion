@@ -418,3 +418,13 @@ test("definir_camara: el rango de x/y es el del LIENZO, no el del render (una la
   const chica = ejecutarHerramienta(crearComposicion({ nombre: "c" }), "definir_camara", { base: { y: 99999 } });
   assert.equal(chica.comp.camara?.base?.y, 1080 * 2);
 });
+
+test("rangoDelLienzo cuenta el ancho estimado de un texto (un título ancho al borde no queda fuera)", async () => {
+  const { rangoDelLienzo } = await import("@/lib/motion/agente-herramientas");
+  const { crearComposicion } = await import("@/lib/motion/herramientas-puro");
+  let comp = crearComposicion({ nombre: "t" });
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "t", texto: "UN TITULO MUY LARGO", x: 1900, y: 540, tamano: 200 }).comp;
+  const r = rangoDelLienzo(comp);
+  // 19 caracteres × 200 × 0.6 / 2 = 1140 de medio ancho → borde derecho ≈ 3040, más un render de aire
+  assert.ok(r.maxX >= 3040 + 1920 - 1, `maxX ${r.maxX}`);
+});

@@ -52,7 +52,9 @@ export function cajaDePlaca(placa: CapaForma): CajaDePantalla {
 }
 
 /** Cámara quieta que ve exactamente la placa: el render mide lo que la
-    placa mide y el zoom 1 la muestra entera, centrada. */
+    placa mide y el zoom 1 la muestra entera, centrada. Supuesto: las placas
+    no rotan (una pantalla importada de Figma nunca lo hace); una placa
+    rotada a mano saldría con su contenido inclinado dentro del PNG. */
 function camaraFijaEn(placa: CapaForma): Camara {
   return { base: { x: placa.x, y: placa.y, zoom: 1 }, pistas: {} };
 }
@@ -61,8 +63,9 @@ function camaraFijaEn(placa: CapaForma): Camara {
  * Una escena por placa del lienzo, en el orden en que están en la comp.
  * `conPlaca` = true incluye el rect de fondo de la placa (la pantalla con su
  * color); por defecto queda afuera para que el PNG traiga alfa y el fondo
- * se ponga en AE. Las capas sueltas (sin `grupo`) no pertenecen a ninguna
- * pantalla y no salen en ninguna. Sin placas: lista vacía.
+ * se ponga en AE. La pertenencia es por `grupo`, no por posición: una capa
+ * suelta (sin grupo) o una que pertenece a OTRA pantalla no sale en esta
+ * aunque se superponga visualmente. Sin placas: lista vacía.
  */
 export function escenasPorPantalla(comp: Composicion, opciones: { conPlaca?: boolean } = {}): EscenaDePantalla[] {
   const placas = comp.capas.filter((c): c is CapaForma => esPlaca(c) && c.tipo === "forma" && !c.oculta);
