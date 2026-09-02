@@ -13,6 +13,28 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] El diseño no se borra: quitar_capa rechaza capas importadas, editar_capa explica el raster (2026-09-02)
+- **Qué pasó:** Gabriel, en modo iterativo con Gemini: «que "We're entering
+  a new era…" y el texto de abajo entren palabra a palabra». Las dos capas
+  son RASTERS (media): `editar_capa {division}` falló seco («no vino
+  ningún cambio aplicable») dos veces, y Gemini QUITÓ las dos capas y las
+  recreó con `agregar_capa_texto` en fuente de sistema. Diseño destruido,
+  revisión «APROBADO».
+- **Hecho:** (1) `editar_capa` con propiedades de texto sobre una capa que
+  no es texto falla LEGIBLE: qué es (raster), qué no se puede (dividir,
+  tipografía), la alternativa (animarla entera + pedir el texto desde
+  Figma) y la prohibición de recrearla. (2) `quitar_capa` rechaza las
+  capas del diseño (`esCapaDelDiseno`: placas y capas con grupo de una
+  placa) y ofrece `editar_capa {oculta: true}`, que ahora existe y es
+  reversible. (3) Regla CAPAS DEL DISEÑO en el SISTEMA. 3 tests.
+- **Abierto:** las líneas del LOGO SHINY de lemlist. El PNG que exporta
+  el plugin trae el degradado (α≈160 en el borde de la página → 0 al 62 %
+  del largo) y el render lo muestra; pero el JSON tiene «Line 5» de 750 px
+  desde x = 0 y en Figma mide 783 desde x = −181. Falta el JSON fresco
+  («Descargar JSON») para saber si es el archivo que cambió o el export de
+  un nodo recortado por su padre (si es lo segundo: `rasterizar` debería
+  pasar por el clon cuando absoluteRenderBounds < absoluteBoundingBox).
+
 ### [HECHO] Guion v2 de lemlist con el brief de Gabriel + sangrado en la auditoría de corte (2026-09-02)
 - **Brief:** «SaaS súper premium, next level, escena por escena; textos
   palabra a palabra o por líneas, muy smooth; las barras without/with AI

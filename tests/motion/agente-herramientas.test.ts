@@ -428,3 +428,63 @@ test("rangoDelLienzo cuenta el ancho estimado de un texto (un título ancho al b
   // 19 caracteres × 200 × 0.6 / 2 = 1140 de medio ancho → borde derecho ≈ 3040, más un render de aire
   assert.ok(r.maxX >= 3040 + 1920 - 1, `maxX ${r.maxX}`);
 });
+
+// ── el diseño del usuario no se borra ni se «reemplaza» ──────────────────
+// Gemini, ante «que el manifesto entre palabra por palabra» sobre dos rasters:
+// editar_capa {division} falló seco, y quitó las dos capas para recrearlas
+// como texto plano. Las herramientas tienen que hacer imposible ese camino.
+
+const conPantalla = (): Composicion => {
+  let comp = base();
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "placa", forma: "rect", x: 720, y: 450, ancho: 1440, alto: 900 }).comp;
+  comp = { ...comp, capas: comp.capas.map((c) => (c.id === "placa" ? { ...c, grupo: "placa" } : c)) };
+  comp = {
+    ...comp,
+    capas: [
+      ...comp.capas,
+      { id: "fig-9-manifesto", tipo: "media", nombre: "We're entering a new era", grupo: "placa", x: 720, y: 300, ancho: 900, alto: 80, mediaId: "data:x", ajuste: "contener" } as Composicion["capas"][number],
+    ],
+  };
+  return comp;
+};
+
+test("editar_capa: pedir division/tipografía sobre un raster falla LEGIBLE con la alternativa, sin tocar la capa", () => {
+  const comp = conPantalla();
+  const res = ejecutarHerramienta(comp, "editar_capa", { capaId: "fig-9-manifesto", division: "palabras" });
+  assert.ok(res.esError);
+  assert.match(res.resultado, /RASTER \(media\)/);
+  assert.match(res.resultado, /no se puede dividir en palabras/);
+  assert.match(res.resultado, /exportarla como TEXTO desde Figma/);
+  assert.match(res.resultado, /JAMÁS la quites/);
+  assert.deepEqual(res.comp, comp);
+  // lo que sí aplica a un raster sigue andando
+  const movida = ejecutarHerramienta(comp, "editar_capa", { capaId: "fig-9-manifesto", opacidad: 0.5 });
+  assert.ok(!movida.esError);
+  assert.equal(movida.comp.capas.find((c) => c.id === "fig-9-manifesto")?.opacidad, 0.5);
+});
+
+test("quitar_capa rechaza las capas del diseño (placa y capas de la pantalla) y ofrece ocultar; las propias se quitan", () => {
+  let comp = conPantalla();
+  const raster = ejecutarHerramienta(comp, "quitar_capa", { capaId: "fig-9-manifesto" });
+  assert.ok(raster.esError);
+  assert.match(raster.resultado, /parte del diseño importado/);
+  assert.match(raster.resultado, /oculta: true/);
+  assert.equal(raster.comp.capas.length, 2);
+  const placa = ejecutarHerramienta(comp, "quitar_capa", { capaId: "placa" });
+  assert.ok(placa.esError);
+  // una capa que agregó el director (sin pantalla) sí se puede quitar
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "propia", texto: "x" }).comp;
+  const propia = ejecutarHerramienta(comp, "quitar_capa", { capaId: "propia" });
+  assert.ok(!propia.esError);
+  assert.ok(!propia.comp.capas.some((c) => c.id === "propia"));
+});
+
+test("editar_capa {oculta} saca una capa del render sin borrarla, y vuelve", () => {
+  const comp = conPantalla();
+  const oculta = ejecutarHerramienta(comp, "editar_capa", { capaId: "fig-9-manifesto", oculta: true });
+  assert.ok(!oculta.esError);
+  assert.equal(oculta.comp.capas.find((c) => c.id === "fig-9-manifesto")?.oculta, true);
+  const visible = ejecutarHerramienta(oculta.comp, "editar_capa", { capaId: "fig-9-manifesto", oculta: false });
+  assert.equal(visible.comp.capas.find((c) => c.id === "fig-9-manifesto")?.oculta, undefined);
+  assert.ok(DEFINICIONES_HERRAMIENTAS.find((d) => d.name === "editar_capa")?.input_schema.properties.oculta);
+});

@@ -18,7 +18,7 @@ import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
 import { CATEGORIAS, escalonadoSano, nombresPresets, PRESETS } from "@/lib/motion/presets-puro";
 import { EASINGS, esEasingConocido } from "@/lib/motion/easings-puro";
 import { derivarPantalla } from "@/lib/motion/derivar-puro";
-import { describirEstilo, estiloDePieza } from "@/lib/motion/estilo-puro";
+import { describirEstilo, esPlaca, estiloDePieza } from "@/lib/motion/estilo-puro";
 import { cajaAproximada } from "@/lib/motion/auditoria-puro";
 import { camaraDeEncuadres, type TramoDeEscena } from "@/lib/motion/encuadres-puro";
 import { conFormato } from "@/lib/motion/formato-puro";
@@ -108,6 +108,18 @@ function segmentoDe(comp: Composicion, input: Record<string, unknown>, clase: "e
 }
 
 /** Ejecuta un tool_use del agente. Devuelve la composición nueva (o la misma si falló). */
+/** Una capa «del diseño» es una placa o una capa que vive en una pantalla
+    (grupo = id de una placa): lo que importó el usuario. El director las
+    anima y las edita, pero no las borra para recrearlas. */
+export function esCapaDelDiseno(comp: Composicion, capa: Capa): boolean {
+  if (esPlaca(capa)) return true;
+  return !!capa.grupo && comp.capas.some((p) => p.id === capa.grupo && esPlaca(p));
+}
+
+/** Propiedades que solo existen en texto: pedirlas sobre un raster o una
+    forma es el síntoma de «quiero animar esto como texto». */
+const SOLO_TEXTO = ["texto", "division", "familia", "tamano", "peso", "interlineado", "interletrado", "alineacion"] as const;
+
 export function ejecutarHerramienta(
   comp: Composicion,
   nombre: string,
@@ -297,6 +309,21 @@ export function ejecutarHerramienta(
         else return fallo(comp, `mezcla «${String(input.mezcla)}» no existe; usá normal o ${MEZCLAS.join(", ")}`);
       }
       if (typeof input.nombre === "string") cambios.nombre = input.nombre;
+      if (typeof input.oculta === "boolean") cambios.oculta = input.oculta || undefined;
+      const pedidoDeTexto = SOLO_TEXTO.filter((k) => input[k] !== undefined);
+      if (capa.tipo !== "texto" && pedidoDeTexto.length > 0) {
+        // Gemini, con «hacé que entren palabra por palabra» sobre un raster:
+        // editar_capa {division} falló seco («no vino ningún cambio
+        // aplicable»), y su salida fue borrar la capa y recrearla como texto
+        // plano — el diseño perdido. La causa tiene que ser legible.
+        const que = capa.tipo === "media" ? "un RASTER (media) importado de Figma" : `una capa de tipo ${capa.tipo}`;
+        return fallo(
+          comp,
+          `«${capa.nombre}» es ${que}: no es texto, no se puede dividir en palabras ni cambiarle la tipografía (${pedidoDeTexto.join(", ")}). ` +
+            "Animala ENTERA con el preset que más se acerque (subirDesenfocado, desenfocarEntrada, revelar, o una pista de opacidad/desenfoque) y decí en tu resumen que para animarla palabra por palabra hay que exportarla como TEXTO desde Figma. " +
+            "JAMÁS la quites para recrearla con agregar_capa_texto: se pierde el diseño.",
+        );
+      }
       if (capa.tipo === "texto") {
         const extra = cambios as Partial<CapaTexto>;
         if (typeof input.texto === "string") {
@@ -460,6 +487,17 @@ export function ejecutarHerramienta(
     case "quitar_capa": {
       const capa = capaDe(input.capaId);
       if (!capa) return fallo(comp, `no hay ninguna capa «${String(input.capaId)}»`);
+      if (esCapaDelDiseno(comp, capa)) {
+        // el diseño es del usuario: una capa importada no se borra para
+        // «reemplazarla» (lo hizo Gemini con dos rasters del manifesto).
+        // Si el usuario pidió sacarla, se oculta: es reversible.
+        return fallo(
+          comp,
+          `«${capa.nombre}» es parte del diseño importado (pantalla «${capa.grupo ?? capa.id}»): el director no quita capas del diseño. ` +
+            "Si querías cambiar cómo se anima, editá o animá ESA capa. Si es un raster y necesitás texto, decile al usuario que lo exporte como texto desde Figma. " +
+            "Si el usuario pidió explícitamente sacarla, ocultala con editar_capa {oculta: true}.",
+        );
+      }
       const res = quitarCapa(comp, capa.id, marca);
       return res.ok ? exito(res.valor, `capa «${capa.nombre}» quitada`) : fallo(comp, res.error);
     }
@@ -671,7 +709,7 @@ export const DEFINICIONES_HERRAMIENTAS = [
   },
   {
     name: "editar_capa",
-    description: "Edita propiedades base de una capa existente: posición, escala (1 = 100%), rotación, opacidad (0-1), motionBlur (0-2), mezcla (normal, multiply, screen, overlay…), nombre; en texto también texto (\\n = salto de línea), color, familia, tamano, peso, interlineado, interletrado, alineacion, division; en formas color, ancho, alto, radio; en media ancho, alto; en trazos color, grosor y el trim base trazoInicio/trazoFin (0-1). Es también tu herramienta de DISEÑO: respetá el ESTILO DE LA PIEZA.",
+    description: "Edita propiedades base de una capa existente: posición, escala (1 = 100%), rotación, opacidad (0-1), motionBlur (0-2), mezcla (normal, multiply, screen, overlay…), nombre, oculta (true la saca del render sin borrarla); en texto también texto (\\n = salto de línea), color, familia, tamano, peso, interlineado, interletrado, alineacion, division; en formas color, ancho, alto, radio; en media ancho, alto; en trazos color, grosor y el trim base trazoInicio/trazoFin (0-1). Es también tu herramienta de DISEÑO: respetá el ESTILO DE LA PIEZA.",
     input_schema: {
       type: "object",
       properties: {
@@ -684,6 +722,7 @@ export const DEFINICIONES_HERRAMIENTAS = [
         motionBlur: { type: "number" },
         mezcla: { type: "string", description: "normal | multiply | screen | overlay | darken | lighten | color-dodge | color-burn | hard-light | soft-light | difference | exclusion | hue | saturation | color | luminosity" },
         nombre: { type: "string" },
+        oculta: { type: "boolean" },
         texto: { type: "string" },
         color: { type: "string" },
         tamano: { type: "number" },
@@ -796,7 +835,7 @@ export const DEFINICIONES_HERRAMIENTAS = [
   },
   {
     name: "quitar_capa",
-    description: "Elimina una capa de la composición.",
+    description: "Elimina una capa que VOS agregaste. Las capas del diseño importado (placas y las capas de cada pantalla) no se quitan nunca: para sacar una del render usá editar_capa {oculta: true}; para cambiar cómo se anima, animá esa misma capa.",
     input_schema: {
       type: "object",
       properties: { capaId: { type: "string" } },
