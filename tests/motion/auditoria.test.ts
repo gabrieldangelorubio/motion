@@ -243,3 +243,19 @@ test("ENCUADRE CORTA ignora los fondos más grandes que el cuadro (un glow no ex
   comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "glow", preset: "aparecer", en: 0, duracion: 1200 }).comp;
   assert.deepEqual(auditarDireccion(comp).filter((x) => x.startsWith("ENCUADRE CORTA")), []);
 });
+
+test("ENCUADRE CORTA: una pieza que sangra por el borde de la página no cuenta como cortada en ese borde", () => {
+  let comp = crearComposicion({ nombre: "sangra" });
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "p", forma: "rect", x: 720, y: 450, ancho: 1440, alto: 900 }).comp;
+  comp = { ...comp, capas: comp.capas.map((c) => (c.id === "p" ? { ...c, grupo: "p" } : c)) };
+  // un haz de luz desde x = 0 (sangra a la izquierda) y un rayo desde y = 0 (sangra arriba)
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "haz", forma: "rect", x: 378, y: 156, ancho: 756, alto: 312 }).comp;
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "rayo", forma: "rect", x: 148, y: 308, ancho: 2, alto: 615 }).comp;
+  // y un botón que la cámara corta de verdad por la izquierda
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "boton", forma: "rect", x: 120, y: 500, ancho: 200, alto: 60 }).comp;
+  comp = ejecutarHerramienta(comp, "definir_camara", { base: { x: 720, y: 360, zoom: 1.5 } }).comp; // ve x 80–1360, y 0–720
+  for (const id of ["haz", "rayo", "boton"]) comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: id, preset: "aparecer", en: 0, duracion: 500 }).comp;
+  const h = auditarDireccion(comp).filter((x) => x.startsWith("ENCUADRE CORTA"));
+  assert.equal(h.length, 1, h.join(" | "));
+  assert.match(h[0], /«boton»/);
+});

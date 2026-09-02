@@ -139,6 +139,18 @@ export function cajaVisibleEn(comp: Composicion, t: number): { x1: number; y1: n
   return { x1: cx - w, y1: cy - h, x2: cx + w, y2: cy + h };
 }
 
+/** La placa con más solapamiento con una caja visible (o null). */
+function pantallaDe(comp: Composicion, ve: { x1: number; y1: number; x2: number; y2: number }): CapaForma | null {
+  let mejor: { p: CapaForma; area: number } | null = null;
+  for (const c of comp.capas) {
+    if (!esPlaca(c) || c.tipo !== "forma" || c.oculta) continue;
+    const px1 = c.x - c.ancho / 2, px2 = c.x + c.ancho / 2, py1 = c.y - c.alto / 2, py2 = c.y + c.alto / 2;
+    const area = Math.max(0, Math.min(ve.x2, px2) - Math.max(ve.x1, px1)) * Math.max(0, Math.min(ve.y2, py2) - Math.max(ve.y1, py1));
+    if (area > 0 && (!mejor || area > mejor.area)) mejor = { p: c, area };
+  }
+  return mejor?.p ?? null;
+}
+
 /** Instantes que valen la pena mirar de la cámara: t = 0 y cada keyframe
     de x/y/zoom (ahí están los encuadres en los que se detiene). */
 function instantesDeCamara(comp: Composicion): number[] {
@@ -299,7 +311,21 @@ export function auditarDireccion(comp: Composicion): string[] {
     // descentraba toda la pieza
     const esFondo = caja.x2 - caja.x1 > (ve.x2 - ve.x1) * 0.9 || caja.y2 - caja.y1 > (ve.y2 - ve.y1) * 0.9;
     if (esFondo) continue;
-    const dentro = caja.x1 >= ve.x1 - 2 && caja.x2 <= ve.x2 + 2 && caja.y1 >= ve.y1 - 2 && caja.y2 <= ve.y2 + 2;
+    // un corte en el mismo borde donde la pieza ya SANGRA fuera de su
+    // pantalla (haces de luz desde x = 0, rayos desde y = 0) no es un corte:
+    // la cámara la recorta donde la página también la recorta
+    const p = pantallaDe(comp, ve);
+    const sangra = {
+      izq: !!p && caja.x1 <= p.x - p.ancho / 2 + 2,
+      der: !!p && caja.x2 >= p.x + p.ancho / 2 - 2,
+      arr: !!p && caja.y1 <= p.y - p.alto / 2 + 2,
+      aba: !!p && caja.y2 >= p.y + p.alto / 2 - 2,
+    };
+    const corteIzq = caja.x1 < ve.x1 - 2 && !sangra.izq;
+    const corteDer = caja.x2 > ve.x2 + 2 && !sangra.der;
+    const corteArr = caja.y1 < ve.y1 - 2 && !sangra.arr;
+    const corteAba = caja.y2 > ve.y2 + 2 && !sangra.aba;
+    const dentro = !(corteIzq || corteDer || corteArr || corteAba);
     const fuera = caja.x2 < ve.x1 || caja.x1 > ve.x2 || caja.y2 < ve.y1 || caja.y1 > ve.y2;
     if (!dentro && !fuera) {
       cortadas.push(

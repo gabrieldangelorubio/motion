@@ -13,6 +13,23 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Guion v2 de lemlist con el brief de Gabriel + sangrado en la auditoría de corte (2026-09-02)
+- **Brief:** «SaaS súper premium, next level, escena por escena; textos
+  palabra a palabra o por líneas, muy smooth; las barras without/with AI
+  como barra de uso de izquierda a derecha». Guion v2 (131 pasos,
+  `_andamiaje/director-externo/ejemplos/lemlist-guion-fable-v2.json`):
+  hero a zoom 1.5 centrado (el logo entra entero) con push-in de 4 % en el
+  hold, título con asentamiento de escala, claim y bajada PALABRA por
+  palabra, barras con `cargar` (60 min ×1600 salidaQuart, 3 min ×450
+  salidaExpo, etiquetas cuando el borde las alcanza), 17,5 s, cierre a
+  y 2869 sin vacío. Auditoría limpia, 12 frames revisados.
+- **Regla afinada:** ENCUADRE CORTA no cuenta un corte en el mismo borde
+  por donde la pieza SANGRA fuera de su pantalla (haces de luz desde x = 0,
+  rayos desde y = 0): la cámara la recorta donde la página también. Test.
+- **Comparativa:** el mismo JSON (plugin v15, «Descargar JSON») importado
+  en headless da los MISMOS ids que el export anterior, así que el guion se
+  aplica tal cual con «Aplicar guion» sobre la importación de Gabriel.
+
 ### [HECHO] Preset «cargar»: la barra que crece de izquierda a derecha (2026-09-02)
 - **Brief de Gabriel para lemlist:** «la barrita without AI / with AI tiene
   que animarse como una barra de uso, de izquierda a derecha». No había
