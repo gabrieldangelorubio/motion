@@ -13,6 +13,28 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Primera corrida de Flash en modo guion → auditoría de ENCUADRE DESCENTRADO (2026-09-02)
+- **Resultado medido (log de Gabriel):** Flash escribió el guion entero de
+  lemlist en UNA llamada: 55 pasos, 1:29, 64k tokens, $0,10 (ayer: 8 pasos,
+  1,4M tokens, $0,55), con lectura y notas casi calcadas de las de Fable
+  (lista como lista, trazo que se dibuja, typewriter, botón que se
+  presiona, barras que cargan, un solo elástico). «Lo hizo bastante mejor».
+- **Lo que falló y su causa:** el encuadre. (1) Flash centró la cámara en
+  x = 960 (el render) sobre una pantalla de 1440 (centro 720): todo corrido.
+  (2) ENCUADRE CORTA marcó los glows de fondo (2070×1548, más grandes que
+  cualquier cuadro); Flash bajó el zoom a 1 «para que entren» y en la
+  revisión llegó a mover y escalar esas capas.
+- **Fixes, todos medidos:** ENCUADRE CORTA ignora fondos (caja > 90 % del
+  cuadro en algún eje) y su mensaje prohíbe tocar la capa; regla nueva
+  ENCUADRE DESCENTRADO (`encuadresDescentrados`): en t = 0 y en cada
+  keyframe de cámara, la placa con más solapamiento es «la pantalla»; si es
+  más grande que el cuadro, lo visible tiene que caer adentro (si no: «N px
+  de vacío a la IZQUIERDA/DERECHA/ARRIBA/ABAJO»); si es más chica, centrada;
+  el mensaje dice dónde tiene que estar el centro. Corre aunque no haya
+  entradas. SISTEMA: un hallazgo de encuadre se corrige SOLO con
+  definir_camara; MODO GUION: la fórmula del centro (720, no 960; zoom =
+  1920/ancho de la región) y que los fondos no cuentan.
+
 ### [HECHO] Guardado de snapshots grandes por route handler (2026-09-02)
 - **Causa exacta del «Maximum array nesting exceeded» con la landing de
   34 MB:** React Flight, al decodificar los argumentos de una server action,

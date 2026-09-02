@@ -12,7 +12,7 @@
    Pura: sin canvas, sin red, testeable.
 ----------------------------------------------------------------------------- */
 
-import type { Capa, CapaTexto, Composicion, Keyframe, Segmento } from "@/lib/motion/modelo";
+import type { Capa, CapaForma, CapaTexto, Composicion, Keyframe, Segmento } from "@/lib/motion/modelo";
 import { PRESETS } from "@/lib/motion/presets-puro";
 import { esPlaca } from "@/lib/motion/estilo-puro";
 
@@ -139,6 +139,64 @@ export function cajaVisibleEn(comp: Composicion, t: number): { x1: number; y1: n
   return { x1: cx - w, y1: cy - h, x2: cx + w, y2: cy + h };
 }
 
+/** Instantes que valen la pena mirar de la cámara: t = 0 y cada keyframe
+    de x/y/zoom (ahí están los encuadres en los que se detiene). */
+function instantesDeCamara(comp: Composicion): number[] {
+  const ts = new Set<number>([0]);
+  for (const kfs of Object.values(comp.camara?.pistas ?? {})) for (const k of kfs ?? []) ts.add(k.t);
+  return [...ts].sort((a, b) => a - b);
+}
+
+/** Encuadres que muestran vacío fuera de la pantalla o la dejan
+    descentrada. Para cada instante de cámara: la placa con más solapamiento
+    con lo visible es «la pantalla»; en cada eje, si la pantalla es más grande
+    que lo visible, lo visible tiene que caer ADENTRO de ella; si es más
+    chica, tiene que quedar CENTRADA. Un mensaje por instante, deduplicado. */
+export function encuadresDescentrados(comp: Composicion): string[] {
+  const placas = comp.capas.filter((c): c is CapaForma => esPlaca(c) && c.tipo === "forma" && !c.oculta);
+  if (placas.length === 0) return [];
+  const vistos = new Set<string>();
+  const salida: string[] = [];
+  for (const t of instantesDeCamara(comp)) {
+    const ve = cajaVisibleEn(comp, t);
+    const vw = ve.x2 - ve.x1;
+    const vh = ve.y2 - ve.y1;
+    let mejor: { p: CapaForma; area: number } | null = null;
+    for (const p of placas) {
+      const px1 = p.x - p.ancho / 2, px2 = p.x + p.ancho / 2, py1 = p.y - p.alto / 2, py2 = p.y + p.alto / 2;
+      const area = Math.max(0, Math.min(ve.x2, px2) - Math.max(ve.x1, px1)) * Math.max(0, Math.min(ve.y2, py2) - Math.max(ve.y1, py1));
+      if (area > 0 && (!mejor || area > mejor.area)) mejor = { p, area };
+    }
+    if (!mejor) continue;
+    const p = mejor.p;
+    const px1 = p.x - p.ancho / 2, px2 = p.x + p.ancho / 2, py1 = p.y - p.alto / 2, py2 = p.y + p.alto / 2;
+    const problemas: string[] = [];
+    const tolX = Math.max(8, vw * 0.02);
+    const tolY = Math.max(8, vh * 0.02);
+    if (p.ancho >= vw) {
+      if (ve.x1 < px1 - tolX) problemas.push(`muestra ${r(px1 - ve.x1)} px de vacío a la IZQUIERDA de la pantalla`);
+      if (ve.x2 > px2 + tolX) problemas.push(`muestra ${r(ve.x2 - px2)} px de vacío a la DERECHA de la pantalla`);
+    } else if (Math.abs((ve.x1 + ve.x2) / 2 - p.x) > tolX) {
+      problemas.push(`la pantalla queda descentrada en x (centro de cámara ${r((ve.x1 + ve.x2) / 2)}, centro de la pantalla ${r(p.x)})`);
+    }
+    if (p.alto >= vh) {
+      if (ve.y1 < py1 - tolY) problemas.push(`muestra ${r(py1 - ve.y1)} px de vacío ARRIBA de la pantalla`);
+      if (ve.y2 > py2 + tolY) problemas.push(`muestra ${r(ve.y2 - py2)} px de vacío ABAJO de la pantalla`);
+    } else if (Math.abs((ve.y1 + ve.y2) / 2 - p.y) > tolY) {
+      problemas.push(`la pantalla queda descentrada en y (centro de cámara ${r((ve.y1 + ve.y2) / 2)}, centro de la pantalla ${r(p.y)})`);
+    }
+    if (problemas.length === 0) continue;
+    const clave = problemas.join("|");
+    if (vistos.has(clave)) continue;
+    vistos.add(clave);
+    const cxOk = p.ancho >= vw ? `entre ${r(px1 + vw / 2)} y ${r(px2 - vw / 2)}` : `${r(p.x)}`;
+    salida.push(
+      `ENCUADRE DESCENTRADO: en ${r(t)}ms la cámara (centro ${r((ve.x1 + ve.x2) / 2)}, ${r((ve.y1 + ve.y2) / 2)}, ve ${r(vw)}×${r(vh)}) ${problemas.join("; ")}. Sobre la pantalla «${p.nombre}» (caja ${r(px1)}–${r(px2)} × ${r(py1)}–${r(py2)}) el centro x tiene que estar ${cxOk}. Se corrige SOLO con definir_camara, nunca moviendo capas.`,
+    );
+  }
+  return salida;
+}
+
 /** Los hallazgos de la auditoría: una línea por regla violada, con los
     números que la prueban y qué hacer. Vacío = la pieza pasa la regla de
     oro (lo que NO significa que sea buena: eso lo ve la revisión visual). */
@@ -157,7 +215,10 @@ export function auditarDireccion(comp: Composicion): string[] {
     hallazgos.push(`NADA SE MUEVE: ${animables.length} capas y ninguna tiene entrada, pista ni viaje de cámara.`);
     return hallazgos;
   }
-  if (n === 0) return hallazgos;
+  // el encuadre se audita aunque nada entre todavía: una cámara mal puesta
+  // ya es un hallazgo (y el guionista la fija antes que las entradas)
+  const descentrados = encuadresDescentrados(comp).slice(0, 3);
+  if (n === 0) return [...hallazgos, ...descentrados];
 
   // 1. Monotonía de preset
   const porPreset = porcentajes(entradas, (s) => s.preset);
@@ -233,15 +294,26 @@ export function auditarDireccion(comp: Composicion): string[] {
     const t = seg.en + seg.duracion;
     const ve = cajaVisibleEn(comp, t);
     const caja = cajaAproximada(c);
+    // un FONDO (glow, haz de luz, textura: más grande que el cuadro en algún
+    // eje) no exige encuadre — visto: bajar el zoom «para que entre» el glow
+    // descentraba toda la pieza
+    const esFondo = caja.x2 - caja.x1 > (ve.x2 - ve.x1) * 0.9 || caja.y2 - caja.y1 > (ve.y2 - ve.y1) * 0.9;
+    if (esFondo) continue;
     const dentro = caja.x1 >= ve.x1 - 2 && caja.x2 <= ve.x2 + 2 && caja.y1 >= ve.y1 - 2 && caja.y2 <= ve.y2 + 2;
     const fuera = caja.x2 < ve.x1 || caja.x1 > ve.x2 || caja.y2 < ve.y1 || caja.y1 > ve.y2;
     if (!dentro && !fuera) {
       cortadas.push(
-        `ENCUADRE CORTA: «${c.nombre}» termina de entrar en ${t}ms y la cámara la corta (caja x ${r(caja.x1)}–${r(caja.x2)}, y ${r(caja.y1)}–${r(caja.y2)}; la cámara ve x ${r(ve.x1)}–${r(ve.x2)}, y ${r(ve.y1)}–${r(ve.y2)}). Corré el centro o bajá el zoom de ese encuadre.`,
+        `ENCUADRE CORTA: «${c.nombre}» termina de entrar en ${t}ms y la cámara la corta (caja x ${r(caja.x1)}–${r(caja.x2)}, y ${r(caja.y1)}–${r(caja.y2)}; la cámara ve x ${r(ve.x1)}–${r(ve.x2)}, y ${r(ve.y1)}–${r(ve.y2)}). Se corrige SOLO con definir_camara (centro o zoom de ese encuadre): JAMÁS moviendo ni escalando la capa.`,
       );
     }
   }
   hallazgos.push(...cortadas.slice(0, 4));
+
+  // 9c. Encuadre descentrado o con vacío: en cada keyframe de cámara, lo
+  // que se ve tiene que estar centrado en la pantalla y sin aire fuera de
+  // ella (visto: Flash centró en x = 960 —el render— una pantalla de 1440,
+  // y un hero a zoom 1.33 mostraba 76 px de vacío arriba de la página)
+  hallazgos.push(...descentrados);
 
   // 9. Cámara quieta con más de una pantalla
   const placas = comp.capas.filter(esPlaca).length;

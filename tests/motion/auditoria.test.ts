@@ -204,3 +204,42 @@ test("cajaAproximada: trazos y vectores tienen caja (un logo importado suele ser
   const caja = cajaAproximada(vector as unknown as import("@/lib/motion/modelo").Capa);
   assert.deepEqual(caja, { x1: 110, y1: 21, x2: 252, y2: 163 });
 });
+
+test("ENCUADRE DESCENTRADO: centrar en x=960 una pantalla de 1440 y mostrar vacío arriba se marca; x=720 y zoom cerrado, no", () => {
+  const conPlaca = (base: { x: number; y: number; zoom: number }) => {
+    let comp = crearComposicion({ nombre: "desc" });
+    comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "p", forma: "rect", x: 720, y: 1614.5, ancho: 1440, alto: 900 }).comp;
+    comp = { ...comp, capas: comp.capas.map((c) => (c.id === "p" && c.tipo === "forma" ? { ...c, nombre: "landing", alto: 3229, grupo: "p" } : c)) };
+    comp = ejecutarHerramienta(comp, "definir_camara", { base }).comp;
+    return comp;
+  };
+  // lo que hizo Flash: centro 960 (el render), zoom 1.33 → ve x 238–1682: 242 px de vacío a la derecha; y 330 → 76 px de vacío arriba
+  const flash = auditarDireccion(conPlaca({ x: 960, y: 330, zoom: 1.33 })).filter((x) => x.startsWith("ENCUADRE DESCENTRADO"));
+  assert.equal(flash.length, 1, flash.join(" | "));
+  // a zoom 1.33 el cuadro (1444) es apenas más ancho que la pantalla (1440): tiene que quedar centrada en 720
+  assert.match(flash[0], /descentrada en x \(centro de cámara 960, centro de la pantalla 720\)/);
+  assert.match(flash[0], /76 px de vacío ARRIBA/);
+  assert.match(flash[0], /el centro x tiene que estar 720/);
+  // más cerrado (zoom 1.7, cuadro de 1129) y corrido a 960: vacío a la derecha
+  const corrido = auditarDireccion(conPlaca({ x: 960, y: 500, zoom: 1.7 })).find((x) => x.startsWith("ENCUADRE DESCENTRADO")) ?? "";
+  assert.match(corrido, /vacío a la DERECHA de la pantalla/);
+  assert.match(corrido, /el centro x tiene que estar entre 565 y 875/);
+  // lo que hizo Fable: centro 720, zoom 1.7 → ve 1129×635 centrado en y 330 (13–648): limpio
+  assert.deepEqual(auditarDireccion(conPlaca({ x: 720, y: 330, zoom: 1.7 })).filter((x) => x.startsWith("ENCUADRE DESCENTRADO")), []);
+  // pantalla más chica que el cuadro (un teléfono): tiene que quedar centrada
+  let tel = crearComposicion({ nombre: "tel" });
+  tel = ejecutarHerramienta(tel, "agregar_capa_forma", { id: "t", forma: "rect", x: 195, y: 422, ancho: 390, alto: 844 }).comp;
+  tel = { ...tel, capas: tel.capas.map((c) => (c.id === "t" ? { ...c, grupo: "t" } : c)) };
+  const descentrado = ejecutarHerramienta(tel, "definir_camara", { base: { x: 400, y: 422, zoom: 1.28 } }).comp;
+  assert.match(auditarDireccion(descentrado).find((x) => x.startsWith("ENCUADRE DESCENTRADO")) ?? "", /descentrada en x/);
+  const centrado = ejecutarHerramienta(tel, "definir_camara", { base: { x: 195, y: 422, zoom: 1.28 } }).comp;
+  assert.deepEqual(auditarDireccion(centrado).filter((x) => x.startsWith("ENCUADRE DESCENTRADO")), []);
+});
+
+test("ENCUADRE CORTA ignora los fondos más grandes que el cuadro (un glow no exige encuadre)", () => {
+  let comp = crearComposicion({ nombre: "glow" });
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "glow", forma: "elipse", x: 720, y: 500, ancho: 2070, alto: 1548 }).comp;
+  comp = ejecutarHerramienta(comp, "definir_camara", { base: { x: 720, y: 330, zoom: 1.7 } }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "glow", preset: "aparecer", en: 0, duracion: 1200 }).comp;
+  assert.deepEqual(auditarDireccion(comp).filter((x) => x.startsWith("ENCUADRE CORTA")), []);
+});
