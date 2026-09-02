@@ -1416,6 +1416,25 @@ export function Editor({
     return { imagenes, contexto: contextoDeLectura(plan) };
   }, [obtenerMedia]);
 
+  // GANCHO DE DESARROLLO (nunca en producción): el editor expone snapshot,
+  // carga y lectura en window.__motion para el director externo (guiones
+  // aplicados sin modelo desde un driver headless) y los smokes de Playwright.
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" || typeof window === "undefined") return;
+    const w = window as unknown as { __motion?: unknown };
+    w.__motion = {
+      snapshot: () => serializar(compRef.current),
+      cargar: (snapshot: string) => {
+        registrar();
+        setComposicion(deserializar(snapshot));
+      },
+      lectura: (snapshot?: string) => renderizarLectura(snapshot ?? serializar(compRef.current)),
+    };
+    return () => {
+      delete w.__motion;
+    };
+  }, [registrar, renderizarLectura]);
+
   // El largo real de un path sólo lo sabe el DOM de SVG (getTotalLength):
   // se mide UNA vez al importar y queda guardado en la capa — el motor puro
   // y el export nunca tocan el DOM. Si algo falla, largo 0 = trazo completo.

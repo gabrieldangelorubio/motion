@@ -13,6 +13,22 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Director externo: guion sin modelo + gancho de desarrollo (2026-09-02)
+- **Para probar la hipótesis 1 de Gabriel («ve pero no alcanza») con un
+  director más fuerte:** Fable escribe el GUION desde el chat de desarrollo
+  como JSON de pasos con las MISMAS herramientas del director, y se aplica
+  sin modelo con el mismo ejecutor (`guion-puro.ts`: `validarGuion`,
+  `aplicarGuion` → informe ✓/✗ por paso + errores sin cortar). CLI:
+  `_andamiaje/director-externo/aplicar-guion.ts` (lee el estado como lo ve el
+  director, aplica el guion, imprime la auditoría, escribe el snapshot
+  dirigido). El editor en desarrollo expone `window.__motion`
+  (`snapshot()`, `cargar(snapshot)`, `lectura()`) para el driver headless y
+  los smokes; nunca en producción.
+- **Flujo cuando Gabriel suba el JSON del plugin al repo:** importar en
+  Chromium headless → snapshot + imágenes de lectura → guion escrito mirando
+  la pantalla → aplicar → cargar → exportar MP4 (VP9 en este Chromium) →
+  mandar el archivo. README en `_andamiaje/director-externo/`.
+
 ### [HECHO] LECTURA DE PANTALLA: el director VE el diseño antes de animar (2026-09-02)
 - **Diagnóstico confirmado a Gabriel:** el director NO veía la pantalla al
   planear. Recibía la descripción textual de las capas (`describir`) y
