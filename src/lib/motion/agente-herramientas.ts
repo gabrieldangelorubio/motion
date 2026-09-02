@@ -12,11 +12,13 @@
    vuelven en el resultado — verificación semántica barata.
 ----------------------------------------------------------------------------- */
 
-import { MEZCLAS, type Camara, type Capa, type CapaForma, type CapaTexto, type CapaTrazo, type CapaVector, type Composicion, type Keyframe, type EasingSpec, type MezclaCapa, type NombrePropiedad, type OrdenEscalonado, type Segmento, type TemblorCamara } from "@/lib/motion/modelo";
+import { MEZCLAS, type Camara, type Capa, type CapaForma, type CapaMedia, type CapaTexto, type CapaTrazo, type CapaVector, type Composicion, type Keyframe, type EasingSpec, type MezclaCapa, type NombrePropiedad, type OrdenEscalonado, type Segmento, type TemblorCamara } from "@/lib/motion/modelo";
 import { agregarCapa, editarCapa, quitarCapa, describir } from "@/lib/motion/herramientas-puro";
 import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
 import { CATEGORIAS, escalonadoSano, nombresPresets, PRESETS } from "@/lib/motion/presets-puro";
 import { EASINGS, esEasingConocido } from "@/lib/motion/easings-puro";
+import { derivarPantalla } from "@/lib/motion/derivar-puro";
+import { describirEstilo, estiloDePieza } from "@/lib/motion/estilo-puro";
 import { EASINGS_GSAP_DESTACADOS } from "@/lib/motion/easings-gsap";
 import { validar } from "@/lib/motion/validar-puro";
 
@@ -124,8 +126,40 @@ export function ejecutarHerramienta(
   }
 
   switch (nombre) {
-    case "ver_composicion":
-      return { comp, resultado: describir(comp) };
+    case "ver_composicion": {
+      const estilo = describirEstilo(estiloDePieza(comp));
+      return { comp, resultado: estilo ? `${describir(comp)}\n\n${estilo}` : describir(comp) };
+    }
+
+    case "derivar_pantalla": {
+      const reemplazosCrudos = Array.isArray(input.reemplazos) ? input.reemplazos : [];
+      const reemplazos = reemplazosCrudos
+        .filter((r): r is { capaId: string; texto: string } =>
+          typeof r === "object" && r !== null && typeof (r as Record<string, unknown>).capaId === "string" && typeof (r as Record<string, unknown>).texto === "string",
+        )
+        .map((r) => ({ capaId: r.capaId, texto: r.texto }));
+      if (reemplazos.length !== reemplazosCrudos.length) {
+        return fallo(comp, "cada reemplazo es {capaId, texto} con ambos strings");
+      }
+      const res = derivarPantalla(
+        comp,
+        String(input.pantallaId ?? ""),
+        {
+          nombre: typeof input.nombre === "string" ? input.nombre : undefined,
+          reemplazos,
+          desdeMs: input.desdeMs === undefined ? undefined : clamp(numero(input.desdeMs, 0), 0, comp.duracion * 4),
+        },
+        marca,
+      );
+      if (!res.ok) return fallo(comp, res.error);
+      const mapa = Object.entries(res.valor.renombres).map(([de, a]) => `${de}→${a}`).join(", ");
+      return exito(
+        res.valor.composicion,
+        `pantalla derivada «${res.valor.pantallaId}» (${reemplazos.length} texto${reemplazos.length === 1 ? "" : "s"} reemplazado${reemplazos.length === 1 ? "" : "s"}, animación heredada${
+          input.desdeMs ? `, corrida ${input.desdeMs}ms` : ""
+        }). Ids nuevos: ${mapa}`,
+      );
+    }
 
     case "ajustar_composicion": {
       const nueva: Composicion = {
@@ -276,15 +310,39 @@ export function ejecutarHerramienta(
               extra.salida = { ...capa.salida, escalonado: escalonadoSano(input.division) };
           }
         }
-        if (input.tamano !== undefined || input.peso !== undefined) {
+        if (
+          input.tamano !== undefined || input.peso !== undefined || typeof input.familia === "string" ||
+          input.interlineado !== undefined || input.interletrado !== undefined
+        ) {
           extra.fuente = {
             ...capa.fuente,
             tamano: input.tamano === undefined ? capa.fuente.tamano : clamp(numero(input.tamano, capa.fuente.tamano), 8, 600),
             peso: input.peso === undefined ? capa.fuente.peso : clamp(numero(input.peso, capa.fuente.peso), 100, 900),
+            // cambiar de familia invalida el estilo exacto de la cara anterior
+            ...(typeof input.familia === "string" && input.familia.trim()
+              ? { familia: input.familia.trim(), estilo: undefined }
+              : {}),
+            ...(input.interlineado !== undefined
+              ? { interlineado: clamp(numero(input.interlineado, capa.fuente.tamano * 1.15), 4, 2000) }
+              : {}),
+            ...(input.interletrado !== undefined
+              ? { interletrado: clamp(numero(input.interletrado, 0), -200, 400) }
+              : {}),
           };
         }
-      } else if (capa.tipo === "forma" && typeof input.color === "string") {
-        (cambios as Partial<CapaForma>).color = input.color;
+        if (input.alineacion === "izquierda" || input.alineacion === "centro" || input.alineacion === "derecha") {
+          extra.alineacion = input.alineacion;
+        }
+      } else if (capa.tipo === "forma") {
+        const extra = cambios as Partial<CapaForma>;
+        if (typeof input.color === "string") extra.color = input.color;
+        if (input.ancho !== undefined) extra.ancho = clamp(numero(input.ancho, capa.ancho), 1, comp.ancho * 4);
+        if (input.alto !== undefined) extra.alto = clamp(numero(input.alto, capa.alto), 1, comp.alto * 4);
+        if (input.radio !== undefined) extra.radio = clamp(numero(input.radio, capa.radio ?? 0), 0, 2000);
+      } else if (capa.tipo === "media") {
+        const extra = cambios as Partial<CapaMedia>;
+        if (input.ancho !== undefined) extra.ancho = clamp(numero(input.ancho, capa.ancho), 1, comp.ancho * 4);
+        if (input.alto !== undefined) extra.alto = clamp(numero(input.alto, capa.alto), 1, comp.alto * 4);
       } else if (capa.tipo === "vector") {
         // «color» en un vector edita el RELLENO (lo que se ve); grosor, el borde
         const extra = cambios as Partial<CapaVector>;
@@ -574,7 +632,7 @@ export const DEFINICIONES_HERRAMIENTAS = [
   },
   {
     name: "editar_capa",
-    description: "Edita propiedades base de una capa existente: posición, escala (1 = 100%), rotación, opacidad (0-1), motionBlur (0-2), mezcla (normal, multiply, screen, overlay…), nombre; en texto también texto (\\n = salto de línea), color, tamano, peso, division; en trazos color, grosor y el trim base trazoInicio/trazoFin (0-1).",
+    description: "Edita propiedades base de una capa existente: posición, escala (1 = 100%), rotación, opacidad (0-1), motionBlur (0-2), mezcla (normal, multiply, screen, overlay…), nombre; en texto también texto (\\n = salto de línea), color, familia, tamano, peso, interlineado, interletrado, alineacion, division; en formas color, ancho, alto, radio; en media ancho, alto; en trazos color, grosor y el trim base trazoInicio/trazoFin (0-1). Es también tu herramienta de DISEÑO: respetá el ESTILO DE LA PIEZA.",
     input_schema: {
       type: "object",
       properties: {
@@ -592,12 +650,43 @@ export const DEFINICIONES_HERRAMIENTAS = [
         tamano: { type: "number" },
         peso: { type: "number" },
         division: { type: "string", enum: ["ninguna", "caracteres", "palabras", "lineas"] },
+        familia: { type: "string", description: "familia tipográfica (texto)" },
+        interlineado: { type: "number", description: "alto de línea en px (texto)" },
+        interletrado: { type: "number", description: "tracking en px (texto)" },
+        alineacion: { type: "string", enum: ["izquierda", "centro", "derecha"] },
+        ancho: { type: "number", description: "px (formas y media)" },
+        alto: { type: "number", description: "px (formas y media)" },
+        radio: { type: "number", description: "radio de esquinas en px (formas)" },
         grosor: { type: "number", description: "grosor del trazo en px (capas de trazo)" },
         trazoInicio: { type: "number", description: "trim base 0-1 (capas de trazo)" },
         trazoFin: { type: "number", description: "trim base 0-1 (capas de trazo)" },
       },
       additionalProperties: false,
       required: ["capaId"],
+    },
+  },
+  {
+    name: "derivar_pantalla",
+    description: "DISEÑO: arma una PANTALLA NUEVA a partir de una existente, con el mismo estilo — clona la placa y todas sus capas al lado de la última pantalla del lienzo conservando estructura, tipografías, colores Y la animación (entradas/salidas/keyframes), y reemplaza los textos que le pases (un texto más largo achica el cuerpo para encajar; mayúsculas se respetan). pantallaId es el id de la PLACA (la capa «… (fondo)» marcada PLACA en el estado). Devuelve los ids nuevos (original→nuevo) para seguir editando lo derivado. desdeMs corre toda la animación de la nueva para que suceda después.",
+    input_schema: {
+      type: "object",
+      properties: {
+        pantallaId: { type: "string", description: "id de la placa de la pantalla de origen" },
+        nombre: { type: "string", description: "nombre de la pantalla nueva" },
+        reemplazos: {
+          type: "array",
+          description: "textos nuevos por capa de la pantalla ORIGINAL",
+          items: {
+            type: "object",
+            properties: { capaId: { type: "string" }, texto: { type: "string" } },
+            required: ["capaId", "texto"],
+            additionalProperties: false,
+          },
+        },
+        desdeMs: { type: "number", description: "ms que se corre la animación de la pantalla nueva (0 = misma línea de tiempo que la original)" },
+      },
+      additionalProperties: false,
+      required: ["pantallaId"],
     },
   },
   {

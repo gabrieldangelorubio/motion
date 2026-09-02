@@ -15,6 +15,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Composicion } from "@/lib/motion/modelo";
 import { describir } from "@/lib/motion/herramientas-puro";
+import { describirEstilo, estiloDePieza } from "@/lib/motion/estilo-puro";
 import { ESCUELA_GSAP } from "@/lib/motion/escuela-gsap";
 import {
   DEFINICIONES_HERRAMIENTAS,
@@ -77,6 +78,7 @@ none → lineal · sine/power1/power2/power3/power4/expo/circ .out → salidaSin
 - El easing vive en el keyframe de SALIDA de cada tramo. hold congela el valor.
 - MOTOR GSAP: además de los nombres de la casa, el campo easing acepta CUALQUIER spec de GSAP como string. Usalo cuando el carácter lo pida en vez de conformarte con el catálogo: overshoot a medida con back.out(N) (1.2 sutil, 4 exagerado cartoon), rebote elástico afinado con elastic.out(amplitud,periodo) (elastic.out(1,0.75) sereno, elastic.out(1.2,0.4) nervioso), bounce.out para caídas físicas, steps(N) para stop-motion del paso exacto, o una curva propia como path SVG («M0,0 C0.2,0 0.1,1 1,1»). Es tu herramienta para el VUELO fino: una referencia con un rebote particular se replica ajustando estos parámetros, no eligiendo el preset más parecido.
 - El usuario después corrige a mano en el editor: preferí pocas ediciones bien elegidas a muchas microscópicas, y nombres de capa claros.
+- DISEÑO (también es tu oficio): podés modificar el diseño de la pieza —color, tipografía (familia/peso/tamaño/interlineado/interletrado), alineación, tamaños de formas, posición— con editar_capa, y ARMAR PANTALLAS NUEVAS con derivar_pantalla: clona una pantalla existente (placa + capas) al lado de la última del lienzo conservando estructura, estilo Y ANIMACIÓN, y reemplaza los textos que le pases (un texto más largo achica el cuerpo para encajar). Respetá el bloque «ESTILO DE LA PIEZA» del primer mensaje: paleta, jerarquía tipográfica, márgenes y ritmo — una pantalla nueva tiene que parecer de la misma familia. Como la derivada hereda las entradas/salidas de la original, después solo ajustá tiempos (desdeMs para que suceda después, o retocá segmentos) y cámara si hace falta. Usá los ids nuevos que devuelve la herramienta para seguir editando lo derivado.
 
 ${catalogoParaPrompt()}
 
@@ -111,7 +113,8 @@ export function armarPrimerUsuario(
   contextoEstilo?: string,
   contextoReferencias?: string,
 ): string {
-  return `Estado actual de la composición:\n${describir(comp)}\n${
+  const estilo = describirEstilo(estiloDePieza(comp));
+  return `Estado actual de la composición:\n${describir(comp)}\n${estilo ? `\n${estilo}\n` : ""}${
     contextoAudio
       ? `\nLA LOCUCIÓN de esta escena (cada palabra con el ms donde CAE — sincronizá: la entrada de cada elemento arranca en la palabra que le corresponde, los «en» de segmentos y keyframes caen EN estos tiempos, no aproximados):\n${contextoAudio}\n`
       : ""

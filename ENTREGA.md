@@ -701,7 +701,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **340
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **345
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -784,7 +784,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   degradando a suave) → fallaron exactos los tres tests del overshoot
   paramétrico, la curva custom y el motor entero. (44) seek del motor
   GSAP sin la conversión ms→segundos → fallaron exactos los tests de
-  PARIDAD contra el evaluador clásico. Restaurados, todos verdes. El video de referencia
+  PARIDAD contra el evaluador clásico. (45) pistas x/y sin desplazar al
+  derivar una pantalla → falló exactamente «pistas ABSOLUTAS desplazadas
+  con la pantalla». Restaurados, todos verdes. El video de referencia
   además se verificó END-TO-END en Chromium real (Playwright: webm
   generado en la página → subido por el botón → capa al fondo con chip
   REF → el canvas pinta el FRAME del video, pixel verificado → el archivo

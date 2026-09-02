@@ -13,7 +13,29 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
-### [P1] DISEÑO conectado con motion: estilo, derivar pantallas, Figma MCP (anotado 2026-09-01)
+### [HECHO] DISEÑO D1+D2: el estilo de la pieza y derivar pantallas (2026-09-01)
+- **Hecho (Gabriel: «dale, démosle forma»):** D1 — `estilo-puro.ts`:
+  `estiloDePieza(comp)` lee el sistema implícito de la composición
+  (paleta con usos y fondos aparte, tipografías por familia/peso con ROL
+  por tamaño relativo —título/subtítulo/cuerpo/detalle—, márgenes mínimos
+  de las piezas a los bordes de SU pantalla, ritmo: duraciones medianas,
+  presets y easings frecuentes, escalonado) y `describirEstilo` lo vuelve
+  el bloque «ESTILO DE LA PIEZA» que viaja en el primer mensaje del
+  director y en ver_composicion; `editar_capa` gana familia/interlineado/
+  interletrado/alineación (texto), ancho/alto/radio (formas), ancho/alto
+  (media); describir marca las PLACAS y la pertenencia a pantalla; regla
+  de DISEÑO en el system prompt. D2 — `derivar-puro.ts`:
+  `derivarPantalla(comp, placaId, {nombre, reemplazos, desdeMs})` clona la
+  pantalla entera a la derecha de la ÚLTIMA del lienzo con ids únicos,
+  grupo y subgrupo remapeados, pistas x/y DESPLAZADAS (son absolutas),
+  animación heredada, textos reemplazados con el encaje de
+  transformar_texto (mayúsculas, cuerpo achicado por la línea más larga),
+  corrimiento temporal opcional; tool `derivar_pantalla` que devuelve los
+  ids nuevos. Verificado: 5 tests + sabotaje 45 (pistas sin desplazar →
+  rojo exacto). 345 tests.
+- **Pendiente D3/D4:** import vía `use_figma` y write-back (ver research).
+
+### [P1] DISEÑO D3/D4: Figma MCP (anotado 2026-09-01)
 - **Estado:** investigado, tandas D1-D4 diseñadas — ver
   `research/research-diseno-conectado.md`. Pedido de Gabriel: modificar el
   diseño por prompt, derivar pantallas/escenas con el mismo estilo,
