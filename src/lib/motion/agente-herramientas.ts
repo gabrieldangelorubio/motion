@@ -321,7 +321,7 @@ export function ejecutarHerramienta(
           comp,
           `«${capa.nombre}» es ${que}: no es texto, no se puede dividir en palabras ni cambiarle la tipografía (${pedidoDeTexto.join(", ")}). ` +
             "Animala ENTERA con el preset que más se acerque (subirDesenfocado, desenfocarEntrada, revelar, o una pista de opacidad/desenfoque) y decí en tu resumen que para animarla palabra por palabra hay que exportarla como TEXTO desde Figma. " +
-            "JAMÁS la quites para recrearla con agregar_capa_texto: se pierde el diseño.",
+            "JAMÁS la quites para recrearla con agregar_capa_texto: se pierde el diseño. No se aplicó ningún cambio de este llamado: repetilo sin esas propiedades.",
         );
       }
       if (capa.tipo === "texto") {
