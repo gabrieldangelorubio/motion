@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 13;
+var VERSION_PLUGIN = 14;
 
 function aHex(color) {
   var c = function (v) {
@@ -206,7 +206,7 @@ async function rasterizarComoSeVe(nodo, marco, aviso) {
     try { if ("blendMode" in clon) clon.blendMode = "NORMAL"; } catch (e2) { /* no editable */ }
     return await rasterizar(nodo, marco, aviso, clon);
   } catch (e) {
-    return await rasterizar(nodo, marco, aviso);
+    return await rasterizar(nodo, marco, aviso, null, true);
   } finally {
     if (clon) { try { clon.remove(); } catch (e2) { /* ya no está */ } }
   }
@@ -227,7 +227,14 @@ function cajaRender(nodo, marco) {
   };
 }
 
-async function rasterizar(nodo, marco, aviso, nodoExport) {
+// v14: exportAsync del ORIGINAL hornea su opacidad y su mezcla en los
+// píxeles, y la capa las lleva OTRA vez (opacidad/mezcla abajo): una hoja
+// al 50 % llegaba al 25 %. Toda hoja con look propio pasa por el clon con
+// píxeles puros; `sinClon` es solo el fallback de rasterizarComoSeVe.
+async function rasterizar(nodo, marco, aviso, nodoExport, sinClon) {
+  if (!nodoExport && !sinClon && (tieneOpacidadPropia(nodo) || tieneMezclaPropia(nodo))) {
+    return await rasterizarComoSeVe(nodo, marco, aviso);
+  }
   var bytes = await (nodoExport || nodo).exportAsync({ format: "PNG", constraint: { type: "SCALE", value: 2 } });
   var c = cajaRender(nodo, marco);
   var mezcla = mezclaDe(nodo);
@@ -634,6 +641,21 @@ async function nodoAIR(nodo, marco, salida) {
         "grupo con MÁSCARA adentro: se rasterizó entero (una máscara no se abre por piezas)"));
       return;
     }
+    // v12: un contenedor con efectos de LOOK (blur, ruido, textura, glass) o
+    // con mezcla propia se rasteriza ENTERO como se ve. v14: este chequeo va
+    // ANTES de los de rotación — un grupo rotado con look propio caía en el
+    // camino «rotado» y exportaba el ORIGINAL (opacidad horneada en el PNG y
+    // otra vez en la capa: doble fade) o sus piezas sueltas (look del grupo
+    // perdido). Ahora rasterizarComoSeVe lo cubre igual, rotado o no.
+    // Abrirlo por piezas perdía justamente lo que lo hace verse así (visto:
+    // el destello del logo de lemlist, líneas finas + blur del grupo, llegaba
+    // como rayitas crudas). Para animar sus partes: desagrupar y re-exportar.
+    if (tieneEfectosDeLook(nodo) || tieneMezclaPropia(nodo) || tieneOpacidadPropia(nodo)) {
+      salida.push(await rasterizarComoSeVe(nodo, marco,
+        "grupo «" + nodo.name + "» con look propio (" + detalleDeLook(nodo) +
+        "): se rasterizó ENTERO para conservarlo — desagrupalo en Figma si querés animar sus partes"));
+      return;
+    }
     if (rotado && "children" in nodo && nodo.children.length > 1) {
       var desdeRotado = salida.length;
       for (var r = 0; r < nodo.children.length; r++) {
@@ -653,17 +675,6 @@ async function nodoAIR(nodo, marco, salida) {
     }
     if (rotado) {
       salida.push(await rasterizar(nodo, marco, "grupo rotado: se rasterizó entero"));
-      return;
-    }
-    // v12: un contenedor con efectos de LOOK (blur, ruido, textura, glass) o
-    // con mezcla propia se rasteriza ENTERO como se ve — abrirlo por piezas
-    // perdía justamente lo que lo hace verse así (visto: el destello del
-    // logo de lemlist, líneas finas + blur del grupo, llegaba como rayitas
-    // crudas). Para animar sus partes: desagrupar en Figma y re-exportar.
-    if (tieneEfectosDeLook(nodo) || tieneMezclaPropia(nodo) || tieneOpacidadPropia(nodo)) {
-      salida.push(await rasterizarComoSeVe(nodo, marco,
-        "grupo «" + nodo.name + "» con look propio (" + detalleDeLook(nodo) +
-        "): se rasterizó ENTERO para conservarlo — desagrupalo en Figma si querés animar sus partes"));
       return;
     }
     var conEfectos = tieneEfectos(nodo);

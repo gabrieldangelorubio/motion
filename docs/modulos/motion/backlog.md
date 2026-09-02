@@ -53,6 +53,16 @@
   motor). Pendiente de confirmar con el JSON de LOGO SHINY exportado con
   v13: si el aviso no muestra ningún look propio en ningún nivel, el glow
   viene de otra parte (capas de brillo aparte, o el `Mid`).
+- **v14 (revisión adversarial de Sonnet sobre v12/v13, hallazgo alto
+  confirmado):** el chequeo de look propio estaba DESPUÉS de los caminos
+  «rotado», así que un grupo rotado con blur/mezcla/opacidad propia nunca
+  pasaba por `rasterizarComoSeVe`: con un hijo exportaba el ORIGINAL
+  (opacidad horneada en el PNG + otra vez en la capa = doble fade), con
+  varios rasterizaba las piezas sueltas y el look del grupo se perdía.
+  Movido antes de los dos `if (rotado)`. Mismo defecto en las HOJAS
+  (texto rotado, fill con gradiente, «tipo X»): `rasterizar(nodo)`
+  exportaba el original; ahora `rasterizar` deriva al clon con píxeles
+  puros cuando la hoja tiene opacidad o mezcla propia. Sello a 14.
 
 ### [HECHO] FORMATO del render: decisión del proyecto, no de la pantalla importada (2026-09-01, F1)
 - **Pedido de Gabriel (importó una landing de 9000px de alto y el render
