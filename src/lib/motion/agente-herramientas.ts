@@ -464,9 +464,14 @@ export function ejecutarHerramienta(
 
     case "definir_camara": {
       const pistas: Camara["pistas"] = {};
+      // el rango de la cámara es el del LIENZO (todas las pantallas, con un
+      // render de aire alrededor), no el del render: con el clamp al doble
+      // del render una landing de 3229 px no se podía encuadrar debajo de
+      // y = 2160 y los viajes del director quedaban cortos en silencio
+      const lienzo = rangoDelLienzo(comp);
       const canales = [
-        { canal: "x" as const, min: -comp.ancho, max: comp.ancho * 2 },
-        { canal: "y" as const, min: -comp.alto, max: comp.alto * 2 },
+        { canal: "x" as const, min: lienzo.minX, max: lienzo.maxX },
+        { canal: "y" as const, min: lienzo.minY, max: lienzo.maxY },
         { canal: "zoom" as const, min: 0.1, max: 10 },
       ];
       for (const { canal, min, max } of canales) {
@@ -487,8 +492,8 @@ export function ejecutarHerramienta(
       if (typeof input.base === "object" && input.base !== null) {
         const b = input.base as Record<string, unknown>;
         base = {};
-        if (b.x !== undefined) base.x = clamp(numero(b.x, comp.ancho / 2), -comp.ancho, comp.ancho * 2);
-        if (b.y !== undefined) base.y = clamp(numero(b.y, comp.alto / 2), -comp.alto, comp.alto * 2);
+        if (b.x !== undefined) base.x = clamp(numero(b.x, comp.ancho / 2), lienzo.minX, lienzo.maxX);
+        if (b.y !== undefined) base.y = clamp(numero(b.y, comp.alto / 2), lienzo.minY, lienzo.maxY);
         if (b.zoom !== undefined) base.zoom = clamp(numero(b.zoom, 1), 0.1, 10);
       }
       // temblor procedural: constante, ENCIMA de los keyframes, sin tocarlos
@@ -822,6 +827,20 @@ export const DEFINICIONES_HERRAMIENTAS = [
 ] as const;
 
 /* ——— Conocimiento del sistema para el prompt (generado del código, no a mano) ——— */
+
+/** Hasta dónde puede ir el centro de la cámara: la caja de TODO lo que hay
+    en el lienzo (placas con su tamaño, capas por su ancla) más un render de
+    aire por lado — y nunca menos que el render mismo. */
+export function rangoDelLienzo(comp: Composicion): { minX: number; maxX: number; minY: number; maxY: number } {
+  let minX = 0, minY = 0, maxX = comp.ancho, maxY = comp.alto;
+  for (const c of comp.capas) {
+    const w = c.tipo === "forma" || c.tipo === "media" || c.tipo === "video" ? c.ancho / 2 : 0;
+    const h = c.tipo === "forma" || c.tipo === "media" || c.tipo === "video" ? c.alto / 2 : 0;
+    minX = Math.min(minX, c.x - w); maxX = Math.max(maxX, c.x + w);
+    minY = Math.min(minY, c.y - h); maxY = Math.max(maxY, c.y + h);
+  }
+  return { minX: minX - comp.ancho, maxX: maxX + comp.ancho, minY: minY - comp.alto, maxY: maxY + comp.alto };
+}
 
 export function catalogoParaPrompt(): string {
   const porCategoria = CATEGORIAS.map((cat) => {

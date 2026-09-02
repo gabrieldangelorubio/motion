@@ -191,7 +191,7 @@ export function validarImportFigma(datos: unknown): datos is ImportFigma {
 /** La versión del plugin que este build espera: el JSON exportado lleva el
     sello `plugin: N` y un sello menor delata un plugin desactualizado en
     Figma (la causa clásica de «el fix no anda»: el code.js viejo). */
-export const PLUGIN_ESPERADO = 14;
+export const PLUGIN_ESPERADO = 15;
 
 /** El aviso de plugin viejo, o null si el sello está al día. */
 export function avisoDePluginViejo(datos: unknown): string | null {
@@ -438,7 +438,10 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
         mediaId: nodo.imagen.dataUri,
         ancho: nodo.ancho,
         alto: nodo.alto,
-        ajuste: "cubrir",
+        // los píxeles del plugin miden EXACTAMENTE la caja (v15: la caja sale
+        // del nodo exportado); si algo difiere, «contener» muestra la pieza
+        // entera a escala en vez de agrandarla y recortarla («cubrir»)
+        ajuste: "contener",
         x: nodo.x + nodo.ancho / 2,
         y: nodo.y + nodo.alto / 2,
       });

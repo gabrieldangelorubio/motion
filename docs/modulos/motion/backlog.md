@@ -13,6 +13,32 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] La cámara alcanza todo el lienzo + plugin v15 + rasters «contener» (2026-09-02)
+- **Bug estructural visto al dirigir la landing de lemlist (3229 px):**
+  `definir_camara` clampeaba x/y al doble del RENDER (y ≤ 2160): el director
+  no podía encuadrar nada por debajo y sus viajes quedaban cortos en
+  silencio — parte del «la cámara no sigue la acción». Ahora el rango es el
+  del LIENZO (`rangoDelLienzo`: caja de todas las capas + un render de aire),
+  nunca menor que el render. Test con una placa de 3229 px.
+- **Plugin v15:** la caja de un raster sale del nodo que SE EXPORTA (el
+  clon en la raíz no tiene los recortes de sus padres: sus píxeles podían ser
+  más grandes que la caja del original y en «cubrir» la pieza se veía
+  agrandada y recortada — las «Section» de diagram.com). Aviso cuando las
+  cajas difieren. Los rasters importados pasan a `ajuste: "contener"`: con
+  cajas exactas es idéntico y ante cualquier desajuste muestra la pieza
+  entera en vez de agrandarla. Sello 15.
+- **LOGO SHINY, cerrado con datos:** las cuatro líneas llegan como raster
+  de 1 px con el degradado en los píxeles (alfa 158 → 0 a lo largo del
+  75 %), y la imagen de lectura del frame es fiel a Figma (destello, glow
+  azul, logo). La «línea azul saturada» de la captura era el encuadre de la
+  cámara.
+- **Gancho de desarrollo:** `window.__motion.frames(tiempos)` devuelve
+  frames del render (la revisión visual del director externo).
+- **Pendiente:** el guardado por server action falla con un snapshot de
+  34 MB («Maximum array nesting exceeded», POST /motion 500): la landing con
+  rasters no se persiste. Hay que pasar el snapshot por un campo string o
+  comprimirlo antes del action.
+
 ### [HECHO] Director externo: guion sin modelo + gancho de desarrollo (2026-09-02)
 - **Para probar la hipótesis 1 de Gabriel («ve pero no alcanza») con un
   director más fuerte:** Fable escribe el GUION desde el chat de desarrollo

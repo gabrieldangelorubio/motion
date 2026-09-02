@@ -401,3 +401,20 @@ test("estirar_letras estira la O, reemplaza el estirado del mismo rango y quitar
   res = ejecutarHerramienta(res.comp, "estirar_letras", { capaId: "logo", quitar: true });
   assert.equal(capa().deformaciones, undefined);
 });
+
+test("definir_camara: el rango de x/y es el del LIENZO, no el del render (una landing de 3229 px se encuadra abajo)", async () => {
+  const { crearComposicion } = await import("@/lib/motion/herramientas-puro");
+  let comp = crearComposicion({ nombre: "landing" });
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "placa", forma: "rect", x: 720, y: 1614.5, ancho: 1440, alto: 900 }).comp;
+  comp = { ...comp, capas: comp.capas.map((c) => (c.id === "placa" && c.tipo === "forma" ? { ...c, alto: 3229, grupo: "placa" } : c)) };
+  const res = ejecutarHerramienta(comp, "definir_camara", {
+    base: { x: 720, y: 2900, zoom: 1.45 },
+    y: [{ t: 0, v: 300 }, { t: 2000, v: 2900, easing: "entradaSalidaCubic" }],
+  });
+  assert.ok(!res.esError, res.resultado);
+  assert.equal(res.comp.camara?.base?.y, 2900);
+  assert.equal(res.comp.camara?.pistas.y?.[1].v, 2900);
+  // sin lienzo grande, sigue acotado alrededor del render (no se va al infinito)
+  const chica = ejecutarHerramienta(crearComposicion({ nombre: "c" }), "definir_camara", { base: { y: 99999 } });
+  assert.equal(chica.comp.camara?.base?.y, 1080 * 2);
+});

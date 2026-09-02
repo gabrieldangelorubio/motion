@@ -10,7 +10,7 @@ estructura de carpetas, mismas convenciones: la integración es un `cp -R`.
 ```bash
 npm install
 npm run dev        # → http://localhost:3000/motion
-npm test           # 378 tests puros (node:test + tsx, sin base)
+npm test           # 379 tests puros (node:test + tsx, sin base)
 npx tsc --noEmit && npx eslint src tests
 ```
 

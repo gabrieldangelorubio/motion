@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 14;
+var VERSION_PLUGIN = 15;
 
 function aHex(color) {
   var c = function (v) {
@@ -236,7 +236,20 @@ async function rasterizar(nodo, marco, aviso, nodoExport, sinClon) {
     return await rasterizarComoSeVe(nodo, marco, aviso);
   }
   var bytes = await (nodoExport || nodo).exportAsync({ format: "PNG", constraint: { type: "SCALE", value: 2 } });
-  var c = cajaRender(nodo, marco);
+  // v15: la caja sale del nodo que SE EXPORTA. El clon en la raíz de la
+  // página no tiene los recortes de sus padres (clipsContent) ni sus máscaras:
+  // sus píxeles pueden ser más grandes que la caja del original, y en el
+  // editor eso se veía como la pieza AGRANDADA y recortada (las «Section» de
+  // diagram.com). Si las dos cajas difieren, el aviso lo dice.
+  var c = cajaRender(nodoExport || nodo, marco);
+  if (nodoExport) {
+    var co = cajaRender(nodo, marco);
+    if (Math.abs(co.ancho - c.ancho) > 2 || Math.abs(co.alto - c.alto) > 2) {
+      aviso = conAviso({ aviso: aviso }, "sus píxeles miden " + Math.round(c.ancho) + "×" + Math.round(c.alto) +
+        " pero en su lugar del diseño se ve " + Math.round(co.ancho) + "×" + Math.round(co.alto) +
+        " (un padre lo recorta): se importó completo");
+    }
+  }
   var mezcla = mezclaDe(nodo);
   var salida = {
     tipo: "imagen",

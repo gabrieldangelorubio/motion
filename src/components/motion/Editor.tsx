@@ -1429,11 +1429,14 @@ export function Editor({
         setComposicion(deserializar(snapshot));
       },
       lectura: (snapshot?: string) => renderizarLectura(snapshot ?? serializar(compRef.current)),
+      // frames del RENDER (lo que ve la cámara) en los ms pedidos: la
+      // revisión visual del director externo
+      frames: (tiempos: number[], snapshot?: string) => renderizarFramesRevision(snapshot ?? serializar(compRef.current), tiempos),
     };
     return () => {
       delete w.__motion;
     };
-  }, [registrar, renderizarLectura]);
+  }, [registrar, renderizarLectura, renderizarFramesRevision]);
 
   // El largo real de un path sólo lo sabe el DOM de SVG (getTotalLength):
   // se mide UNA vez al importar y queda guardado en la capa — el motor puro
