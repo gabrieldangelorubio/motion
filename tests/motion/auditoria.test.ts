@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { auditarDireccion, bloqueDeAuditoria } from "@/lib/motion/auditoria-puro";
+import { auditarDireccion, bloqueDeAuditoria, cajaVisibleEn } from "@/lib/motion/auditoria-puro";
 import { crearComposicion } from "@/lib/motion/herramientas-puro";
 import { ejecutarHerramienta } from "@/lib/motion/agente-herramientas";
 import type { Composicion } from "@/lib/motion/modelo";
@@ -176,4 +176,25 @@ test("dos pantallas en el lienzo y cámara quieta → CÁMARA QUIETA; con viaje,
     x: [{ t: 3000, v: 720 }, { t: 4500, v: 2720, easing: "entradaSalidaCubic" }],
   }).comp;
   assert.deepEqual(auditarDireccion(viaja).filter((x) => x.startsWith("CÁMARA QUIETA")), []);
+});
+
+test("ENCUADRE CORTA: una capa que termina de entrar a medias del cuadro se marca; entera adentro o entera afuera, no", () => {
+  let comp = crearComposicion({ nombre: "enc" });
+  // el logo del hero de lemlist: caja x 110–252, y 21–163; cámara zoom 1.7 centrada en (720, 330) ve x 155–1285
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "logo", forma: "rect", x: 181, y: 92, ancho: 142, alto: 142 }).comp;
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "titulo", texto: "3x", x: 720, y: 300, tamano: 100 }).comp;
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "abajo", forma: "rect", x: 720, y: 2800, ancho: 400, alto: 100 }).comp;
+  comp = ejecutarHerramienta(comp, "definir_camara", { base: { x: 720, y: 330, zoom: 1.7 } }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "logo", preset: "pop", en: 150, duracion: 900 }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "titulo", preset: "subir", en: 500, duracion: 800 }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "abajo", preset: "subir", en: 600, duracion: 800 }).comp;
+  const ve = cajaVisibleEn(comp, 1050);
+  assert.ok(Math.abs(ve.x1 - (720 - 1920 / 1.7 / 2)) < 0.01);
+  const h = auditarDireccion(comp).filter((x) => x.startsWith("ENCUADRE CORTA"));
+  assert.equal(h.length, 1, h.join(" | "));
+  assert.match(h[0], /«logo» termina de entrar en 1050ms/);
+  assert.match(h[0], /caja x 110–252/);
+  // con el centro corrido a x 640 la cámara ve desde x 75: el logo entra entero
+  const corregida = ejecutarHerramienta(comp, "definir_camara", { base: { x: 640, y: 330, zoom: 1.7 } }).comp;
+  assert.deepEqual(auditarDireccion(corregida).filter((x) => x.startsWith("ENCUADRE CORTA")), []);
 });

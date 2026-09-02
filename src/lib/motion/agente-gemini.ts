@@ -9,7 +9,7 @@
    modelo: MOTION_AGENTE_MODELO=gemini-* (o GEMINI_API_KEY presente).
 ----------------------------------------------------------------------------- */
 
-import type { EventoAgente } from "@/lib/motion/agente";
+import type { EventoAgente, TurnoAgente } from "@/lib/motion/agente";
 import { sumarUso, type UsoTokens } from "@/lib/motion/costo-agente-puro";
 import type { ImagenRevision } from "@/lib/motion/revision-puro";
 
@@ -205,6 +205,79 @@ export async function analizarVideoGemini(opts: {
 
 /** El loop agéntico contra Gemini. `ejecutar` cierra sobre la composición
     del caller (agente.ts): acá solo se orquesta la conversación. */
+/** UNA llamada a Gemini sin herramientas (el GUIONISTA): devuelve el texto.
+    Con `json` pide salida application/json. Misma escalera de pensamiento y
+    mismo reintento por modelo retirado que el loop. */
+export async function generarGemini(opts: {
+  apiKey: string;
+  modelo: string;
+  sistema: string;
+  historial: TurnoAgente[];
+  primerUsuario: string;
+  imagenes?: ImagenRevision[];
+  json?: boolean;
+}): Promise<{ ok: true; texto: string; uso: UsoTokens; modelo: string } | { ok: false; error: string }> {
+  let modeloVivo = opts.modelo;
+  let reintentoModelo = false;
+  let pensamiento: NivelPensamiento = "alto";
+  const contents: ContenidoGemini[] = [
+    ...opts.historial.slice(-12).map<ContenidoGemini>((turno) => ({
+      role: turno.rol === "usuario" ? "user" : "model",
+      parts: [{ text: turno.texto }],
+    })),
+    { role: "user", parts: partesDeUsuario(opts.primerUsuario, opts.imagenes) },
+  ];
+  for (let intento = 0; intento < 4; intento++) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modeloVivo)}:generateContent`;
+    const generationConfig = {
+      ...(configGeneracion(modeloVivo, pensamiento) ?? {}),
+      ...(opts.json ? { responseMimeType: "application/json" } : {}),
+    };
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": opts.apiKey },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: opts.sistema }] },
+        contents,
+        ...(Object.keys(generationConfig).length ? { generationConfig } : {}),
+      }),
+    });
+    if (!res.ok) {
+      const detalle = await res.text().catch(() => "");
+      const sugerido = res.status === 404 && !reintentoModelo ? modeloSugerido(detalle, modeloVivo) : null;
+      if (sugerido) {
+        reintentoModelo = true;
+        modeloVivo = sugerido;
+        continue;
+      }
+      if (res.status === 400 && pensamiento !== "apagado" && /thinking/i.test(detalle)) {
+        pensamiento = bajarPensamiento(pensamiento, modeloVivo);
+        continue;
+      }
+      return { ok: false, error: `Gemini respondió ${res.status}: ${detalle.slice(0, 300)}` };
+    }
+    const datos = (await res.json()) as {
+      candidates?: { content?: { parts?: ParteGemini[] } }[];
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number; cachedContentTokenCount?: number };
+    };
+    const um = datos.usageMetadata;
+    const cacheLeido = um?.cachedContentTokenCount ?? 0;
+    const uso: UsoTokens = {
+      entrada: Math.max(0, (um?.promptTokenCount ?? 0) - cacheLeido),
+      salida: (um?.candidatesTokenCount ?? 0) + (um?.thoughtsTokenCount ?? 0),
+      cacheLectura: cacheLeido,
+      pensamiento: um?.thoughtsTokenCount ?? 0,
+    };
+    const texto = (datos.candidates?.[0]?.content?.parts ?? [])
+      .filter((p): p is { text: string } => "text" in p && typeof p.text === "string")
+      .map((p) => p.text)
+      .join("\n")
+      .trim();
+    return { ok: true, texto, uso, modelo: modeloVivo };
+  }
+  return { ok: false, error: "Gemini no respondió tras los reintentos" };
+}
+
 export async function loopGemini(opts: {
   apiKey: string;
   modelo: string;

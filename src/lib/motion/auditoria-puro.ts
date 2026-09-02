@@ -12,7 +12,7 @@
    Pura: sin canvas, sin red, testeable.
 ----------------------------------------------------------------------------- */
 
-import type { Capa, CapaTexto, Composicion, Segmento } from "@/lib/motion/modelo";
+import type { Capa, CapaTexto, Composicion, Keyframe, Segmento } from "@/lib/motion/modelo";
 import { PRESETS } from "@/lib/motion/presets-puro";
 import { esPlaca } from "@/lib/motion/estilo-puro";
 
@@ -30,6 +30,7 @@ const MIN_PARA_VARIEDAD = 5;
 const MIN_PARA_TIEMPO_MUERTO = 3;
 
 const pct = (parte: number, total: number) => Math.round((parte / total) * 100);
+const r = (v: number) => Math.round(v);
 
 function porcentajes<T>(items: T[], clave: (x: T) => string): [string, number][] {
   const cuenta = new Map<string, number>();
@@ -92,6 +93,50 @@ function esFondo(capa: Capa, comp: Composicion): boolean {
 
 function tieneCoreografiaPropia(capa: Capa): boolean {
   return Object.values(capa.pistas ?? {}).some((kfs) => kfs && kfs.length >= 3);
+}
+
+/** Caja aproximada de una capa en el lienzo (centro ± mitades): las formas,
+    media y video tienen tamaño; el texto se estima por fuente y contenido;
+    el resto cuenta por su ancla. La comparte el rango de la cámara. */
+export function cajaAproximada(capa: Capa): { x1: number; y1: number; x2: number; y2: number } {
+  let w = 0;
+  let h = 0;
+  if (capa.tipo === "forma" || capa.tipo === "media" || capa.tipo === "video") {
+    w = capa.ancho / 2;
+    h = capa.alto / 2;
+  } else if (capa.tipo === "texto") {
+    const lineas = capa.texto.split("\n");
+    w = (capa.fuente.tamano * 0.6 * Math.max(...lineas.map((l) => l.length), 1)) / 2;
+    h = (capa.fuente.tamano * 1.2 * lineas.length) / 2;
+  }
+  return { x1: capa.x - w, y1: capa.y - h, x2: capa.x + w, y2: capa.y + h };
+}
+
+/** Valor de un canal de cámara en t: interpolación lineal entre keyframes
+    (alcanza para saber DÓNDE está la cámara al final de una entrada). */
+function valorCamaraEn(kfs: Keyframe[] | undefined, base: number, t: number): number {
+  if (!kfs || kfs.length === 0) return base;
+  if (t <= kfs[0].t) return kfs[0].v;
+  for (let i = 1; i < kfs.length; i++) {
+    if (t <= kfs[i].t) {
+      const a = kfs[i - 1];
+      const b = kfs[i];
+      if (a.hold || b.t === a.t) return a.v;
+      return a.v + ((b.v - a.v) * (t - a.t)) / (b.t - a.t);
+    }
+  }
+  return kfs[kfs.length - 1].v;
+}
+
+/** Lo que ve la cámara en t: caja en px del lienzo. */
+export function cajaVisibleEn(comp: Composicion, t: number): { x1: number; y1: number; x2: number; y2: number } {
+  const cam = comp.camara;
+  const cx = valorCamaraEn(cam?.pistas.x, cam?.base?.x ?? comp.ancho / 2, t);
+  const cy = valorCamaraEn(cam?.pistas.y, cam?.base?.y ?? comp.alto / 2, t);
+  const zoom = Math.max(0.01, valorCamaraEn(cam?.pistas.zoom, cam?.base?.zoom ?? 1, t));
+  const w = comp.ancho / zoom / 2;
+  const h = comp.alto / zoom / 2;
+  return { x1: cx - w, y1: cy - h, x2: cx + w, y2: cy + h };
 }
 
 /** Los hallazgos de la auditoría: una línea por regla violada, con los
@@ -179,6 +224,24 @@ export function auditarDireccion(comp: Composicion): string[] {
       `SIN COREOGRAFÍA PROPIA: ${n} entradas y ninguna pista multi-keyframe (definir_pista) ni viaje de cámara. Al menos un momento hero con recorrido/hold/settle a medida: es lo que separa premium de plantilla.`,
     );
   }
+
+  // 9b. Encuadre que corta: al terminar su entrada, la capa tiene que estar
+  // ENTERA dentro de lo que ve la cámara (visto: el logo del hero a medias)
+  const cortadas: string[] = [];
+  for (const c of conEntrada) {
+    const seg = c.entrada as Segmento;
+    const t = seg.en + seg.duracion;
+    const ve = cajaVisibleEn(comp, t);
+    const caja = cajaAproximada(c);
+    const dentro = caja.x1 >= ve.x1 - 2 && caja.x2 <= ve.x2 + 2 && caja.y1 >= ve.y1 - 2 && caja.y2 <= ve.y2 + 2;
+    const fuera = caja.x2 < ve.x1 || caja.x1 > ve.x2 || caja.y2 < ve.y1 || caja.y1 > ve.y2;
+    if (!dentro && !fuera) {
+      cortadas.push(
+        `ENCUADRE CORTA: «${c.nombre}» termina de entrar en ${t}ms y la cámara la corta (caja x ${r(caja.x1)}–${r(caja.x2)}, y ${r(caja.y1)}–${r(caja.y2)}; la cámara ve x ${r(ve.x1)}–${r(ve.x2)}, y ${r(ve.y1)}–${r(ve.y2)}). Corré el centro o bajá el zoom de ese encuadre.`,
+      );
+    }
+  }
+  hallazgos.push(...cortadas.slice(0, 4));
 
   // 9. Cámara quieta con más de una pantalla
   const placas = comp.capas.filter(esPlaca).length;

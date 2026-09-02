@@ -13,6 +13,43 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] DIRECTOR EN DOS FASES: guionista → ejecución por código → corrección (2026-09-02, G6)
+- **Origen:** Gabriel comparó la landing de lemlist dirigida por Flash con la
+  dirigida por Fable desde el chat (guion de 129 pasos escrito ANTES de
+  tocar una herramienta, aplicado sin modelo): «está increíble… apliquemos
+  los mismos pasos que hiciste vos para hacerlo con Gemini Flash». Lo que
+  cambió el resultado fue el MÉTODO, no una regla más.
+- **Cómo funciona (`guionista-puro.ts` + `dirigirPorGuion` en agente.ts):**
+  una pieza SIN dirigir (`elegirModo` → «guion») va al GUIONISTA: una
+  llamada sin herramientas (Gemini con `responseMimeType: application/json`
+  y pensamiento alto; Claude fino con adaptive + xhigh) que devuelve
+  `{guion: [LECTURA, GUION, CARÁCTER], pasos: [...]}`; el código lo aplica
+  con `aplicarGuion` (mismo ejecutor y validaciones), corre la auditoría y,
+  si hubo ✗ o hallazgos, un ÚNICO turno de corrección
+  (`mensajeDeCorreccion`) que devuelve solo los pasos nuevos. Una pieza ya
+  dirigida sigue por el loop iterativo (los retoques). `MOTION_DIRECTOR_MODO=
+  iterativo` fuerza el camino viejo. El evento de paso lleva el guion
+  (`texto`) y el informe ✓/✗ por paso (`ops`): en el log se lee todo.
+- **El SISTEMA del guionista** = SISTEMA del director + `MODO_GUION`
+  (formato, una cámara para toda la pieza con holds, división antes de
+  revelar, verificación de encuadre con la fórmula visible = ancho/zoom ×
+  alto/zoom) + `GUION_REFERENCIA`: la landing de lemlist abreviada a sus
+  decisiones con el porqué (la lista entra como lista, el borde-trazo se
+  dibuja, el placeholder se tipea, el botón se presiona, la barra carga, un
+  solo elástico) y el error que no se repite (el logo cortado).
+- **Auditoría nueva, ENCUADRE CORTA:** al terminar su entrada, cada capa
+  tiene que estar ENTERA dentro de lo que ve la cámara en ese instante
+  (`cajaVisibleEn` interpola los keyframes; `cajaAproximada` estima el texto
+  por fuente y contenido, y ahora también la usa el rango de la cámara).
+  Entera afuera no se marca (entra antes de que la cámara llegue, eso lo
+  cubre el guion); a medias sí, con las dos cajas en el mensaje. Es el error
+  que Gabriel vio en la pieza de Fable, convertido en medición.
+- **Pendiente de medir:** el mismo pedido de lemlist con Flash en modo
+  guion — cuántos ✗ da la primera ronda, si la corrección los cierra, y la
+  comparación visual con el MP4 de Fable. Después: 2-3 guiones de referencia
+  más (pantalla de app, logo, tarjeta de datos) y el volante de datos
+  (guardar cada guion + correcciones para tuning).
+
 ### [HECHO] La cámara alcanza todo el lienzo + plugin v15 + rasters «contener» (2026-09-02)
 - **Bug estructural visto al dirigir la landing de lemlist (3229 px):**
   `definir_camara` clampeaba x/y al doble del RENDER (y ≤ 2160): el director

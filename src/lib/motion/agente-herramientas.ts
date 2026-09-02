@@ -19,6 +19,7 @@ import { CATEGORIAS, escalonadoSano, nombresPresets, PRESETS } from "@/lib/motio
 import { EASINGS, esEasingConocido } from "@/lib/motion/easings-puro";
 import { derivarPantalla } from "@/lib/motion/derivar-puro";
 import { describirEstilo, estiloDePieza } from "@/lib/motion/estilo-puro";
+import { cajaAproximada } from "@/lib/motion/auditoria-puro";
 import { conFormato } from "@/lib/motion/formato-puro";
 import { EASINGS_GSAP_DESTACADOS } from "@/lib/motion/easings-gsap";
 import { validar } from "@/lib/motion/validar-puro";
@@ -834,13 +835,9 @@ export const DEFINICIONES_HERRAMIENTAS = [
 export function rangoDelLienzo(comp: Composicion): { minX: number; maxX: number; minY: number; maxY: number } {
   let minX = 0, minY = 0, maxX = comp.ancho, maxY = comp.alto;
   for (const c of comp.capas) {
-    // texto: su caja si la tiene, si no una estimación por tamaño de fuente
-    // (un título ancho al borde no puede quedar fuera del rango)
-    const conCaja = c.tipo === "forma" || c.tipo === "media" || c.tipo === "video";
-    const w = conCaja ? c.ancho / 2 : c.tipo === "texto" ? (c.fuente.tamano * 0.6 * Math.max(...c.texto.split("\n").map((l) => l.length), 1)) / 2 : 0;
-    const h = conCaja ? c.alto / 2 : c.tipo === "texto" ? c.fuente.tamano * 1.2 : 0;
-    minX = Math.min(minX, c.x - w); maxX = Math.max(maxX, c.x + w);
-    minY = Math.min(minY, c.y - h); maxY = Math.max(maxY, c.y + h);
+    const caja = cajaAproximada(c);
+    minX = Math.min(minX, caja.x1); maxX = Math.max(maxX, caja.x2);
+    minY = Math.min(minY, caja.y1); maxY = Math.max(maxY, caja.y2);
   }
   return { minX: minX - comp.ancho, maxX: maxX + comp.ancho, minY: minY - comp.alto, maxY: maxY + comp.alto };
 }

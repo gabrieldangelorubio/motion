@@ -22,7 +22,17 @@ import {
   catalogoParaPrompt,
   ejecutarHerramienta,
 } from "@/lib/motion/agente-herramientas";
-import { loopGemini, type DefHerramienta } from "@/lib/motion/agente-gemini";
+import { generarGemini, loopGemini, type DefHerramienta } from "@/lib/motion/agente-gemini";
+import { aplicarGuion } from "@/lib/motion/guion-puro";
+import { auditarDireccion } from "@/lib/motion/auditoria-puro";
+import {
+  elegirModo,
+  mensajeDeCorreccion,
+  necesitaCorreccion,
+  parsearGuion,
+  resumenDeGuion,
+  sistemaGuionista,
+} from "@/lib/motion/guionista-puro";
 import { sumarUso, type UsoTokens } from "@/lib/motion/costo-agente-puro";
 import type { ImagenRevision } from "@/lib/motion/revision-puro";
 
@@ -45,7 +55,7 @@ export function modeloDirector(
 }
 const MAX_ITERACIONES = 24;
 
-const SISTEMA = `Sos el director de motion design de adiós adiós, trabajando dentro del módulo de motion de diosa. Tu oficio viene de la escuela GSAP —timelines, staggers, coreografía de easings— y lo ejecutás sobre el motor propio del módulo con las herramientas disponibles.
+export const SISTEMA = `Sos el director de motion design de adiós adiós, trabajando dentro del módulo de motion de diosa. Tu oficio viene de la escuela GSAP —timelines, staggers, coreografía de easings— y lo ejecutás sobre el motor propio del módulo con las herramientas disponibles.
 
 # REGLA DE ORO (superestricta, manda sobre todo lo demás): sos motion grapher, no un aplicador de presets
 Cada pieza que dirigís tiene que verse PREMIUM, dinámica y al día con lo que hoy se hace en GSAP. Método obligatorio, en este orden:
@@ -156,6 +166,136 @@ export type RespuestaAgente =
     }
   | { ok: false; error: string };
 
+/** Un turno del guionista: texto (sin herramientas), del proveedor que toque. */
+async function llamarGuionista(opts: {
+  modelo: string;
+  nivel?: NivelDirector;
+  sistema: string;
+  historial: TurnoAgente[];
+  texto: string;
+  imagenes?: ImagenRevision[];
+}): Promise<{ ok: true; texto: string; uso: UsoTokens; modelo: string } | { ok: false; error: string }> {
+  if (opts.modelo.startsWith("gemini")) {
+    if (!process.env.GEMINI_API_KEY) return { ok: false, error: "Falta GEMINI_API_KEY en el entorno (ver ENTREGA.md)" };
+    return generarGemini({
+      apiKey: process.env.GEMINI_API_KEY,
+      modelo: opts.modelo,
+      sistema: opts.sistema,
+      historial: opts.historial,
+      primerUsuario: opts.texto,
+      imagenes: opts.imagenes,
+      json: true,
+    });
+  }
+  if (!process.env.ANTHROPIC_API_KEY) return { ok: false, error: "Falta ANTHROPIC_API_KEY en el entorno (ver ENTREGA.md)" };
+  const cliente = new Anthropic();
+  const respuesta = await cliente.messages.create({
+    model: opts.modelo,
+    max_tokens: 32000,
+    ...(opts.nivel === "fino" ? { thinking: { type: "adaptive" as const }, output_config: { effort: "xhigh" as const } } : {}),
+    system: [{ type: "text", text: opts.sistema, cache_control: { type: "ephemeral" } }],
+    messages: [
+      ...opts.historial.slice(-12).map<Anthropic.MessageParam>((turno) => ({
+        role: turno.rol === "usuario" ? "user" : "assistant",
+        content: turno.texto,
+      })),
+      {
+        role: "user",
+        content: opts.imagenes?.length
+          ? [
+              ...opts.imagenes.map<Anthropic.ImageBlockParam>((im) => ({
+                type: "image",
+                source: { type: "base64", media_type: im.mime as "image/jpeg", data: im.datosBase64 },
+              })),
+              { type: "text", text: opts.texto },
+            ]
+          : opts.texto,
+      },
+    ],
+  });
+  if (respuesta.stop_reason === "refusal") return { ok: false, error: "El modelo declinó el pedido" };
+  const texto = respuesta.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n")
+    .trim();
+  return {
+    ok: true,
+    texto,
+    modelo: opts.modelo,
+    uso: {
+      entrada: respuesta.usage.input_tokens,
+      salida: respuesta.usage.output_tokens,
+      cacheLectura: respuesta.usage.cache_read_input_tokens ?? 0,
+      cacheEscritura: respuesta.usage.cache_creation_input_tokens ?? 0,
+    },
+  };
+}
+
+/** Las dos fases: guion entero → ejecución por código → (una) corrección. */
+async function dirigirPorGuion(opts: {
+  comp: Composicion;
+  modelo: string;
+  historial: TurnoAgente[];
+  primerUsuario: string;
+  imagenes?: ImagenRevision[];
+  nivel?: NivelDirector;
+  onEvento?: (evento: EventoAgente) => void;
+}): Promise<RespuestaAgente> {
+  const sistema = sistemaGuionista(SISTEMA);
+  let comp = opts.comp;
+  let usoTotal: UsoTokens = { entrada: 0, salida: 0 };
+  const ops: string[] = [];
+  const informeTotal: string[] = [];
+  let guion: string[] = [];
+  let erroresTotales = 0;
+  const historial: TurnoAgente[] = [...opts.historial];
+  let texto = opts.primerUsuario;
+  let imagenes = opts.imagenes;
+  const MAX_RONDAS = 2;
+  let ronda = 0;
+  for (; ronda < MAX_RONDAS; ronda++) {
+    const t0 = Date.now();
+    const res = await llamarGuionista({ modelo: opts.modelo, nivel: opts.nivel, sistema, historial, texto, imagenes });
+    if (!res.ok) return res;
+    usoTotal = sumarUso(usoTotal, res.uso);
+    const parseado = parsearGuion(res.texto);
+    if ("error" in parseado) {
+      opts.onEvento?.({ tipo: "paso", iteracion: ronda + 1, msModelo: Date.now() - t0, ops: [`guion ilegible: ${parseado.error}`], uso: res.uso, texto: res.texto.slice(0, 600) });
+      if (ronda === 0) return { ok: false, error: `El guionista no devolvió un guion válido: ${parseado.error}` };
+      break;
+    }
+    if (parseado.guion.length) guion = parseado.guion;
+    const aplicado = aplicarGuion(comp, parseado.pasos);
+    comp = aplicado.comp;
+    informeTotal.push(...aplicado.informe);
+    erroresTotales = aplicado.errores;
+    for (const linea of aplicado.informe) if (linea.startsWith("✓")) ops.push(linea.replace(/^✓ \d+ /, "").replace(/\s+\[.*\]$/, ""));
+    opts.onEvento?.({
+      tipo: "paso",
+      iteracion: ronda + 1,
+      msModelo: Date.now() - t0,
+      ops: aplicado.informe,
+      uso: res.uso,
+      texto: ronda === 0 ? parseado.guion.join(" ") : undefined,
+    });
+    const auditoria = auditarDireccion(comp);
+    if (!necesitaCorreccion(aplicado.errores, auditoria)) break;
+    // el turno de corrección: el guion ya aplicado queda como turno del modelo
+    historial.push({ rol: "usuario", texto }, { rol: "agente", texto: res.texto.slice(0, 20000) });
+    texto = mensajeDeCorreccion(aplicado.informe, auditoria);
+    imagenes = undefined;
+  }
+  return {
+    ok: true,
+    respuesta: resumenDeGuion(guion, informeTotal, erroresTotales, Math.min(ronda + 1, MAX_RONDAS)),
+    composicion: comp,
+    ops,
+    uso: usoTotal,
+    modelo: opts.modelo,
+  };
+}
+
 export async function dirigirComposicion(
   composicion: Composicion,
   mensaje: string,
@@ -188,6 +328,14 @@ export async function dirigirComposicion(
     },
     nivel,
   );
+
+  // ——— DIRECTOR EN DOS FASES: una pieza sin dirigir se dirige por GUION ———
+  // (el guionista escribe el plan entero como JSON, el código lo ejecuta, un
+  // turno de corrección si algo dio error o la auditoría marcó). Una pieza
+  // ya dirigida se retoca con el loop iterativo de herramientas.
+  if (elegirModo(comp) === "guion" && process.env.MOTION_DIRECTOR_MODO !== "iterativo") {
+    return dirigirPorGuion({ comp, modelo, historial, primerUsuario, imagenes, nivel, onEvento });
+  }
 
   // ——— proveedor GEMINI (mismo prompt, mismas herramientas, otro loop) ———
   if (modelo.startsWith("gemini")) {
