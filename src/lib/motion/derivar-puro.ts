@@ -47,9 +47,14 @@ const slug = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
 export function textoEncajado(original: CapaTexto, textoNuevo: string): { texto: string; tamano: number } {
   const esMayusculas = /[A-ZÁÉÍÓÚÑ]/.test(original.texto) && !/[a-záéíóúñ]/.test(original.texto);
   const texto = esMayusculas ? textoNuevo.toUpperCase() : textoNuevo;
-  const lineaMasLarga = (t: string) => Math.max(1, ...t.split("\n").map((l) => l.replace(/\s/g, "").length));
-  const factor = Math.min(1, lineaMasLarga(original.texto) / lineaMasLarga(texto));
-  return { texto, tamano: Math.round(original.fuente.tamano * factor * 10) / 10 };
+  const lineaMasLarga = (t: string) => Math.max(0, ...t.split("\n").map((l) => l.replace(/\s/g, "").length));
+  const largoOriginal = lineaMasLarga(original.texto);
+  const largoNuevo = lineaMasLarga(texto);
+  // un original vacío (placeholder) no dice nada del encaje: cuerpo intacto
+  const factor = largoOriginal > 0 && largoNuevo > 0 ? Math.min(1, largoOriginal / largoNuevo) : 1;
+  // piso de 8px, el mismo clamp de editar_capa: un texto ilegible no es «encajado»
+  const tamano = Math.max(8, Math.round(original.fuente.tamano * factor * 10) / 10);
+  return { texto, tamano: Math.min(tamano, Math.max(8, original.fuente.tamano)) };
 }
 
 export function derivarPantalla(
@@ -93,7 +98,14 @@ export function derivarPantalla(
     return candidato;
   };
   const nombreBase = placa.nombre.replace(/ \(fondo\)$/, "");
-  const nombre = opciones.nombre?.trim() || `${nombreBase} B`;
+  const nombresPlacas = new Set(placas.map((p) => p.nombre.replace(/ \(fondo\)$/, "")));
+  let nombre = opciones.nombre?.trim() || `${nombreBase} B`;
+  if (!opciones.nombre?.trim()) {
+    // derivar lo derivado no apila «B B»: Home B, Home B 2, Home B 3…
+    const raiz = nombreBase.replace(/ B( \d+)?$/, "");
+    nombre = `${raiz} B`;
+    for (let n = 2; nombresPlacas.has(nombre); n++) nombre = `${raiz} B ${n}`;
+  }
   const pantallaId = idLibre(`pantalla-${slug(nombre).slice(0, 24) || "derivada"}`);
   const sufijo = slug(nombre).slice(0, 12) || "b";
 

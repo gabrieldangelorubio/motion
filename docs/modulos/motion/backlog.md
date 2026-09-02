@@ -33,6 +33,15 @@
   corrimiento temporal opcional; tool `derivar_pantalla` que devuelve los
   ids nuevos. Verificado: 5 tests + sabotaje 45 (pistas sin desplazar →
   rojo exacto). 345 tests.
+- La review adversarial (Sonnet, TOKENOMICS) trajo 2 reales + 1 menor,
+  aplicados: `textoEncajado` sin piso podía dejar un texto en 0.4-3.5px
+  (original vacío o chico + reemplazo largo) con éxito silencioso → piso
+  de 8px (el clamp de editar_capa) y original vacío no achica; los
+  márgenes eran todo-o-nada (una sola pieza sangrada por un eje anulaba
+  los cuatro) → ahora por eje, un eje sin dato se omite; describir marcaba
+  PLACA con `grupo === id` sin exigir forma → usa la misma `esPlaca`. De
+  paso: derivar lo derivado ya no apila «Home B B» (Home B, Home B 2…).
+  347 tests.
 - **Pendiente D3/D4:** import vía `use_figma` y write-back (ver research).
 
 ### [P1] DISEÑO D3/D4: Figma MCP (anotado 2026-09-01)

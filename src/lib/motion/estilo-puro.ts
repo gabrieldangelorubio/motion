@@ -23,8 +23,10 @@ export type EstiloPieza = {
   fondos: string[];
   /** por (familia, peso): tamaños usados y el rol del mayor de ellos */
   tipografias: { familia: string; peso: number; tamanos: number[]; rol: RolTipografico; capas: number }[];
-  /** distancia mínima de las piezas a cada borde de su pantalla (px); null sin datos */
-  margenes: { izquierda: number; derecha: number; arriba: number; abajo: number } | null;
+  /** distancia mínima de las piezas a cada borde de su pantalla (px), POR EJE:
+      un eje sin dato (todas las piezas sangran por ahí) se omite; null si
+      ningún eje tiene dato */
+  margenes: Partial<{ izquierda: number; derecha: number; arriba: number; abajo: number }> | null;
   ritmo: {
     entrada: { duracion: number; presets: string[]; easings: string[] } | null;
     salida: { duracion: number; presets: string[]; easings: string[] } | null;
@@ -142,13 +144,9 @@ export function estiloDePieza(comp: Composicion): EstiloPieza {
     if (caja.y1 >= marco.y1) acum.arriba = Math.min(acum.arriba, caja.y1 - marco.y1);
     if (caja.y2 <= marco.y2) acum.abajo = Math.min(acum.abajo, marco.y2 - caja.y2);
   }
-  if (Object.values(acum).every(Number.isFinite)) {
-    margenes = {
-      izquierda: Math.round(acum.izquierda),
-      derecha: Math.round(acum.derecha),
-      arriba: Math.round(acum.arriba),
-      abajo: Math.round(acum.abajo),
-    };
+  const ejes = (Object.entries(acum) as [keyof typeof acum, number][]).filter(([, v]) => Number.isFinite(v));
+  if (ejes.length) {
+    margenes = Object.fromEntries(ejes.map(([k, v]) => [k, Math.round(v)]));
   }
 
   // ritmo
@@ -193,7 +191,13 @@ export function describirEstilo(estilo: EstiloPieza): string {
   }
   if (estilo.margenes) {
     const m = estilo.margenes;
-    lineas.push(`- Márgenes mínimos al borde de pantalla: izq ${m.izquierda}px, der ${m.derecha}px, arriba ${m.arriba}px, abajo ${m.abajo}px`);
+    const partes = [
+      m.izquierda !== undefined ? `izq ${m.izquierda}px` : null,
+      m.derecha !== undefined ? `der ${m.derecha}px` : null,
+      m.arriba !== undefined ? `arriba ${m.arriba}px` : null,
+      m.abajo !== undefined ? `abajo ${m.abajo}px` : null,
+    ].filter(Boolean);
+    lineas.push(`- Márgenes mínimos al borde de pantalla: ${partes.join(", ")}`);
   }
   const r = estilo.ritmo;
   if (r.entrada || r.salida) {

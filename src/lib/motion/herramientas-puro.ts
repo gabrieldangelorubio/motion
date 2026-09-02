@@ -14,6 +14,7 @@
 import type { Camara, CanalCamara, Capa, Composicion, Keyframe, NombrePropiedad, Segmento, TemblorCamara } from "@/lib/motion/modelo";
 import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
 import { nombresPresets } from "@/lib/motion/presets-puro";
+import { esPlaca } from "@/lib/motion/estilo-puro";
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; error: string };
 
@@ -524,7 +525,7 @@ export function describir(comp: Composicion): string {
     const partes = [`  · [${capa.tipo}] «${capa.nombre}» (id: ${capa.id}) en (${Math.round(capa.x)}, ${Math.round(capa.y)})`];
     // pantallas del lienzo: la placa es la MANIJA (su id es el pantallaId de
     // derivar_pantalla); sus capas dicen a qué pantalla pertenecen
-    if (capa.grupo === capa.id) partes.push("PLACA de pantalla (su id es el pantallaId)");
+    if (esPlaca(capa)) partes.push("PLACA de pantalla (su id es el pantallaId)");
     else if (capa.grupo) partes.push(`pantalla ${capa.grupo}`);
     if (capa.tipo === "texto" && capa.division !== "ninguna") partes.push(`división ${capa.division}`);
     if (capa.tipo === "texto" && capa.deformaciones?.length) {

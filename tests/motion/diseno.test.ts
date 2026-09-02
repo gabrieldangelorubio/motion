@@ -81,6 +81,42 @@ test("textoEncajado conserva mayúsculas y achica el cuerpo por la línea más l
   assert.equal(dos.tamano, Math.round(80 * (11 / 21) * 10) / 10); // «estaeslalargadeverdad» = 21
 });
 
+test("textoEncajado nunca baja de 8px y un original vacío no achica (review)", () => {
+  const chico = { ...(compConPantalla().capas.find((c) => c.id === "bajada") as CapaTexto), fuente: { familia: "Inter", tamano: 10, peso: 400 }, texto: "ab" };
+  assert.equal(textoEncajado(chico, "una frase muchísimo más larga que dos letras").tamano, 8);
+  const vacio = { ...chico, texto: "  " };
+  assert.equal(textoEncajado(vacio, "placeholder relleno").tamano, 10, "original vacío: cuerpo intacto");
+  assert.equal(textoEncajado(chico, "").tamano, 10, "nuevo vacío: cuerpo intacto");
+});
+
+test("márgenes POR EJE: una pieza sangrada anula solo su eje, y el nombre por defecto no apila «B B» (review)", () => {
+  const comp = compConPantalla();
+  // una sola pieza que sangra por la izquierda: izq sin dato, los otros tres sí
+  const sangrada: Composicion = {
+    ...comp,
+    capas: [comp.capas[0], { id: "banda", nombre: "Banda", tipo: "forma", forma: "rectangulo", ancho: 400, alto: 50, color: "#333333", x: 150, y: 300, grupo: "home" }],
+  };
+  const m = estiloDePieza(sangrada).margenes!;
+  assert.equal(m.izquierda, undefined);
+  assert.equal(m.derecha, 650);
+  assert.equal(m.arriba, 275);
+  assert.match(describirEstilo(estiloDePieza(sangrada)), /Márgenes.*der 650px, arriba 275px, abajo 275px/);
+
+  const una = derivarPantalla(comp, "home");
+  assert.ok(una.ok);
+  if (!una.ok) return;
+  const dos = derivarPantalla(una.valor.composicion, una.valor.pantallaId);
+  assert.ok(dos.ok);
+  if (!dos.ok) return;
+  const nombres = dos.valor.composicion.capas.filter((c) => c.grupo === c.id).map((c) => c.nombre);
+  assert.deepEqual(nombres, ["Home (fondo)", "Home B (fondo)", "Home B 2 (fondo)"]);
+
+  // describir solo marca PLACA lo que esPlaca acepta (grupo === id Y forma)
+  const rara: Composicion = { ...comp, capas: [...comp.capas, { ...(comp.capas[1] as CapaTexto), id: "t2", grupo: "t2" }] };
+  const desc = ejecutarHerramienta(rara, "ver_composicion", {}).resultado;
+  assert.equal((desc.match(/PLACA de pantalla/g) ?? []).length, 1);
+});
+
 test("derivarPantalla clona a la derecha con ids/grupo/subgrupo nuevos, pistas desplazadas y animación heredada", () => {
   const comp = compConPantalla();
   const res = derivarPantalla(comp, "home", { nombre: "Pricing", reemplazos: [{ capaId: "titulo", texto: "precios claros" }] }, 77);
