@@ -79,6 +79,17 @@ export function cantidadUnidades(capa: Capa): number {
     letras aparece de golpe cuando la ventana de recorte se apaga (con el
     supersampling temporal, una banda semitransparente). El interlineado de
     PINTADO no cambia: esto es sólo el viaje y la máscara. */
+/** Ancho de una unidad, la escala de los presets `relativoX` (cargar):
+    la caja de formas, media, trazos y vectores; para texto, una estimación
+    por cuerpo y largo (la barra que carga casi nunca es un texto). */
+export function anchoUnidad(capa: Capa): number {
+  if (capa.tipo === "texto") {
+    const lineas = capa.texto.split("\n");
+    return capa.fuente.tamano * 0.6 * Math.max(...lineas.map((l) => l.length), 1);
+  }
+  return capa.ancho;
+}
+
 export function altoUnidad(capa: Capa): number {
   if (capa.tipo === "texto") {
     const tamano = capa.fuente.tamano;
@@ -122,6 +133,7 @@ function aplicarSegmento(
   delay: number,
   motionBlur: number,
   alto: number,
+  ancho: number,
   factorTracking: number,
   pExterno?: number,
 ): void {
@@ -137,7 +149,8 @@ function aplicarSegmento(
   const escalaDy = compilado.relativo ? alto : 1;
   // En presets `tracking` los dx son POR ÍNDICE desde el centro: la unidad
   // del medio no se mueve y las puntas se abren/cierran proporcionalmente.
-  const escalaDx = compilado.tracking ? factorTracking : 1;
+  // En presets `relativoX` (cargar) son múltiplos del ANCHO de la unidad.
+  const escalaDx = compilado.tracking ? factorTracking : compilado.relativoX ? ancho : 1;
   unidad.dx += offsetDe(compilado.pista.dx, p) * escalaDx;
   unidad.dy += offsetDe(compilado.pista.dy, p) * escalaDy;
   unidad.dEscala += offsetDe(compilado.pista.dEscala, p);
@@ -210,6 +223,7 @@ export function estadoDeCapa(capa: Capa, t: number, lector?: LectorCapa): Estado
 
   const n = cantidadUnidades(capa);
   const alto = altoUnidad(capa);
+  const ancho = anchoUnidad(capa);
   const clases: ("entrada" | "salida")[] = ["entrada", "salida"];
   const segmentos: { seg: Segmento; compilado: PresetCompilado; clase: "entrada" | "salida"; delays: number[] }[] = [];
   for (const clase of clases) {
@@ -238,7 +252,7 @@ export function estadoDeCapa(capa: Capa, t: number, lector?: LectorCapa): Estado
     for (const { seg, compilado, clase, delays } of segmentos) {
       aplicarSegmento(
         unidad, seg, compilado, clase, t, delays[i],
-        capa.motionBlur ?? 0, alto, factorTracking,
+        capa.motionBlur ?? 0, alto, ancho, factorTracking,
         lector?.progreso?.(clase, i),
       );
     }

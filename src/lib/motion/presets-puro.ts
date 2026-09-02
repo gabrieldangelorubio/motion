@@ -25,6 +25,8 @@ export type PresetCompilado = {
   recorte?: boolean;
   /** los dy del preset son múltiplos del alto de la unidad (para revelados de texto) */
   relativo?: boolean;
+  /** los dx son múltiplos del ANCHO de la unidad (la barra que carga) */
+  relativoX?: boolean;
   /** los dx son POR ÍNDICE desde el centro (tracking: las letras convergen/divergen) */
   tracking?: boolean;
 };
@@ -87,6 +89,33 @@ export const PRESETS: Record<string, DefPreset> = {
       distancia: 0,
       recorte: true,
       relativo: true,
+    }),
+  },
+  /* ——— La BARRA que carga: la pieza crece desde su borde izquierdo hacia la
+     derecha, recortada a su propia caja (una barra de progreso, un uso, una
+     línea de tiempo que se llena). distancia 1 = arranca vacía; 0.5 = la
+     mitad ya está llena ——— */
+  cargar: {
+    clase: "entrada",
+    salidaPareja: "descargar",
+    categoria: "mascaras",
+    compilar: (params) => ({
+      pista: { dx: tramo(-d(params, "distancia", 1), 0) },
+      eje: "x",
+      distancia: 0,
+      recorte: true,
+      relativoX: true,
+    }),
+  },
+  descargar: {
+    clase: "salida",
+    categoria: "mascaras",
+    compilar: (params) => ({
+      pista: { dx: tramo(0, -d(params, "distancia", 1)) },
+      eje: "x",
+      distancia: 0,
+      recorte: true,
+      relativoX: true,
     }),
   },
   ocultar: {

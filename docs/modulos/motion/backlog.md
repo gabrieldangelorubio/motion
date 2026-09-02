@@ -13,6 +13,16 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Preset «cargar»: la barra que crece de izquierda a derecha (2026-09-02)
+- **Brief de Gabriel para lemlist:** «la barrita without AI / with AI tiene
+  que animarse como una barra de uso, de izquierda a derecha». No había
+  herramienta: `revelar` es máscara vertical y la escala agranda desde el
+  centro. `cargar` (entrada, categoría máscaras, pareja `descargar`): dx de
+  −1 → 0 en múltiplos del ANCHO de la unidad (`relativoX`, `anchoUnidad`),
+  recortado a su propia caja: la pieza aparece creciendo desde su borde
+  izquierdo. `distancia` 0.5 = arranca por la mitad. Motor GSAP y evaluador
+  dan lo mismo (test). Entra solo al catálogo, a la biblioteca y al prompt.
+
 ### [HECHO] Comparativa Gemini vs Fable en el mismo editor: «Descargar JSON» en el plugin y «Aplicar guion» en el panel (2026-09-02)
 - **Pedido de Gabriel:** que el plugin descargue el JSON (no sólo copiarlo),
   que Fable dirija con ese JSON y devuelva el guion, y que el módulo tenga
