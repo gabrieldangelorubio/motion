@@ -22,6 +22,7 @@ import { sinCapasReferencia } from "@/lib/motion/evaluar-puro";
 import { estadoVivo } from "@/lib/motion/motor-gsap";
 import { pintar, type Contexto2D, type FuentesDeMedia } from "@/lib/motion/pintar";
 import { problemaDeFormatos, rangoDeExport } from "@/lib/motion/escenas-puro";
+import { escenasPorPantalla, manifiestoPantallas } from "@/lib/motion/exportar-pantallas-puro";
 import { recorteDeAudio } from "@/lib/motion/audio-puro";
 
 /** Audio del proyecto listo para muxear: PCM por canal + desde dónde del
@@ -308,51 +309,113 @@ export async function exportarPngSecuencia(
   const escenas = (Array.isArray(entrada) ? entrada : [entrada]).map(sinCapasReferencia);
   const problema = problemaDeFormatos(escenas);
   if (problema) throw new Error(problema);
-  const comp = escenas[0];
   const tramos = escenas.map((esc) =>
     escenas.length === 1
       ? { comp: esc, ...rangoDeExport(esc.duracion, esc.fps, opciones.desdeMs, opciones.hastaMs) }
       : { comp: esc, ...rangoDeExport(esc.duracion, esc.fps) },
   );
   const totalFrames = tramos.reduce((n, tr) => n + tr.frames, 0);
-  const duracionFrameMs = 1000 / comp.fps;
 
+  const entradas: { nombre: string; datos: Uint8Array }[] = [];
+  let frameGlobal = 0;
+  for (const tramo of tramos) {
+    await pintarSecuenciaPng(tramo.comp, tramo, media, opciones.supermuestreo, entradas, {
+      nombreDe: () => `frame-${String(frameGlobal).padStart(5, "0")}.png`,
+      alFrame: () => {
+        frameGlobal++;
+        opciones.onProgreso?.(frameGlobal, totalFrames);
+      },
+    });
+  }
+  return new Blob([crearZip(entradas) as BlobPart], { type: "application/zip" });
+}
+
+/**
+ * Pinta los frames de UN tramo de una composición como PNG con alfa (fondo
+ * apagado, supersampling espacial) y los suma a `entradas`. Compartido por la
+ * secuencia clásica y el export por pantalla: un solo lugar para el render.
+ */
+async function pintarSecuenciaPng(
+  comp: Composicion,
+  tramo: { desde: number; frames: number },
+  media: FuentesDeMedia,
+  supermuestreo: number | undefined,
+  entradas: { nombre: string; datos: Uint8Array }[],
+  hooks: { nombreDe: (frame: number) => string; alFrame: () => void },
+): Promise<void> {
   const lienzo = new OffscreenCanvas(comp.ancho, comp.alto);
   const ctx = lienzo.getContext("2d");
   if (!ctx) throw new Error("No se pudo crear el canvas de render");
-  const S = Math.max(1, Math.min(4, Math.round(opciones.supermuestreo ?? 2)));
+  const S = Math.max(1, Math.min(4, Math.round(supermuestreo ?? 2)));
   const superLienzo = S > 1 ? new OffscreenCanvas(comp.ancho * S, comp.alto * S) : null;
   const ctxSuper = superLienzo?.getContext("2d") ?? null;
   if (S > 1 && !ctxSuper) throw new Error("No se pudo crear el canvas de supersampling");
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
+  const duracionFrameMs = 1000 / comp.fps;
 
-  const entradas: { nombre: string; datos: Uint8Array }[] = [];
-  let frameGlobal = 0;
-  for (const tramo of tramos) {
-    for (let frame = 0; frame < tramo.frames; frame++) {
-      const t = tramo.desde + frame * duracionFrameMs;
-      // fondo vacío → pintar deja el lienzo transparente
-      const estado = { ...estadoVivo(tramo.comp, t), fondo: "" };
-      ctx.clearRect(0, 0, comp.ancho, comp.alto);
-      if (ctxSuper && superLienzo) {
-        ctxSuper.setTransform(1, 0, 0, 1, 0, 0);
-        ctxSuper.clearRect(0, 0, comp.ancho * S, comp.alto * S);
-        ctxSuper.setTransform(S, 0, 0, S, 0, 0);
-        pintar(estado, ctxSuper as unknown as Contexto2D, media, S);
-        ctx.drawImage(superLienzo, 0, 0, comp.ancho, comp.alto);
-      } else {
-        pintar(estado, ctx as unknown as Contexto2D, media);
-      }
-      const png = await lienzo.convertToBlob({ type: "image/png" });
-      entradas.push({
-        nombre: `frame-${String(frameGlobal).padStart(5, "0")}.png`,
-        datos: new Uint8Array(await png.arrayBuffer()),
-      });
-      frameGlobal++;
-      opciones.onProgreso?.(frameGlobal, totalFrames);
-      await new Promise((r) => requestAnimationFrame(r));
+  for (let frame = 0; frame < tramo.frames; frame++) {
+    const t = tramo.desde + frame * duracionFrameMs;
+    // fondo vacío → pintar deja el lienzo transparente
+    const estado = { ...estadoVivo(comp, t), fondo: "" };
+    ctx.clearRect(0, 0, comp.ancho, comp.alto);
+    if (ctxSuper && superLienzo) {
+      ctxSuper.setTransform(1, 0, 0, 1, 0, 0);
+      ctxSuper.clearRect(0, 0, comp.ancho * S, comp.alto * S);
+      ctxSuper.setTransform(S, 0, 0, S, 0, 0);
+      pintar(estado, ctxSuper as unknown as Contexto2D, media, S);
+      ctx.drawImage(superLienzo, 0, 0, comp.ancho, comp.alto);
+    } else {
+      pintar(estado, ctx as unknown as Contexto2D, media);
     }
+    const png = await lienzo.convertToBlob({ type: "image/png" });
+    entradas.push({ nombre: hooks.nombreDe(frame), datos: new Uint8Array(await png.arrayBuffer()) });
+    hooks.alFrame();
+    await new Promise((r) => requestAnimationFrame(r));
+  }
+}
+
+/**
+ * Exporta UNA SECUENCIA PNG POR PANTALLA (tanda G5 del fork): cada placa del
+ * lienzo sale en su propia carpeta del zip, en SU formato, sin la cámara del
+ * proyecto y con alfa — lo que After Effects necesita para ensamblar las
+ * pantallas y hacer los movimientos de cámara entre ellas. Todas las
+ * secuencias comparten la numeración de frames (el mismo rango de tiempo),
+ * así en AE se alinean solas. `pantallas.json` en la raíz trae las cajas de
+ * cada pantalla en el lienzo y la cámara maestra con sus keyframes.
+ */
+export async function exportarPngPorPantalla(
+  entrada: Composicion,
+  media: FuentesDeMedia = {},
+  opciones: Pick<OpcionesExport, "supermuestreo" | "desdeMs" | "hastaMs" | "onProgreso"> & { conPlaca?: boolean } = {},
+): Promise<Blob> {
+  if (typeof OffscreenCanvas === "undefined") {
+    throw new Error("Este navegador no soporta OffscreenCanvas");
+  }
+  const { crearZip } = await import("@/lib/motion/zip-puro");
+  const comp = sinCapasReferencia(entrada);
+  const escenas = escenasPorPantalla(comp, { conPlaca: opciones.conPlaca });
+  if (escenas.length === 0) {
+    throw new Error("El lienzo no tiene pantallas (placas): importá una desde Figma o usá la secuencia PNG común");
+  }
+  const rango = rangoDeExport(comp.duracion, comp.fps, opciones.desdeMs, opciones.hastaMs);
+  const totalFrames = rango.frames * escenas.length;
+
+  const entradas: { nombre: string; datos: Uint8Array }[] = [
+    {
+      nombre: "pantallas.json",
+      datos: new TextEncoder().encode(manifiestoPantallas(comp, escenas, { desdeMs: rango.desde, frames: rango.frames })),
+    },
+  ];
+  let frameGlobal = 0;
+  for (const escena of escenas) {
+    await pintarSecuenciaPng(escena.comp, rango, media, opciones.supermuestreo, entradas, {
+      nombreDe: (frame) => `${escena.carpeta}/frame-${String(frame).padStart(5, "0")}.png`,
+      alFrame: () => {
+        frameGlobal++;
+        opciones.onProgreso?.(frameGlobal, totalFrames);
+      },
+    });
   }
   return new Blob([crearZip(entradas) as BlobPart], { type: "application/zip" });
 }

@@ -13,6 +13,35 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] G5: secuencia PNG POR PANTALLA para ensamblar en AE (2026-09-02)
+- **El pipeline del fork:** las animaciones se dirigen acá con GSAP de
+  motor; AE sólo ensambla las pantallas y hace los movimientos de cámara
+  entre ellas. Para eso cada pantalla tiene que salir como su propia
+  secuencia PNG con alfa, en su formato y SIN la cámara del proyecto.
+- **`exportar-pantallas-puro.ts`:** `escenasPorPantalla(comp, {conPlaca})`
+  arma una composición por placa (formato = caja de la placa redondeada a
+  par, cámara fija centrada en ella con zoom 1, sólo las capas con ese
+  `grupo`, fondo transparente; la placa misma queda afuera salvo
+  `conPlaca`); `manifiestoPantallas` escribe `pantallas.json` (carpeta, id,
+  caja en el lienzo, tamaño del PNG, rango de frames y la CÁMARA MAESTRA con
+  base + keyframes x/y/zoom + temblor) para rehacer los viajes en AE.
+- **`exportarPngPorPantalla` (exportar.ts):** el render frame a frame se
+  extrajo a `pintarSecuenciaPng`, compartido con la secuencia clásica; el
+  zip lleva `01-hero/frame-00000.png`, `02-pricing/…` con la MISMA
+  numeración (mismo rango de tiempo: en AE se alinean solas). Botón «PNG
+  por pantalla (N, alfa)» en el panel de export (aparece si hay placas) con
+  el toggle «Con el fondo de cada placa (sin alfa)».
+- **Verificado en browser real** (`pw/verificar-pantallas.mjs`): importar el
+  fixture 390×844 → exportar 0–0,5 s → zip con `01-pantalla-home/` (sin el
+  «(fondo)» del nombre de la placa), 15 PNG RGBA de 390×844 con contenido,
+  `pantallas.json` con la cámara maestra. 7 tests puros.
+- **Bug visto por Gabriel, arreglado de paso:** el título rasterizado
+  entrando con `subirDesenfocado` salía con el blur CORTADO en una caja. En
+  «cubrir», `pintarMedia` recortaba a la caja ante medio píxel de redondeo
+  entre la caja (0,01 px) y el PNG a 2× (entero), y el clip pisaba el halo
+  del filtro. Ahora sólo recorta si sobra más de 0,5 px y el clip lleva un
+  margen de 3× el desenfoque.
+
 ### [HECHO] REGLA DE ORO del motion grapher: prompt + auditoría medida + pensamiento a fondo (2026-09-02, G2c)
 - **Pedido de Gabriel (con el log de la landing de lemlist: 41 ops, casi todo
   revelar/pop/deslizar, cámara descentrada, «pensó 41 tokens» en los pasos):**

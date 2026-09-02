@@ -186,3 +186,35 @@ test("una letra estirada escala desde la baseline y EMPUJA a las que siguen", ()
   // arranca en x=40 (con el stub de 10px por letra)
   assert.ok(llamadas.some((l) => l === "fillText(G,40.000,0.000)"), `la G no se corrió: ${llamadas.filter((l) => l.startsWith("fillText")).join(" ")}`);
 });
+
+test("media «cubrir»: medio píxel de redondeo no recorta, y si recorta de verdad el clip deja margen para el desenfoque", () => {
+  const capa = {
+    tipo: "media" as const, id: "img", nombre: "img", x: 600, y: 300, mediaId: "m",
+    ancho: 1200, alto: 400, ajuste: "cubrir" as const,
+    entrada: { preset: "subirDesenfocado", en: 0, duracion: 800 },
+  };
+  const comp = { ...fixture(), capas: [capa] };
+  const rects = (llamadas: string[]) => llamadas.filter((l) => l.startsWith("rect("));
+  const clips = (llamadas: string[]) => llamadas.filter((l) => l.startsWith("clip(")).length;
+
+  // PNG a 2× con un píxel de más (2401×800 para una caja de 1200×400): antes
+  // recortaba y el blur del texto rasterizado salía cortado en una caja
+  const casiExacta = { naturalWidth: 2401, naturalHeight: 800 } as unknown as CanvasImageSource;
+  const a = contextoFalso();
+  pintar(estadoEn(comp, 400), a.ctx, { imagenDe: () => casiExacta });
+  assert.equal(clips(a.llamadas), 0, `no debería recortar: ${rects(a.llamadas).join(" ")}`);
+
+  // sobra de verdad (3000×800 → cubrir escala 0.5 → 1500 de ancho): recorta,
+  // pero en plena entrada desenfocada el clip es MÁS GRANDE que la caja
+  const ancha = { naturalWidth: 3000, naturalHeight: 800 } as unknown as CanvasImageSource;
+  const b = contextoFalso();
+  pintar(estadoEn(comp, 400), b.ctx, { imagenDe: () => ancha });
+  assert.equal(clips(b.llamadas), 1);
+  const [rx, ry, rw, rh] = rects(b.llamadas)[0].replace(/^rect\(|\)$/g, "").split(",").map(Number);
+  assert.ok(rw > 1200 && rh > 400 && rx < -600 && ry < -200, `clip con margen de blur, vino ${rects(b.llamadas)[0]}`);
+
+  // asentada (sin desenfoque) el clip es la caja exacta
+  const c = contextoFalso();
+  pintar(estadoEn(comp, 2000), c.ctx, { imagenDe: () => ancha });
+  assert.deepEqual(rects(c.llamadas), ["rect(-600.000,-200.000,1200.000,400.000)"]);
+});

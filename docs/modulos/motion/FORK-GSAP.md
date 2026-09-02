@@ -85,8 +85,12 @@ y el render sigue siendo nuestro pintor determinista.
   con timeScale — la línea de tiempo como la de GSAP.
 - **G4 — motion paths**: mover capas por curvas bezier dibujadas EN el
   lienzo (MotionPath sobre las pistas x/y).
-- **G5 — pipeline PNG→AE fino**: naming de secuencias por pantalla, guías
-  para los movimientos de cámara entre pantallas, marcadores de tiempo.
+- **G5 — pipeline PNG→AE**: HECHO (2026-09-02) — «PNG por pantalla (alfa)»
+  en el panel de export: una carpeta por placa (`01-hero/frame-00000.png`),
+  cada una en SU formato, sin la cámara del proyecto, misma numeración de
+  frames en todas, y `pantallas.json` con las cajas de cada pantalla en el
+  lienzo y la cámara maestra (base + keyframes) para rehacer los viajes en
+  AE. Pendiente: marcadores de tiempo por sección.
 - **Editor visual de curvas** (CustomEase dibujable en el selector) cuando
   el campo libre quede corto.
 

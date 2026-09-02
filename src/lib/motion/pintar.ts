@@ -355,9 +355,16 @@ function pintarMedia(estado: EstadoCapa, ctx: Contexto2D, media: FuentesDeMedia,
           : Math.max(capa.ancho / natW, capa.alto / natH);
       const dw = natW * factor;
       const dh = natH * factor;
-      if (capa.ajuste !== "contener" && (dw > capa.ancho || dh > capa.alto)) {
+      // «cubrir» recorta lo que sobresale de la caja — sólo si sobresale de
+      // verdad (medio píxel de redondeo entre la caja y el PNG a 2× no es
+      // sobrar) y con el margen del desenfoque: un raster con blur (texto
+      // rasterizado entrando con subirDesenfocado) se veía cortado en una
+      // caja porque el clip pisaba el halo del filtro.
+      const sobra = dw > capa.ancho + 0.5 || dh > capa.alto + 0.5;
+      if (capa.ajuste !== "contener" && sobra) {
+        const margen = Math.max(u.desenfoque, u.blurX, u.blurY) * 3;
         ctx.beginPath();
-        ctx.rect(-capa.ancho / 2, -capa.alto / 2, capa.ancho, capa.alto);
+        ctx.rect(-capa.ancho / 2 - margen, -capa.alto / 2 - margen, capa.ancho + margen * 2, capa.alto + margen * 2);
         ctx.clip();
       }
       real.drawImage(imagen, -dw / 2, -dh / 2, dw, dh);

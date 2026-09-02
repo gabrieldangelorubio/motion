@@ -14,7 +14,8 @@
 import { useEffect, useState } from "react";
 import type { Composicion } from "@/lib/motion/modelo";
 import type { FuentesDeMedia } from "@/lib/motion/pintar";
-import { exportarMp4, exportarPngSecuencia, descargarBlob, exportSoportado, type AudioExport } from "@/lib/motion/exportar";
+import { exportarMp4, exportarPngSecuencia, exportarPngPorPantalla, descargarBlob, exportSoportado, type AudioExport } from "@/lib/motion/exportar";
+import { esPlaca } from "@/lib/motion/estilo-puro";
 import {
   generarProyectoAE,
   extensionDeFuente,
@@ -85,6 +86,8 @@ export function ExportarVideo({
   const [todas, setTodas] = useState(false);
   // AE en modo «solo diseño»: capas en su estado base, sin keyframes/cámara
   const [soloDiseno, setSoloDiseno] = useState(false);
+  // export por pantalla: ¿el PNG lleva el fondo de la placa o sale con alfa?
+  const [conPlaca, setConPlaca] = useState(false);
   const [progreso, setProgreso] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   // La capacidad se chequea en el cliente (en SSR no hay VideoEncoder y el
@@ -103,6 +106,7 @@ export function ExportarVideo({
 
   const escenasTotales = contarEscenas?.() ?? 1;
   const duracionS = obtenerComposicion().duracion / 1000;
+  const pantallas = obtenerComposicion().capas.filter(esPlaca).length;
 
   const abrir = () => {
     if (progreso !== null) return;
@@ -162,6 +166,34 @@ export function ExportarVideo({
         onProgreso: (frame, total) => setProgreso(Math.round((frame / total) * 100)),
       });
       await entregar(blob, `${activa.nombre.replace(/\s+/g, "-")}-png.zip`);
+      setAbierto(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("El export falló"));
+    } finally {
+      setProgreso(null);
+    }
+  };
+
+  // Secuencia PNG POR PANTALLA (fork GSAP, tanda G5): cada placa en su
+  // carpeta, en su formato, sin cámara y con alfa — para ensamblar en AE.
+  // Respeta Desde/Hasta; es de la escena activa (las pantallas viven en su
+  // lienzo).
+  const exportarPngsPorPantalla = async () => {
+    if (progreso !== null) return;
+    setError(null);
+    onPausar();
+    setProgreso(0);
+    try {
+      const media = obtenerMedia?.() ?? {};
+      const activa = obtenerComposicion();
+      await esperarMedia([activa], media);
+      const blob = await exportarPngPorPantalla(activa, media, {
+        desdeMs: desdeS * 1000,
+        hastaMs: hastaS * 1000,
+        conPlaca,
+        onProgreso: (frame, total) => setProgreso(Math.round((frame / total) * 100)),
+      });
+      await entregar(blob, `${activa.nombre.replace(/\s+/g, "-")}-pantallas.zip`);
       setAbierto(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("El export falló"));
@@ -295,6 +327,27 @@ export function ExportarVideo({
           >
             {t("Secuencia PNG (alfa)")}
           </button>
+          {pantallas > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => void exportarPngsPorPantalla()}
+                title={t("Una secuencia PNG por pantalla, cada una en su formato y sin la cámara — para ensamblar las pantallas en AE (pantallas.json trae la cámara maestra)")}
+                className="mt-1.5 flex h-8 w-full items-center justify-center rounded-control px-2 text-[12px] text-foreground/80 shadow-control hover:bg-ink/[0.06]"
+              >
+                {t("PNG por pantalla ({n}, alfa)", { n: pantallas })}
+              </button>
+              <label className="mt-1 flex cursor-pointer items-center gap-2 px-1 text-[11px] text-foreground/70">
+                <input
+                  type="checkbox"
+                  checked={conPlaca}
+                  onChange={(e) => setConPlaca(e.target.checked)}
+                  className="size-3.5 accent-(--acento)"
+                />
+                {t("Con el fondo de cada placa (sin alfa)")}
+              </label>
+            </>
+          )}
           {/* opción del export a AE: checkbox EXPLÍCITO (no baja nada solo —
               elige qué lleva el .jsx del botón de abajo) */}
           <label className="mt-2 flex cursor-pointer items-center gap-2 px-1 text-[11px] text-foreground/70">
