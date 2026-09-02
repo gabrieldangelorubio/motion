@@ -13,6 +13,21 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [P1] DISEÑO conectado con motion: estilo, derivar pantallas, Figma MCP (anotado 2026-09-01)
+- **Estado:** investigado, tandas D1-D4 diseñadas — ver
+  `research/research-diseno-conectado.md`. Pedido de Gabriel: modificar el
+  diseño por prompt, derivar pantallas/escenas con el mismo estilo,
+  evaluar Claude Design y Figma MCP.
+- **Decisión propuesta:** híbrida — el modelo del módulo YA es un modelo de
+  diseño y el director ya tiene tools embrionarias; se completa el
+  vocabulario (D1 estilo + tools, D2 `derivar_pantalla` que hereda también
+  el movimiento) y Figma se conecta por MCP: `use_figma` ejecuta Plugin
+  API → puede correr NUESTRO exportador sin copy/paste (D3), write-back
+  opcional (D4). Claude Design = ideación (storyboards), no motor. Señal
+  de mercado: Figma Motion (Config 2026) anima dentro del archivo — el
+  diferencial nuestro es el motor GSAP determinista, el PNG-alfa a AE y el
+  director por criterio.
+
 ### [HECHO] FORK GSAP, tanda G2: GSAP ES el motor (2026-09-01)
 - **Pedido de Gabriel («encontremos la manera de usar GSAP de motor») —
   y sin perder nada:** un gsap.timeline PAUSADO es seekeable determinista
