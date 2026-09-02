@@ -25,6 +25,7 @@ import {
 import { generarGemini, loopGemini, type DefHerramienta } from "@/lib/motion/agente-gemini";
 import { aplicarGuion } from "@/lib/motion/guion-puro";
 import { auditarDireccion } from "@/lib/motion/auditoria-puro";
+import { encuadrarEnPantalla } from "@/lib/motion/encuadres-puro";
 import {
   elegirModo,
   mensajeDeCorreccion,
@@ -94,7 +95,7 @@ none → lineal · sine/power1/power2/power3/power4/expo/circ .out → salidaSin
 - La composición es un LIENZO: las capas viven en coordenadas de mundo y pueden convivir varias pantallas (cada import de Figma se suma a la derecha). El render de ancho×alto px es LO QUE VE LA CÁMARA. Capas en z-order (primera = fondo), duración en ms.
 - Capas: texto (con división por caracteres/palabras/lineas para escalonar; \\n = salto de línea real), forma (rect/elipse/línea), trazo (path vectorial que se anima con trim: presets trazar/retraer/borrar, o pistas trazoInicio/trazoFin 0-1), media.
 - El revelado enmascarado clásico (cada palabra/línea sube dentro de su renglón): division palabras o lineas + entrada revelar con escalonado (salida: ocultar). La máscara es automática, no hay que crearla.
-- Cámara de composición (definir_camara): keyframes de x/y (centro del encuadre en px) y zoom (1 = frame entero), más una base para el encuadre fijo. Para viajar entre pantallas y para paneos/zooms sobre la escena — NUNCA muevas capa por capa para simular cámara. REGLA DURA: si el pedido habla de la cámara o del encuadre («la cámara va hacia atrás/adelante», «te descubre/revela toda la escena», «zoom in/out», «acercarse/alejarse», «panear», «abrir el plano»), eso es SIEMPRE definir_camara — descubrir la escena = BAJAR el zoom con keyframes, acercarse = subirlo — y JAMÁS keyframes de posición/escala en una capa o un grupo para fingirlo: en el editor y en el export a AE la cámara es una sola pieza manejable, y las capas animadas a mano la arruinan. El estado te muestra los keyframes actuales con valores y easing: cuando te pidan retocar el movimiento (más lento, llegada más suave, otro orden), reescribí esas pistas conservando los ENCUADRES clave (los pares x/y/zoom donde la cámara se detiene) y ajustando tiempos y easings. Para vida de cámara constante (handheld documental, drift flotante) usá temblor en definir_camara ({preset: handheld|flotar|nervioso, intensidad, velocidad}): es procedural, va ENCIMA de los keyframes y no los toca — nunca simules handheld con keyframes densos. ENCUADRE: el render es ancho×alto y la cámara ve ancho/zoom × alto/zoom px del LIENZO; las pantallas viven en el lienzo con su propia caja (el estado la da para cada PLACA). Para encuadrar una pantalla o una sección: centro = centro de ESA caja/región, zoom = ancho_render / ancho_región (una landing de 1440 en un render de 1920 pide zoom ≥ 1.33 para no mostrar vacío a los costados; una sección de 700px, zoom ≈ 2.7). JAMÁS uses el centro del render (ancho/2, alto/2) como centro por defecto: la pantalla casi nunca está ahí. Al recorrer una página larga, bajá en y por secciones dejando cada encuadre un momento quieto (hold) y viajando con entradaSalida.
+- Cámara de composición (definir_camara): keyframes de x/y (centro del encuadre en px) y zoom (1 = frame entero), más una base para el encuadre fijo. Para viajar entre pantallas y para paneos/zooms sobre la escena — NUNCA muevas capa por capa para simular cámara. REGLA DURA: si el pedido habla de la cámara o del encuadre («la cámara va hacia atrás/adelante», «te descubre/revela toda la escena», «zoom in/out», «acercarse/alejarse», «panear», «abrir el plano»), eso es SIEMPRE definir_camara — descubrir la escena = BAJAR el zoom con keyframes, acercarse = subirlo — y JAMÁS keyframes de posición/escala en una capa o un grupo para fingirlo: en el editor y en el export a AE la cámara es una sola pieza manejable, y las capas animadas a mano la arruinan. El estado te muestra los keyframes actuales con valores y easing: cuando te pidan retocar el movimiento (más lento, llegada más suave, otro orden), reescribí esas pistas conservando los ENCUADRES clave (los pares x/y/zoom donde la cámara se detiene) y ajustando tiempos y easings. Para vida de cámara constante (handheld documental, drift flotante) usá temblor en definir_camara ({preset: handheld|flotar|nervioso, intensidad, velocidad}): es procedural, va ENCIMA de los keyframes y no los toca — nunca simules handheld con keyframes densos. ENCUADRE: el render es ancho×alto y la cámara ve ancho/zoom × alto/zoom px del LIENZO; las pantallas viven en el lienzo con su propia caja (el estado la da para cada PLACA). Para encuadrar una pantalla o una sección: centro = centro de ESA caja/región, zoom = ancho_render / ancho_región (una landing de 1440 en un render de 1920 pide zoom ≥ 1.33 para no mostrar vacío a los costados; una sección de 700px, zoom ≈ 2.7). JAMÁS uses el centro del render (ancho/2, alto/2) como centro por defecto: la pantalla casi nunca está ahí. ENCUADRES MARCADOS: si el estado trae «ENCUADRES MARCADOS por el usuario», esas son las escenas y sus encuadres exactos: la cámara se construye SIEMPRE con recorrer_encuadres (vos decidís desde/hasta de cada escena y el viaje), nunca con definir_camara, y los elementos de cada escena entran cuando la cámara está en ella. Al recorrer una página larga, bajá en y por secciones dejando cada encuadre un momento quieto (hold) y viajando con entradaSalida.
 - Presets de entrada/salida con contrato de identidad: toda entrada TERMINA en la posición/opacidad base de la capa; la salida parte de ahí. Los offsets del preset son relativos — la posición base (x,y) de la capa no cambia por animar.
 - Pistas crudas de keyframes (definir_pista) para trayectorias: valores ABSOLUTOS que pisan la base. Usalas para recorridos, holds y coreografía fina; usa presets para entradas/salidas estándar.
 - El easing vive en el keyframe de SALIDA de cada tramo. hold congela el valor.
@@ -272,6 +273,18 @@ async function dirigirPorGuion(opts: {
     const aplicado = aplicarGuion(comp, parseado.pasos);
     comp = aplicado.comp;
     informeTotal.push(...aplicado.informe);
+    // ENCUADRE AUTOMÁTICO: sin escenas marcadas, el código corrige la
+    // geometría de la cámara que el modelo escribe a ojo (x = 960 sobre una
+    // pantalla de 1440); con escenas marcadas la cámara ya es exacta
+    if (!(comp.encuadres?.length)) {
+      const enc = encuadrarEnPantalla(comp);
+      if (enc.ajustes > 0) {
+        comp = enc.comp;
+        const linea = `✓ ·· encuadre automático: ${enc.ajustes} valor(es) de cámara corregidos para que lo visible caiga dentro de la pantalla`;
+        aplicado.informe.push(linea);
+        informeTotal.push(linea);
+      }
+    }
     for (const linea of aplicado.informe) if (linea.startsWith("✓")) ops.push(linea.replace(/^✓ \d+ /, "").replace(/\s+\[.*\]$/, ""));
     opts.onEvento?.({
       tipo: "paso",

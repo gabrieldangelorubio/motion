@@ -33,6 +33,8 @@ export function InspectorCamara({
   onTemblor,
   onFormato,
   onEncuadrarPantalla,
+  onMarcarEscena,
+  onQuitarEscena,
 }: {
   composicion: Composicion;
   tiempo: number;
@@ -51,6 +53,10 @@ export function InspectorCamara({
   onFormato?: (ancho: number, alto: number) => void;
   /** encuadra la primera pantalla del lienzo en el formato actual */
   onEncuadrarPantalla?: () => void;
+  /** guarda la vista actual como la escena siguiente (encuadres marcados:
+      el director recorre estas escenas, la geometría la pone la persona) */
+  onMarcarEscena?: () => void;
+  onQuitarEscena?: (id: string) => void;
 }) {
   const vista = camaraEn(composicion, tiempo);
   const pistas = composicion.camara?.pistas ?? {};
@@ -206,6 +212,46 @@ export function InspectorCamara({
             <div className="text-xs text-muted">
               {t("Movimiento constante ENCIMA de los keyframes: no los toca ni los crea — como el wiggle de AE.")}
             </div>
+          </div>
+        </section>
+      )}
+
+      {onMarcarEscena && (
+        <section className="border-t border-(--glass-border) px-3 py-3">
+          <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">{t("Escenas marcadas")}</div>
+          {(composicion.encuadres ?? []).length > 0 && (
+            <ol className="mb-2 flex flex-col gap-1" aria-label={t("Escenas marcadas")}>
+              {(composicion.encuadres ?? []).map((e, i) => (
+                <li key={e.id} className="flex items-center justify-between gap-2 rounded-control px-2 py-1 text-[12px] shadow-control">
+                  <span className="truncate">
+                    <span className="font-mono text-muted">{i + 1}</span> {e.nombre}
+                    <span className="ml-1 font-mono text-[11px] text-muted">
+                      ({Math.round(e.x)}, {Math.round(e.y)}) ×{e.zoom}
+                    </span>
+                  </span>
+                  {onQuitarEscena && (
+                    <button
+                      type="button"
+                      onClick={() => onQuitarEscena(e.id)}
+                      aria-label={t("Quitar «{nombre}»", { nombre: e.nombre })}
+                      className="shrink-0 rounded-control px-1.5 text-[11px] text-muted hover:bg-ink/[0.06] hover:text-foreground"
+                    >
+                      ×
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+          <button
+            type="button"
+            onClick={onMarcarEscena}
+            className="boton inline-flex h-9 w-full items-center justify-center rounded-control px-3 text-[13px] shadow-control hover:bg-ink/[0.06]"
+          >
+            {t("Marcar escena {n} (la vista actual)", { n: (composicion.encuadres?.length ?? 0) + 1 })}
+          </button>
+          <div className="mt-1.5 text-xs text-muted">
+            {t("Encuadrá con la cámara y marcá: el director recorre estas escenas en orden y decide solo los tiempos. La geometría es tuya.")}
           </div>
         </section>
       )}

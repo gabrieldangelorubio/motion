@@ -20,6 +20,7 @@ import { EASINGS, esEasingConocido } from "@/lib/motion/easings-puro";
 import { derivarPantalla } from "@/lib/motion/derivar-puro";
 import { describirEstilo, estiloDePieza } from "@/lib/motion/estilo-puro";
 import { cajaAproximada } from "@/lib/motion/auditoria-puro";
+import { camaraDeEncuadres, type TramoDeEscena } from "@/lib/motion/encuadres-puro";
 import { conFormato } from "@/lib/motion/formato-puro";
 import { EASINGS_GSAP_DESTACADOS } from "@/lib/motion/easings-gsap";
 import { validar } from "@/lib/motion/validar-puro";
@@ -463,6 +464,30 @@ export function ejecutarHerramienta(
       return res.ok ? exito(res.valor, `capa «${capa.nombre}» quitada`) : fallo(comp, res.error);
     }
 
+    case "recorrer_encuadres": {
+      const crudos = Array.isArray(input.tramos) ? (input.tramos as Record<string, unknown>[]) : [];
+      const tramos: TramoDeEscena[] = crudos.map((t) => ({
+        escena: typeof t.escena === "string" ? t.escena : numero(t.escena, 1),
+        desde: numero(t.desde, 0),
+        hasta: numero(t.hasta, comp.duracion),
+      }));
+      let temblorR: TemblorCamara | undefined;
+      if (typeof input.temblor === "object" && input.temblor !== null) {
+        const tb = input.temblor as Record<string, unknown>;
+        if (tb.preset === "handheld" || tb.preset === "flotar" || tb.preset === "nervioso") {
+          temblorR = { preset: tb.preset, intensidad: clamp(numero(tb.intensidad, 1), 0, 3), velocidad: clamp(numero(tb.velocidad, 1), 0.1, 4) };
+        }
+      }
+      const res = camaraDeEncuadres(comp, tramos, {
+        viajeMs: input.viajeMs === undefined ? undefined : numero(input.viajeMs, 1100),
+        easing: easingValido(input.easing),
+        temblor: temblorR,
+      });
+      if (!res.ok) return fallo(comp, res.error);
+      const n = (res.camara.pistas.x?.length ?? 0);
+      return exito({ ...comp, camara: res.camara }, `cámara por encuadres marcados: ${tramos.length} escenas, ${n} keyframes por canal${temblorR ? ` + temblor ${temblorR.preset}` : ""}`);
+    }
+
     case "definir_camara": {
       const pistas: Camara["pistas"] = {};
       // el rango de la cámara es el del LIENZO (todas las pantallas, con un
@@ -777,6 +802,33 @@ export const DEFINICIONES_HERRAMIENTAS = [
       properties: { capaId: { type: "string" } },
       additionalProperties: false,
       required: ["capaId"],
+    },
+  },
+  {
+    name: "recorrer_encuadres",
+    description: "Construye la cámara ENTERA a partir de los ENCUADRES MARCADOS por el usuario (ver «ENCUADRES MARCADOS» en el estado): en cada tramo la cámara se queda quieta en esa escena y viaja a la siguiente durante viajeMs antes de que empiece, con el easing dado. Vos decidís los TIEMPOS de cada escena; la geometría (centro, zoom) ya está marcada. Si el estado trae encuadres marcados, la cámara se define SIEMPRE con esto y nunca con definir_camara.",
+    input_schema: {
+      type: "object",
+      properties: {
+        tramos: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              escena: { type: "number", description: "número de escena (1 = la primera marcada)" },
+              desde: { type: "number", description: "ms en que la cámara ya está en esa escena" },
+              hasta: { type: "number", description: "ms hasta el que se queda (el viaje a la siguiente arranca viajeMs antes de su desde)" },
+            },
+            required: ["escena", "desde", "hasta"],
+            additionalProperties: false,
+          },
+        },
+        viajeMs: { type: "number", description: "duración de cada viaje entre escenas (default 1100)" },
+        easing: { type: "string", description: "easing de los viajes (default entradaSalidaCubic)" },
+        temblor: { type: "object", properties: { preset: { type: "string", enum: ["handheld", "flotar", "nervioso"] }, intensidad: { type: "number" }, velocidad: { type: "number" } }, additionalProperties: false },
+      },
+      required: ["tramos"],
+      additionalProperties: false,
     },
   },
   {

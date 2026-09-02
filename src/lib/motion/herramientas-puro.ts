@@ -15,6 +15,7 @@ import type { Camara, CanalCamara, Capa, Composicion, Keyframe, NombrePropiedad,
 import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
 import { nombresPresets } from "@/lib/motion/presets-puro";
 import { esPlaca } from "@/lib/motion/estilo-puro";
+import { describirEncuadres } from "@/lib/motion/encuadres-puro";
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; error: string };
 
@@ -512,6 +513,7 @@ export function describir(comp: Composicion): string {
     }
     lineas.push(`  cámara — el render es lo que ella ve: ${partes.join(" · ") || "sin pistas (plano fijo)"}`);
   }
+  lineas.push(...describirEncuadres(comp));
   for (const capa of comp.capas) {
     if (capa.tipo === "video") {
       // el director SABE que existe (es el fondo contra el que compone)

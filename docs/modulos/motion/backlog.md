@@ -13,6 +13,31 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] ESCENAS MARCADAS + ENCUADRE AUTOMÁTICO: la geometría de la cámara la pone el código (2026-09-02, G7)
+- **Segunda corrida de Flash en modo guion (log de Gabriel):** guion de 57
+  pasos, $0,09, decisiones correctas; la cámara otra vez a ojo (x = 960 en
+  una pantalla de 1440, vacío arriba). La auditoría lo marcó con el número
+  correcto y recién la revisión lo corrigió. Conclusión: la geometría no se
+  le pide al modelo. Idea de Gabriel: «marcar escena 1, 2, 3 con la cámara
+  y que esa información le llegue al agente».
+- **Escenas marcadas** (`encuadres-puro.ts`, `Composicion.encuadres`): en
+  el inspector de cámara, «Marcar escena N (la vista actual)» guarda el
+  encuadre (centro + zoom) en orden, con lista y quitar. El estado las
+  describe con lo que ve la cámara en cada una. Herramienta nueva
+  `recorrer_encuadres`: el guionista decide {escena, desde, hasta} de cada
+  una (+ viajeMs, easing, temblor) y el código arma la cámara: holds y
+  viajes de viajeMs antes de cada escena. SISTEMA y MODO GUION: con
+  encuadres marcados la cámara es SIEMPRE recorrer_encuadres.
+- **Encuadre automático** (`encuadrarEnPantalla`): sin escenas marcadas,
+  después de aplicar el guion el código corrige base y keyframes de x/y para
+  que lo visible caiga dentro de la pantalla (o centrado si es más chica;
+  centrado también si sobra menos del 10 % del cuadro). No toca el zoom ni
+  las capas; el informe lo anota como «encuadre automático: N valores».
+  Probado con la cámara exacta del log de Gabriel: x 960 → 720, y 300 → 400,
+  y la auditoría de encuadre queda limpia.
+- **Verificado en browser real** (`pw/verificar-escenas.mjs`): marcar,
+  listar, snapshot con `esc-1` y la vista del teléfono, quitar. 396 tests.
+
 ### [HECHO] Primera corrida de Flash en modo guion → auditoría de ENCUADRE DESCENTRADO (2026-09-02)
 - **Resultado medido (log de Gabriel):** Flash escribió el guion entero de
   lemlist en UNA llamada: 55 pasos, 1:29, 64k tokens, $0,10 (ayer: 8 pasos,

@@ -18,6 +18,7 @@ import { PRESETS, escalonadoSano } from "@/lib/motion/presets-puro";
 import { exportarMp4, descargarBlob } from "@/lib/motion/exportar";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
 import { planDeLectura, contextoDeLectura } from "@/lib/motion/lectura-puro";
+import { marcarEncuadre, quitarEncuadre } from "@/lib/motion/encuadres-puro";
 import {
   CAMARA_ID,
   agregarCapa,
@@ -1213,6 +1214,18 @@ export function Editor({
     setComposicion(agregarKeyframeCamara(compRef.current, alFrameActual(), vista));
   }, [registrar, alFrameActual]);
 
+  // ESCENAS MARCADAS: la vista actual (o la cámara en el playhead si el
+  // lienzo no reporta vista) se guarda como encuadre; el director las recorre
+  const marcarEncuadreActual = useCallback(() => {
+    const vista = lienzoRef.current?.vistaActual() ?? camaraEn(compRef.current, tiempoRef.current);
+    registrar();
+    setComposicion(marcarEncuadre(compRef.current, vista));
+  }, [registrar]);
+  const quitarEncuadreMarcado = useCallback((id: string) => {
+    registrar();
+    setComposicion(quitarEncuadre(compRef.current, id));
+  }, [registrar]);
+
   const tomarVistaCamara = useCallback(() => {
     const vista = lienzoRef.current?.vistaActual();
     if (!vista) return;
@@ -2398,6 +2411,8 @@ export function Editor({
               onTemblor={definirTemblor}
               onFormato={cambiarFormato}
               onEncuadrarPantalla={encuadrarPantalla}
+              onMarcarEscena={marcarEncuadreActual}
+              onQuitarEscena={quitarEncuadreMarcado}
             />
           ) : (
             <Inspector

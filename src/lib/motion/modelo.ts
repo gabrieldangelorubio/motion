@@ -285,6 +285,11 @@ export type Camara = {
 
 export type CanalCamara = "x" | "y" | "zoom";
 
+/** Una ESCENA marcada por el usuario: un encuadre (centro + zoom) con
+    nombre, en orden. El director recorre estos encuadres; la geometría de la
+    cámara la pone la persona, los tiempos los pone el guion. */
+export type Encuadre = { id: string; nombre: string; x: number; y: number; zoom: number };
+
 export type Composicion = {
   version: 1;
   /** revisión para el CAS del guardado (§2.4 del kit) */
@@ -303,6 +308,8 @@ export type Composicion = {
   capas: Capa[];
   /** movimiento de cámara; ausente = plano fijo */
   camara?: Camara;
+  /** escenas marcadas en el inspector de cámara, en orden (opcional) */
+  encuadres?: Encuadre[];
   borrados?: { id: string; v: number }[];
 };
 
