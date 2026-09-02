@@ -29,6 +29,20 @@
   como contain → rojo exacto) + Playwright 6/6 (tarjeta, import 390×844
   deja 16:9 con zoom 128% centrado, cambio a 9:16 y re-encuadre). 351
   tests.
+- La review adversarial (Sonnet, TOKENOMICS) trajo 3 reales + 3 menores,
+  aplicados: `cambiarFormato` registraba undo en cada pointermove del
+  arrastre de Ancho/Alto (y doble con el preset) → sin checkpoint propio,
+  lo pone el caller una vez por gesto; la base de cámara del import se
+  perdía si quedaban keyframes de un lienzo vaciado (camaraEn ignora la
+  base en canales con pistas) → cámara NUEVA al importar en lienzo vacío
+  (`camaraParaLienzoNuevo`) y el botón «Encuadrar» usa auto-key
+  (`encuadrarCamara`: keyframe en el playhead si hay pistas); el viewport
+  no se re-encuadraba al cambiar el formato → rAF encuadrar(); el frame
+  vuelve a prestar NOMBRE y FONDO a la composición en el primer import
+  (antes se perdían); guardrail en el prompt: ancho/alto solo con pedido
+  explícito de formato. Edge anotado: el clamp de zoom 0.05-20 rompe el
+  fit exacto solo con formatos extremos (64 o 8192) — irrelevante en uso.
+  352 tests.
 - **Sigue abierto:** export de secuencia PNG POR PANTALLA (cada placa su
   frame, sin cámara) para el pipeline con AE.
 

@@ -39,7 +39,7 @@ import {
 } from "@/lib/motion/herramientas-puro";
 import { camaraEn, sinCapasReferencia } from "@/lib/motion/evaluar-puro";
 import { estadoVivo } from "@/lib/motion/motor-gsap";
-import { FORMATOS, conFormato, encuadreDePantalla, formatoDe } from "@/lib/motion/formato-puro";
+import { FORMATOS, camaraParaLienzoNuevo, conFormato, encuadrarCamara, formatoDe } from "@/lib/motion/formato-puro";
 import { esPlaca } from "@/lib/motion/estilo-puro";
 // olvidarVideo queda para la migración al catálogo: borrar la capa NO borra
 // el archivo local (el undo la puede traer de vuelta, como las fuentes)
@@ -1572,7 +1572,10 @@ export function Editor({
     // su placa (arrastrás la placa = movés la pantalla entera).
     const actual = compRef.current;
     const seSuma = actual.capas.length > 0;
-    let comp: Composicion = actual;
+    // lienzo vacío: el frame presta su NOMBRE y su FONDO a la composición
+    // (lo que se ve fuera de la placa); ancho/alto/fps quedan los del proyecto
+    const primera = pantallas[0].resultado.composicion;
+    let comp: Composicion = seSuma ? actual : { ...actual, nombre: primera.nombre, fondo: primera.fondo };
     const origenX = seSuma ? Math.ceil(bordeDerechoLienzo(actual) + 200) : 0;
     const reajustes: ResultadoImport["reajustes"] = [];
     const anclas: ResultadoImport["anclas"] = [];
@@ -1584,11 +1587,11 @@ export function Editor({
     }
     if (!seSuma) {
       // la primera pantalla del proyecto: la cámara arranca encuadrándola
-      // en el formato elegido (sin keyframes: solo la base)
+      // en el formato elegido — cámara NUEVA (los keyframes de un lienzo
+      // vaciado no valen, y taparían la base en sus canales)
       const placa = comp.capas.find(esPlaca);
       if (placa && placa.tipo === "forma") {
-        const base = encuadreDePantalla(comp, { x: placa.x, y: placa.y, ancho: placa.ancho, alto: placa.alto });
-        comp = { ...comp, camara: { ...(comp.camara ?? { pistas: {} }), base } };
+        comp = { ...comp, camara: camaraParaLienzoNuevo(comp, { x: placa.x, y: placa.y, ancho: placa.ancho, alto: placa.alto }) };
       }
     }
     anclasRef.current = anclas.map((a) => ({ ...a }));
@@ -1668,23 +1671,28 @@ export function Editor({
   }, [registrar]);
 
   // ——— FORMATO del render: decisión del proyecto (ver formato-puro) ———
+  // SIN checkpoint propio: el caller lo pone UNA vez por gesto (onInicio del
+  // campo al arrastrar, onCheckpoint del preset) — si no, cada pointermove
+  // del arrastre de Ancho/Alto apilaba un paso de undo
   const cambiarFormato = useCallback((ancho: number, alto: number) => {
     const nueva = conFormato(compRef.current, ancho, alto);
     if (nueva.ancho === compRef.current.ancho && nueva.alto === compRef.current.alto) return;
-    registrar();
     setComposicion(nueva);
-  }, [registrar]);
+    // el frame de render cambió de forma: que el viewport lo vuelva a mostrar
+    requestAnimationFrame(() => lienzoRef.current?.encuadrar());
+  }, []);
 
-  // encuadra la PRIMERA pantalla del lienzo en el formato actual (base de
-  // cámara; los keyframes, si los hay, quedan)
+  // encuadra la PRIMERA pantalla del lienzo en el formato actual, con la
+  // semántica auto-key de la cámara (base si no hay keyframes; keyframe en
+  // el playhead si los hay) — así el encuadre siempre se ve
   const encuadrarPantalla = useCallback(() => {
     const comp = compRef.current;
     const placa = comp.capas.find(esPlaca);
     if (!placa || placa.tipo !== "forma") return;
     registrar();
-    const base = encuadreDePantalla(comp, { x: placa.x, y: placa.y, ancho: placa.ancho, alto: placa.alto });
-    setComposicion({ ...comp, camara: { ...(comp.camara ?? { pistas: {} }), base } });
-  }, [registrar]);
+    setComposicion(encuadrarCamara(comp, { x: placa.x, y: placa.y, ancho: placa.ancho, alto: placa.alto }, alFrameActual()));
+    requestAnimationFrame(() => lienzoRef.current?.encuadrar());
+  }, [registrar, alFrameActual]);
 
   // ⌘A: todas las capas reales (el video de referencia no es operable)
   const seleccionarTodas = useCallback(() => {
@@ -1976,7 +1984,9 @@ export function Editor({
                     opciones={FORMATOS.map((f) => ({ valor: f.id, nombre: f.id }))}
                     onCambio={(v) => {
                       const f = FORMATOS.find((x) => x.id === v);
-                      if (f) cambiarFormato(f.ancho, f.alto);
+                      if (!f) return;
+                      registrar();
+                      cambiarFormato(f.ancho, f.alto);
                     }}
                   />
                 </div>

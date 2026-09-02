@@ -10,7 +10,8 @@
    importada pisaba el formato y el render quedaba gigante y vertical.
 ----------------------------------------------------------------------------- */
 
-import type { Composicion } from "@/lib/motion/modelo";
+import type { Camara, Composicion } from "@/lib/motion/modelo";
+import { fijarValorCamara } from "@/lib/motion/herramientas-puro";
 
 export type Formato = { id: string; nombre: string; ancho: number; alto: number };
 
@@ -68,4 +69,23 @@ export function encuadreDePantalla(
   }
   const zoom = acotarZoom(Math.min(comp.ancho / p.ancho, comp.alto / p.alto));
   return { x: p.x, y: p.y, zoom };
+}
+
+/** La cámara de un lienzo que ARRANCA (primera pantalla importada): base
+    encuadrando la pantalla y SIN keyframes — los de una composición vaciada
+    no significan nada (y camaraEn ignora la base en los canales con pistas:
+    conservarlos dejaría el encuadre prometido sin efecto). */
+export function camaraParaLienzoNuevo(comp: Pick<Composicion, "ancho" | "alto">, p: CajaPantalla): Camara {
+  return { pistas: {}, base: encuadreDePantalla(comp, p) };
+}
+
+/** Encuadrar una pantalla SOBRE una cámara existente, con la semántica
+    auto-key del inspector: un canal sin keyframes edita la base; uno con
+    keyframes recibe (o pisa) el keyframe en t. Así el botón «Encuadrar»
+    siempre produce el encuadre que promete. */
+export function encuadrarCamara(comp: Composicion, p: CajaPantalla, t: number): Composicion {
+  const e = encuadreDePantalla(comp, p);
+  let salida = fijarValorCamara(comp, "x", t, e.x);
+  salida = fijarValorCamara(salida, "y", t, e.y);
+  return fijarValorCamara(salida, "zoom", t, e.zoom);
 }
