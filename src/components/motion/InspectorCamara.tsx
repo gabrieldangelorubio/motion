@@ -17,6 +17,8 @@ import { t } from "@/lib/i18n/stub";
 import { Etiqueta } from "@/components/ui/Etiqueta";
 import { CampoNumero } from "@/components/ui/CampoNumero";
 import { Desplegable } from "@/components/ui/Desplegable";
+import { Segmentado } from "@/components/ui/Segmentado";
+import { FORMATOS, FORMATO_MAX, FORMATO_MIN, formatoDe } from "@/lib/motion/formato-puro";
 
 export function InspectorCamara({
   composicion,
@@ -29,6 +31,8 @@ export function InspectorCamara({
   onQuitar,
   onCheckpoint,
   onTemblor,
+  onFormato,
+  onEncuadrarPantalla,
 }: {
   composicion: Composicion;
   tiempo: number;
@@ -42,6 +46,11 @@ export function InspectorCamara({
   onCheckpoint: () => void;
   /** pone/saca/ajusta el temblor procedural (constante, no toca keyframes) */
   onTemblor?: (temblor: TemblorCamara | undefined) => void;
+  /** el FORMATO del render (ancho×alto de la composición): decisión del
+      proyecto, importar pantallas no lo cambia */
+  onFormato?: (ancho: number, alto: number) => void;
+  /** encuadra la primera pantalla del lienzo en el formato actual */
+  onEncuadrarPantalla?: () => void;
 }) {
   const vista = camaraEn(composicion, tiempo);
   const pistas = composicion.camara?.pistas ?? {};
@@ -57,6 +66,57 @@ export function InspectorCamara({
           {t("El render es lo que ve la cámara. Con la cámara seleccionada, arrastrá el encuadre en el lienzo.")}
         </div>
       </div>
+
+      {onFormato && (
+        <section className="border-t border-(--glass-border) px-3 py-3">
+          <Etiqueta className="mb-2">{t("Formato del render")}</Etiqueta>
+          <Segmentado
+            etiquetaAria={t("Formato del render")}
+            valor={formatoDe(composicion)}
+            opciones={[...FORMATOS.map((f) => ({ valor: f.id, nombre: f.id })), { valor: "medida", nombre: t("medida") }]}
+            onCambio={(v) => {
+              const f = FORMATOS.find((x) => x.id === v);
+              if (!f) return; // «medida» se edita en los campos
+              onCheckpoint();
+              onFormato(f.ancho, f.alto);
+            }}
+          />
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <CampoNumero
+              etiqueta={t("Ancho")}
+              valor={composicion.ancho}
+              min={FORMATO_MIN}
+              max={FORMATO_MAX}
+              paso={10}
+              sufijo="px"
+              onInicio={onCheckpoint}
+              onCambio={(v) => onFormato(v, composicion.alto)}
+            />
+            <CampoNumero
+              etiqueta={t("Alto")}
+              valor={composicion.alto}
+              min={FORMATO_MIN}
+              max={FORMATO_MAX}
+              paso={10}
+              sufijo="px"
+              onInicio={onCheckpoint}
+              onCambio={(v) => onFormato(composicion.ancho, v)}
+            />
+          </div>
+          {onEncuadrarPantalla && (
+            <button
+              type="button"
+              onClick={onEncuadrarPantalla}
+              className="boton mt-2 inline-flex h-9 w-full items-center justify-center rounded-control px-3 text-[13px] shadow-control hover:bg-ink/[0.06]"
+            >
+              {t("Encuadrar la pantalla en este formato")}
+            </button>
+          )}
+          <div className="mt-2 text-xs text-muted">
+            {t("El formato es del proyecto: importar pantallas no lo cambia — la cámara las encuadra adentro (una página larga, a lo ancho desde arriba).")}
+          </div>
+        </section>
+      )}
 
       <section className="border-t border-(--glass-border) px-3 py-3">
         <Etiqueta className="mb-2">{t("Encuadre")}</Etiqueta>

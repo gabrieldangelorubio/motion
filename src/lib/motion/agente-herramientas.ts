@@ -19,6 +19,7 @@ import { CATEGORIAS, escalonadoSano, nombresPresets, PRESETS } from "@/lib/motio
 import { EASINGS, esEasingConocido } from "@/lib/motion/easings-puro";
 import { derivarPantalla } from "@/lib/motion/derivar-puro";
 import { describirEstilo, estiloDePieza } from "@/lib/motion/estilo-puro";
+import { conFormato } from "@/lib/motion/formato-puro";
 import { EASINGS_GSAP_DESTACADOS } from "@/lib/motion/easings-gsap";
 import { validar } from "@/lib/motion/validar-puro";
 
@@ -175,7 +176,12 @@ export function ejecutarHerramienta(
               ? undefined
               : clamp(Math.round(numero(input.fpsAnimacion, 12)), 2, 60),
       };
-      return exito(nueva, `composición ajustada${nueva.fpsAnimacion !== comp.fpsAnimacion ? ` (animación a ${nueva.fpsAnimacion ?? "fps suaves"}${nueva.fpsAnimacion ? "fps" : ""})` : ""}`);
+      const conTamano =
+        input.ancho !== undefined || input.alto !== undefined
+          ? conFormato(nueva, numero(input.ancho, nueva.ancho), numero(input.alto, nueva.alto))
+          : nueva;
+      const cambioFormato = conTamano.ancho !== comp.ancho || conTamano.alto !== comp.alto;
+      return exito(conTamano, `composición ajustada${nueva.fpsAnimacion !== comp.fpsAnimacion ? ` (animación a ${nueva.fpsAnimacion ?? "fps suaves"}${nueva.fpsAnimacion ? "fps" : ""})` : ""}${cambioFormato ? ` (formato ${conTamano.ancho}×${conTamano.alto})` : ""}`);
     }
 
     case "agregar_capa_texto": {
@@ -561,11 +567,13 @@ export const DEFINICIONES_HERRAMIENTAS = [
   },
   {
     name: "ajustar_composicion",
-    description: "Cambia duración total (ms), color de fondo, nombre o fpsAnimacion de la composición. fpsAnimacion = look STOP-MOTION/dibujado a mano: cuantiza TODO el movimiento a esa grilla (12 = animar «en doses», 8 = más marcado); 0 lo apaga y vuelve el movimiento suave.",
+    description: "Cambia duración total (ms), color de fondo, nombre, FORMATO del render (ancho/alto en px: 1920×1080 = 16:9, 1080×1920 = 9:16, 1080×1080 = 1:1 — es del proyecto, las pantallas del lienzo no cambian, la cámara encuadra) o fpsAnimacion de la composición. fpsAnimacion = look STOP-MOTION/dibujado a mano: cuantiza TODO el movimiento a esa grilla (12 = animar «en doses», 8 = más marcado); 0 lo apaga y vuelve el movimiento suave.",
     input_schema: {
       type: "object",
       properties: {
         duracion: { type: "number" },
+        ancho: { type: "number", description: "ancho del render en px" },
+        alto: { type: "number", description: "alto del render en px" },
         fondo: { type: "string", description: "color CSS, ej #0c0c11" },
         nombre: { type: "string" },
         fpsAnimacion: { type: "number", description: "fps del MOVIMIENTO (2-60; 12 = stop-motion clásico); 0 = apagar" },

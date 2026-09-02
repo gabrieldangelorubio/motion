@@ -13,6 +13,25 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] FORMATO del render: decisión del proyecto, no de la pantalla importada (2026-09-01, F1)
+- **Pedido de Gabriel (importó una landing de 9000px de alto y el render
+  quedó «gigante, alargadísimo»):** la primera pantalla importada pisaba
+  ancho/alto de la composición. Ahora el formato es del PROYECTO:
+  `formato-puro.ts` (presets 16:9/9:16/1:1/4:5 + a medida, acotado
+  64-8192; `formatoDe`, `conFormato`), selector en la tarjeta de arranque
+  y sección «Formato del render» en el inspector de cámara (presets,
+  ancho/alto, botón «Encuadrar la pantalla»); importar NUNCA cambia el
+  formato — la pantalla entra al lienzo y la cámara la encuadra
+  automáticamente (`encuadreDePantalla`: una PÁGINA —alto > 3× ancho— se
+  ve a lo ancho desde arriba para bajar después; lo demás entero y
+  centrado); `ajustar_composicion` acepta ancho/alto (el director puede
+  fijar el formato). Verificado: 4 tests + sabotaje 46 (página tratada
+  como contain → rojo exacto) + Playwright 6/6 (tarjeta, import 390×844
+  deja 16:9 con zoom 128% centrado, cambio a 9:16 y re-encuadre). 351
+  tests.
+- **Sigue abierto:** export de secuencia PNG POR PANTALLA (cada placa su
+  frame, sin cámara) para el pipeline con AE.
+
 ### [HECHO] DISEÑO D1+D2: el estilo de la pieza y derivar pantallas (2026-09-01)
 - **Hecho (Gabriel: «dale, démosle forma»):** D1 — `estilo-puro.ts`:
   `estiloDePieza(comp)` lee el sistema implícito de la composición

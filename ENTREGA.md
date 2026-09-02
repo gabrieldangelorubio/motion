@@ -701,7 +701,7 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
 
 ## Tests y sabotajes
 
-- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **347
+- `npm test` → `node --import tsx --test tests/motion/*.test.ts` — **351
   tests, 0 fallos**, sin base ni secretos. Fixture completo en
   `tests/motion/fixtures/composicion-ejemplo.json`; los de
   trazos/revelado/cámara en `tests/motion/trazo-revelar-camara.test.ts`;
@@ -786,7 +786,9 @@ El `UPDATE` del guardado es condicional por rev, como los otros dos lienzos:
   GSAP sin la conversión ms→segundos → fallaron exactos los tests de
   PARIDAD contra el evaluador clásico. (45) pistas x/y sin desplazar al
   derivar una pantalla → falló exactamente «pistas ABSOLUTAS desplazadas
-  con la pantalla». Restaurados, todos verdes. El video de referencia
+  con la pantalla». (46) esPagina apagado (una landing encuadrada
+  «contain», diminuta) → falló exacto el test del encuadre. Restaurados,
+  todos verdes. El video de referencia
   además se verificó END-TO-END en Chromium real (Playwright: webm
   generado en la página → subido por el botón → capa al fondo con chip
   REF → el canvas pinta el FRAME del video, pixel verificado → el archivo

@@ -39,6 +39,8 @@ import {
 } from "@/lib/motion/herramientas-puro";
 import { camaraEn, sinCapasReferencia } from "@/lib/motion/evaluar-puro";
 import { estadoVivo } from "@/lib/motion/motor-gsap";
+import { FORMATOS, conFormato, encuadreDePantalla, formatoDe } from "@/lib/motion/formato-puro";
+import { esPlaca } from "@/lib/motion/estilo-puro";
 // olvidarVideo queda para la migración al catálogo: borrar la capa NO borra
 // el archivo local (el undo la puede traer de vuelta, como las fuentes)
 import { cargarVideoGuardado, recordarVideo } from "@/lib/motion/video-guardado";
@@ -1561,14 +1563,16 @@ export function Editor({
   const importarDeFigma = useCallback((pantallas: PantallaImportada[]) => {
     if (!pantallas.length) return;
     registrar();
-    // Paradigma canvas: la primera pantalla del lote define el frame de
-    // render (si el lienzo está vacío) y las demás conservan su disposición
-    // relativa de Figma; sobre un lienzo con contenido, el lote ENTERO se
-    // suma a la derecha. TODA pantalla entra por sumarAlLienzo, así queda
-    // agrupada con su placa (arrastrás la placa = movés la pantalla entera).
+    // Paradigma canvas: el FORMATO del render es del proyecto (16:9, 9:16…)
+    // y una pantalla importada NUNCA lo pisa — entra al lienzo como pantalla
+    // y la cámara la encuadra adentro (una landing de 9000px de alto se ve a
+    // lo ancho desde arriba). El lote conserva su disposición relativa de
+    // Figma; sobre un lienzo con contenido, el lote ENTERO se suma a la
+    // derecha. TODA pantalla entra por sumarAlLienzo, así queda agrupada con
+    // su placa (arrastrás la placa = movés la pantalla entera).
     const actual = compRef.current;
     const seSuma = actual.capas.length > 0;
-    let comp: Composicion = seSuma ? actual : { ...pantallas[0].resultado.composicion, capas: [] };
+    let comp: Composicion = actual;
     const origenX = seSuma ? Math.ceil(bordeDerechoLienzo(actual) + 200) : 0;
     const reajustes: ResultadoImport["reajustes"] = [];
     const anclas: ResultadoImport["anclas"] = [];
@@ -1577,6 +1581,15 @@ export function Editor({
       comp = paso.composicion;
       reajustes.push(...paso.reajustes);
       anclas.push(...paso.anclas);
+    }
+    if (!seSuma) {
+      // la primera pantalla del proyecto: la cámara arranca encuadrándola
+      // en el formato elegido (sin keyframes: solo la base)
+      const placa = comp.capas.find(esPlaca);
+      if (placa && placa.tipo === "forma") {
+        const base = encuadreDePantalla(comp, { x: placa.x, y: placa.y, ancho: placa.ancho, alto: placa.alto });
+        comp = { ...comp, camara: { ...(comp.camara ?? { pistas: {} }), base } };
+      }
     }
     anclasRef.current = anclas.map((a) => ({ ...a }));
     const final = anclarTextos(reajustarTextos(medirTrazos(comp), reajustes));
@@ -1652,6 +1665,25 @@ export function Editor({
     setComposicion(comp);
     setSeleccionIds([]);
     setSeleccionId(null);
+  }, [registrar]);
+
+  // ——— FORMATO del render: decisión del proyecto (ver formato-puro) ———
+  const cambiarFormato = useCallback((ancho: number, alto: number) => {
+    const nueva = conFormato(compRef.current, ancho, alto);
+    if (nueva.ancho === compRef.current.ancho && nueva.alto === compRef.current.alto) return;
+    registrar();
+    setComposicion(nueva);
+  }, [registrar]);
+
+  // encuadra la PRIMERA pantalla del lienzo en el formato actual (base de
+  // cámara; los keyframes, si los hay, quedan)
+  const encuadrarPantalla = useCallback(() => {
+    const comp = compRef.current;
+    const placa = comp.capas.find(esPlaca);
+    if (!placa || placa.tipo !== "forma") return;
+    registrar();
+    const base = encuadreDePantalla(comp, { x: placa.x, y: placa.y, ancho: placa.ancho, alto: placa.alto });
+    setComposicion({ ...comp, camara: { ...(comp.camara ?? { pistas: {} }), base } });
   }, [registrar]);
 
   // ⌘A: todas las capas reales (el video de referencia no es operable)
@@ -1936,6 +1968,18 @@ export function Editor({
                     ? t("El audio ya está: traé el diseño de Figma o una imagen, o cortá la locución en escenas sobre la onda.")
                     : t("Subí la voz en off para marcar el tempo — la escena toma su largo solo — o arrancá por el diseño.")}
                 </p>
+                <div className="mt-3">
+                  <div className="mb-1 text-[11px] font-medium uppercase tracking-[0.02em] text-foreground/50">{t("Formato del render")}</div>
+                  <Segmentado
+                    etiquetaAria={t("Formato del render")}
+                    valor={formatoDe(composicion)}
+                    opciones={FORMATOS.map((f) => ({ valor: f.id, nombre: f.id }))}
+                    onCambio={(v) => {
+                      const f = FORMATOS.find((x) => x.id === v);
+                      if (f) cambiarFormato(f.ancho, f.alto);
+                    }}
+                  />
+                </div>
                 <div className="mt-3 flex flex-col gap-1.5">
                   {!audio && (
                     <button
@@ -2249,6 +2293,8 @@ export function Editor({
               onQuitar={quitarCamara}
               onCheckpoint={registrar}
               onTemblor={definirTemblor}
+              onFormato={cambiarFormato}
+              onEncuadrarPantalla={encuadrarPantalla}
             />
           ) : (
             <Inspector
