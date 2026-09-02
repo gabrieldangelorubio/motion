@@ -41,6 +41,18 @@ test("mensajeDeRevision nombra los tiempos y el protocolo APROBADO / Corregí:",
   assert.match(msg, /REVISIÓN VISUAL AUTOMÁTICA/);
 });
 
+test("mensajeDeRevision suma el bloque de AUDITORÍA cuando hay hallazgos y no lo menciona si no hay", () => {
+  const limpio = mensajeDeRevision([880]);
+  assert.ok(!limpio.includes("AUDITORÍA DE DIRECCIÓN"));
+  assert.ok(limpio.includes("REGLA DE ORO"), "la revisión siempre recuerda la regla de oro");
+  const conHallazgos = mensajeDeRevision([880], ["MONOTONÍA: «revelar» en 9 de 14 entradas (64%)."]);
+  assert.ok(conHallazgos.includes("AUDITORÍA DE DIRECCIÓN"));
+  assert.ok(conHallazgos.includes("- MONOTONÍA: «revelar» en 9 de 14"));
+  assert.ok(conHallazgos.includes("JAMÁS respondas «APROBADO»"));
+  // el protocolo sigue intacto
+  assert.ok(conHallazgos.includes("Corregí:"));
+});
+
 test("esAprobado reconoce el visto bueno y no confunde correcciones", () => {
   assert.ok(esAprobado("APROBADO"));
   assert.ok(esAprobado("  Aprobado.  "));

@@ -13,6 +13,44 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] REGLA DE ORO del motion grapher: prompt + auditoría medida + pensamiento a fondo (2026-09-02, G2c)
+- **Pedido de Gabriel (con el log de la landing de lemlist: 41 ops, casi todo
+  revelar/pop/deslizar, cámara descentrada, «pensó 41 tokens» en los pasos):**
+  «el orquestador tiene que pensar más… tiene que ser un motion grapher: ver
+  un logo, entenderlo y animarlo con animaciones secundarias, capa por capa,
+  escalonado… que use la gran mayoría de las herramientas, que no sea vago
+  (escala + bounce o fade), dinámico, profesional, premium. Regla
+  superestricta de todo lo que hagamos de ahora en adelante».
+- **Prompt:** el SISTEMA abre con `# REGLA DE ORO (superestricta)`: leer la
+  pantalla como sistemas (logo = símbolo + wordmark + destello), capa por
+  capa y escalonado con solape 30-50 %, animación secundaria + follow-through,
+  caja de herramientas completa con cuotas duras (≥5 entradas → ningún preset
+  >45 %, ≥3 familias, easings y duraciones por rol), una coreografía a medida
+  por pieza, cámara narradora sin tramos muertos >2 s, prohibiciones
+  explícitas, resumen que nombra la idea coreográfica.
+- **Auditoría medida (`auditoria-puro.ts`, TOKENOMICS: el script verifica
+  antes que el modelo):** `auditarDireccion(comp)` mide monotonía (>45 %),
+  plantilla (aparecer/escalar/pop ≥60 %), pocas familias (<3 con ≥6),
+  easing único, duración única, división sin escalonado, tiempo muerto
+  (hueco > máx(2 s, 25 %) sin entrada/salida/pista/viaje de cámara — los
+  holds y el temblor NO cuentan), sin coreografía propia (ninguna pista de
+  3+ kf ni cámara), cámara quieta con ≥2 placas, y «nada se mueve». Los
+  hallazgos viajan en `mensajeDeRevision(tiempos, auditoria)` como bloque
+  «AUDITORÍA DE DIRECCIÓN» (hechos con números, no opiniones) y con ellos
+  el director no puede responder APROBADO; el log del panel los lista.
+  Fondos a pantalla completa y placas quedan fuera del conteo.
+- **Pensamiento:** Gemini 3.x va con `thinkingLevel: "high"` (con el
+  presupuesto dinámico Flash elegía pensar 30-40 tokens en los pasos de
+  ejecución); escalera alto → dinámico → apagado ante cada 400 que nombre
+  thinking, en el director y en el analista. El nivel «fino» (Claude) va con
+  `thinking: adaptive` + `effort: xhigh`. El log ya muestra «pensó N tokens»
+  por paso: ahí se verifica.
+- **Pendiente de medir con Gabriel:** el mismo pedido de la landing con la
+  regla puesta — cuántos hallazgos da la auditoría en la primera pasada y si
+  la revisión los cierra en ≤2 rondas. Si la auditoría queda demasiado
+  estricta para piezas chicas, los umbrales están en constantes al tope del
+  archivo.
+
 ### [HECHO] El formato es SOLO la cámara: sin caja de fondo en el mundo, encuadre visible, director que centra en la pantalla (2026-09-01, F1b)
 - **Ronda de Gabriel («el 16:9 me crea una caja nueva que no tiene nada
   que ver», «la cámara deseleccionada casi no se ve», «la animación quedó

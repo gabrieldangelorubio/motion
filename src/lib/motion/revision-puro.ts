@@ -9,6 +9,7 @@
 ----------------------------------------------------------------------------- */
 
 import type { Composicion } from "@/lib/motion/modelo";
+import { bloqueDeAuditoria } from "@/lib/motion/auditoria-puro";
 
 /** Un frame renderizado listo para viajar al modelo multimodal. */
 export type ImagenRevision = { mime: string; datosBase64: string };
@@ -45,7 +46,8 @@ export function tiemposDeRevision(comp: Composicion, max = 4): number[] {
 
 /** El turno de revisión que acompaña a los frames. No es un pedido del
     usuario: es el director mirándose el trabajo antes de entregar. */
-export function mensajeDeRevision(tiempos: number[]): string {
+export function mensajeDeRevision(tiempos: number[], auditoria: string[] = []): string {
+  const bloque = bloqueDeAuditoria(auditoria);
   return `REVISIÓN VISUAL AUTOMÁTICA (no es un pedido nuevo del usuario: es tu control de calidad antes de entregar). Adjunto ${tiempos.length} frames del RENDER REAL de lo que quedó, en t = ${tiempos.map((t) => `${t}ms`).join(", ")} (en ese orden).
 
 Miralos como director:
@@ -53,7 +55,8 @@ Miralos como director:
 - ¿Textos encimados, ilegibles o tapados por otra capa?
 - ¿Capas que deberían animarse y se ven IGUALES en todos los frames (quietas, o que aparecen de golpe sin animación)?
 - ¿Algo del pedido original que falta?
-
+- ¿Cumple la REGLA DE ORO (capa por capa, escalonado, animación secundaria, variedad de familias y easings, cámara narradora)? Una pieza que se ve a plantilla no se aprueba aunque nada desborde.
+${bloque ? `\n${bloque}\n` : ""}
 Si está todo bien, respondé EXACTAMENTE «APROBADO» y nada más.
 Si hay problemas, corregilos ahora con las herramientas (ajustes puntuales sobre lo hecho — jamás rehacer la escena) y terminá con una línea por corrección, empezando por «Corregí:».`;
 }

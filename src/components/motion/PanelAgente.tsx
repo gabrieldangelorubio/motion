@@ -18,6 +18,7 @@
 import { useRef, useState, useEffect } from "react";
 import { costoUSD, formatearCosto, formatearTokens, type UsoTokens } from "@/lib/motion/costo-agente-puro";
 import { esAprobado, mensajeDeRevision, tiemposDeRevision, type ImagenRevision } from "@/lib/motion/revision-puro";
+import { auditarDireccion } from "@/lib/motion/auditoria-puro";
 import { referenciaDeArchivo, type ReferenciaAdjunta } from "@/lib/motion/referencias";
 import { deserializar } from "@/lib/motion/serializar-puro";
 import { t } from "@/lib/i18n/stub";
@@ -320,8 +321,13 @@ export function PanelAgente({
         for (let ronda = 1; ronda <= 2; ronda++) {
           let tiempos: number[] = [];
           let frames: ImagenRevision[] = [];
+          // la regla de oro MEDIDA (auditoria-puro): viaja con los frames
+          // como hechos que el director tiene que corregir antes de aprobar
+          let auditoria: string[] = [];
           try {
-            tiempos = tiemposDeRevision(deserializar(snapshotVivo));
+            const compViva = deserializar(snapshotVivo);
+            tiempos = tiemposDeRevision(compViva);
+            auditoria = auditarDireccion(compViva);
             frames = await renderizarFrames(snapshotVivo, tiempos);
           } catch {
             break; // sin frames no hay revisión — el resultado ya está aplicado
@@ -329,11 +335,15 @@ export function PanelAgente({
           if (frames.length === 0) break;
           const ts = ((performance.now() - t0) / 1000).toFixed(1);
           log.push(`[+${ts}s] revisión ${ronda}: mirando ${frames.length} frames (${tiempos.map((x) => `${x}ms`).join(", ")})`);
+          if (auditoria.length > 0) {
+            log.push(`[+${ts}s] auditoría de dirección: ${auditoria.length} hallazgo(s)`);
+            for (const h of auditoria) log.push(`  · ${h}`);
+          }
           setProgreso({ paso: 0, ultimaOp: t("revisión visual {n}: mirando el render…", { n: ronda }) });
           // la revisión NO manda nivel: mirar frames y hacer retoques es
           // tarea del modelo barato, aunque el planteo haya sido fino
           const { fin: finR, pasos: pasosR } = await pedirAlAgente(
-            { composicionId, snapshot: snapshotVivo, mensaje: mensajeDeRevision(tiempos), historial: historialVivo, imagenes: frames },
+            { composicionId, snapshot: snapshotVivo, mensaje: mensajeDeRevision(tiempos, auditoria), historial: historialVivo, imagenes: frames },
             log,
             t0,
           );

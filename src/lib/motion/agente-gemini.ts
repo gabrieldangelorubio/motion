@@ -61,12 +61,32 @@ export function partesDeUsuario(texto: string, imagenes?: ImagenRevision[]): Par
   ];
 }
 
-/** El PENSAMIENTO de Gemini a fondo: presupuesto DINÁMICO (-1) — el modelo
-    razona lo que el paso pida en vez del default conservador de Flash. Sólo
-    para las familias que lo soportan (2.5+, 3.x); para el resto no se manda
-    nada. Pura: testeable. */
-export function configGeneracion(modelo: string): { thinkingConfig: { thinkingBudget: number } } | undefined {
-  return /^gemini-(2\.5|[3-9])/.test(modelo) ? { thinkingConfig: { thinkingBudget: -1 } } : undefined;
+/** Cuánto pensar: «alto» es el máximo de la familia 3.x (thinkingLevel
+    high — con el presupuesto dinámico Flash decidía pensar 30-40 tokens en
+    los pasos de ejecución, visto en el log), «dinamico» es el presupuesto -1
+    de la 2.5 (y el fallback si un 3.x rechaza thinkingLevel), «apagado» no
+    manda nada. La escalera baja un peldaño por cada 400 que nombre thinking:
+    degradar, no romper. */
+export type NivelPensamiento = "alto" | "dinamico" | "apagado";
+
+export function bajarPensamiento(nivel: NivelPensamiento): NivelPensamiento {
+  return nivel === "alto" ? "dinamico" : "apagado";
+}
+
+/** El PENSAMIENTO de Gemini a fondo. Sólo para las familias que lo soportan
+    (2.5+, 3.x); para el resto no se manda nada. Pura: testeable. */
+export function configGeneracion(
+  modelo: string,
+  nivel: NivelPensamiento = "alto",
+): { thinkingConfig: { thinkingLevel: "high" } | { thinkingBudget: number } } | undefined {
+  if (nivel === "apagado") return undefined;
+  if (/^gemini-[3-9]/.test(modelo)) {
+    return nivel === "alto"
+      ? { thinkingConfig: { thinkingLevel: "high" } }
+      : { thinkingConfig: { thinkingBudget: -1 } };
+  }
+  if (/^gemini-2\.5/.test(modelo)) return { thinkingConfig: { thinkingBudget: -1 } };
+  return undefined;
 }
 
 /** Cuando Gemini retira un modelo devuelve 404 con el reemplazo adentro
@@ -113,10 +133,10 @@ export async function analizarVideoGemini(opts: {
   let modeloVivo = opts.modelo;
   let reintentoModelo = false;
   let conFps = true;
-  let conPensamiento = true;
+  let pensamiento: NivelPensamiento = "alto";
   let ultimoDetalle = "";
-  // 4 intentos: alcanza para 404-modelo + 400-fps + 400-thinking + éxito
-  for (let intento = 0; intento < 4; intento++) {
+  // 5 intentos: alcanza para 404-modelo + 400-fps + 2×400-thinking + éxito
+  for (let intento = 0; intento < 5; intento++) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modeloVivo)}:generateContent`;
       const res = await fetch(url, {
@@ -124,8 +144,8 @@ export async function analizarVideoGemini(opts: {
         headers: { "content-type": "application/json", "x-goog-api-key": opts.apiKey },
         body: JSON.stringify({
           contents: [{ role: "user", parts: partesDeVideo(opts.mime, opts.datosBase64, opts.prompt, conFps ? 10 : undefined) }],
-          ...(conPensamiento && configGeneracion(modeloVivo)
-            ? { generationConfig: configGeneracion(modeloVivo) }
+          ...(configGeneracion(modeloVivo, pensamiento)
+            ? { generationConfig: configGeneracion(modeloVivo, pensamiento) }
             : {}),
         }),
         // el analista corre DENTRO del presupuesto del turno (maxDuration):
@@ -146,8 +166,8 @@ export async function analizarVideoGemini(opts: {
           continue;
         }
         // mismo retry que loopGemini: modelo que rechaza thinkingConfig
-        if (res.status === 400 && conPensamiento && /thinking/i.test(detalle)) {
-          conPensamiento = false;
+        if (res.status === 400 && pensamiento !== "apagado" && /thinking/i.test(detalle)) {
+          pensamiento = bajarPensamiento(pensamiento);
           continue;
         }
         return { ok: false, error: `El analista (${modeloVivo}) respondió ${ultimoDetalle}` };
@@ -201,9 +221,9 @@ export async function loopGemini(opts: {
   let usoTotal: UsoTokens = { entrada: 0, salida: 0 };
   let modeloVivo = opts.modelo;
   let reintentoModelo = false;
-  // pensamiento dinámico prendido; si el modelo lo rechaza (400 que nombra
-  // thinking) se apaga y se reintenta UNA vez — degradar, no romper
-  let conPensamiento = true;
+  // pensamiento ALTO de entrada; cada 400 que nombre thinking baja un
+  // peldaño (alto → dinámico → apagado) y reintenta — degradar, no romper
+  let pensamiento: NivelPensamiento = "alto";
   const tools = herramientasParaGemini(opts.herramientas);
 
   const contents: ContenidoGemini[] = [
@@ -224,8 +244,8 @@ export async function loopGemini(opts: {
         systemInstruction: { parts: [{ text: opts.sistema }] },
         contents,
         tools,
-        ...(conPensamiento && configGeneracion(modeloVivo)
-          ? { generationConfig: configGeneracion(modeloVivo) }
+        ...(configGeneracion(modeloVivo, pensamiento)
+          ? { generationConfig: configGeneracion(modeloVivo, pensamiento) }
           : {}),
       }),
     });
@@ -239,9 +259,9 @@ export async function loopGemini(opts: {
         iteracion--;
         continue;
       }
-      // el modelo no acepta thinkingConfig: se apaga y se sigue sin él
-      if (res.status === 400 && conPensamiento && /thinking/i.test(detalle)) {
-        conPensamiento = false;
+      // el modelo no acepta este thinkingConfig: un peldaño menos y de nuevo
+      if (res.status === 400 && pensamiento !== "apagado" && /thinking/i.test(detalle)) {
+        pensamiento = bajarPensamiento(pensamiento);
         iteracion--;
         continue;
       }

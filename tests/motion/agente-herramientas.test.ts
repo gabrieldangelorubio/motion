@@ -317,13 +317,24 @@ test("partesDeUsuario arma imágenes ANTES del texto para el turno multimodal de
   assert.deepEqual(partesDeUsuario("hola"), [{ text: "hola" }]);
 });
 
-test("configGeneracion: pensamiento dinámico para los Gemini que lo soportan, nada para el resto", async () => {
+test("configGeneracion: thinkingLevel high para los 3.x, presupuesto dinámico para 2.5, nada para el resto", async () => {
   const { configGeneracion } = await import("@/lib/motion/agente-gemini");
-  assert.deepEqual(configGeneracion("gemini-3.6-flash"), { thinkingConfig: { thinkingBudget: -1 } });
+  assert.deepEqual(configGeneracion("gemini-3.6-flash"), { thinkingConfig: { thinkingLevel: "high" } });
+  assert.deepEqual(configGeneracion("gemini-4.0-pro"), { thinkingConfig: { thinkingLevel: "high" } });
+  // la 2.5 no conoce thinkingLevel: presupuesto dinámico
   assert.deepEqual(configGeneracion("gemini-2.5-flash"), { thinkingConfig: { thinkingBudget: -1 } });
-  assert.deepEqual(configGeneracion("gemini-4.0-pro"), { thinkingConfig: { thinkingBudget: -1 } });
   assert.equal(configGeneracion("gemini-2.0-flash"), undefined);
   assert.equal(configGeneracion("gemini-1.5-pro"), undefined);
+});
+
+test("la escalera de pensamiento baja alto → dinámico → apagado y cada peldaño cambia el request", async () => {
+  const { configGeneracion, bajarPensamiento } = await import("@/lib/motion/agente-gemini");
+  assert.equal(bajarPensamiento("alto"), "dinamico");
+  assert.equal(bajarPensamiento("dinamico"), "apagado");
+  assert.equal(bajarPensamiento("apagado"), "apagado");
+  assert.deepEqual(configGeneracion("gemini-3.6-flash", "dinamico"), { thinkingConfig: { thinkingBudget: -1 } });
+  assert.equal(configGeneracion("gemini-3.6-flash", "apagado"), undefined);
+  assert.equal(configGeneracion("gemini-2.5-flash", "apagado"), undefined);
 });
 
 test("modeloDirector con nivel «fino» sube a Opus (o al MODELO_FINO del entorno)", async () => {
