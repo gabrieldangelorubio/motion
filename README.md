@@ -14,6 +14,9 @@ npm test           # 340 tests puros (node:test + tsx, sin base)
 npx tsc --noEmit && npx eslint src tests
 ```
 
+Después de cada `git pull`, si el editor rompe con «Module not found», es
+`npm install`: alguna tanda trajo una dependencia nueva (gsap, por ejemplo).
+
 > **FORK GSAP (2026-09-01):** esta rama corre con **GSAP de motor** — la
 > línea de tiempo de la composición es un `gsap.timeline` pausado sobre
 > proxies de valores (`motor-gsap.ts`), seekeado determinista, con el
