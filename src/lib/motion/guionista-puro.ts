@@ -17,7 +17,9 @@
 
 import type { Composicion } from "@/lib/motion/modelo";
 import type { TurnoAgente } from "@/lib/motion/agente";
-import { validarGuion, type PasoGuion } from "@/lib/motion/guion-puro";
+import { aplicarGuion, validarGuion, type PasoGuion } from "@/lib/motion/guion-puro";
+import { encuadrarEnPantalla } from "@/lib/motion/encuadres-puro";
+import { auditarDireccion } from "@/lib/motion/auditoria-puro";
 
 export type ModoDirector = "guion" | "iterativo";
 
@@ -105,6 +107,30 @@ export function parsearGuion(texto: string): GuionParseado | { error: string } {
       ? ((crudo as { guion: unknown[] }).guion.filter((l) => typeof l === "string") as string[])
       : [];
   return { guion, pasos };
+}
+
+/** Un guion EXTERNO (el archivo que escribió Fable, o uno a mano) aplicado
+    sobre la composición tal como lo haría el director en dos fases:
+    parsear, validar, ejecutar, encuadre automático si no hay escenas
+    marcadas, y la auditoría. Sin modelo. Lo usa el botón «Aplicar guion»
+    del panel: la comparativa Gemini vs Fable se hace con esto. */
+export function aplicarGuionExterno(
+  comp: Composicion,
+  texto: string,
+): { ok: true; comp: Composicion; guion: string[]; informe: string[]; errores: number; auditoria: string[] } | { ok: false; error: string } {
+  const parseado = parsearGuion(texto);
+  if ("error" in parseado) return { ok: false, error: parseado.error };
+  const aplicado = aplicarGuion(comp, parseado.pasos);
+  let viva = aplicado.comp;
+  const informe = [...aplicado.informe];
+  if (!(viva.encuadres?.length)) {
+    const enc = encuadrarEnPantalla(viva);
+    if (enc.ajustes > 0) {
+      viva = enc.comp;
+      informe.push(`✓ ·· encuadre automático: ${enc.ajustes} valor(es) de cámara corregidos para que lo visible caiga dentro de la pantalla`);
+    }
+  }
+  return { ok: true, comp: viva, guion: parseado.guion, informe, errores: aplicado.errores, auditoria: auditarDireccion(viva) };
 }
 
 /** El segundo turno: qué dio error y qué marcó la auditoría, para que el

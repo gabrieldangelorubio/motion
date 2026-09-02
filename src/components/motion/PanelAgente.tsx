@@ -19,6 +19,8 @@ import { useRef, useState, useEffect } from "react";
 import { costoUSD, formatearCosto, formatearTokens, type UsoTokens } from "@/lib/motion/costo-agente-puro";
 import { esAprobado, mensajeDeRevision, tiemposDeRevision, type ImagenRevision } from "@/lib/motion/revision-puro";
 import { auditarDireccion } from "@/lib/motion/auditoria-puro";
+import { aplicarGuionExterno } from "@/lib/motion/guionista-puro";
+import { serializar } from "@/lib/motion/serializar-puro";
 import { referenciaDeArchivo, type ReferenciaAdjunta } from "@/lib/motion/referencias";
 import { deserializar } from "@/lib/motion/serializar-puro";
 import { t } from "@/lib/i18n/stub";
@@ -80,6 +82,40 @@ export function PanelAgente({
   // «fino» = Opus para el planteo creativo — la revisión visual y las
   // correcciones siguen yendo al barato aunque el planteo sea fino
   const [nivel, setNivel] = useState<NivelDirector>("rapido");
+  const entradaGuionRef = useRef<HTMLInputElement>(null);
+
+  // GUION EXTERNO: un archivo .json con {guion, pasos} (el que escribe Fable
+  // desde el chat de desarrollo) se aplica sin modelo, con el mismo
+  // ejecutor, el encuadre automático y la auditoría — la comparativa
+  // Gemini vs Fable se mira en el mismo editor
+  const aplicarGuionDeArchivo = async (archivo: File) => {
+    if (pensando) return;
+    setError(null);
+    let texto = "";
+    try {
+      texto = await archivo.text();
+    } catch {
+      setError(t("No se pudo leer el archivo"));
+      return;
+    }
+    const comp = deserializar(obtenerSnapshot());
+    const res = aplicarGuionExterno(comp, texto);
+    if (!res.ok) {
+      setError(t("Guion inválido: {error}", { error: res.error }));
+      return;
+    }
+    const ops = res.informe.filter((l) => l.startsWith("✓")).map((l) => l.replace(/^✓ (\d+|··) /, "").replace(/\s+\[.*\]$/, ""));
+    onAplicar(serializar(res.comp), ops);
+    const cabecera = t("GUION IMPORTADO «{archivo}»: {n} pasos, {e} con error", { archivo: archivo.name, n: String(res.informe.length), e: String(res.errores) });
+    const cuerpo = [...res.guion, "", ...res.informe.filter((l) => l.startsWith("✗")), ...(res.auditoria.length ? ["", t("Auditoría:"), ...res.auditoria.map((h) => `- ${h}`)] : [])].join("\n").trim();
+    setMensajes((m) => [
+      ...m,
+      { rol: "usuario", texto: cabecera },
+      { rol: "agente", texto: cuerpo || t("Aplicado sin errores ni hallazgos."), ops, meta: t("guion externo · sin modelo") },
+    ]);
+    setUltimoLog([cabecera, ...res.informe, ...(res.auditoria.length ? ["auditoría:", ...res.auditoria.map((h) => `  · ${h}`)] : [])]);
+    requestAnimationFrame(() => listaRef.current?.scrollTo({ top: 1e6 }));
+  };
   // gasto ACUMULADO de la sesión (direcciones + revisiones, todos los
   // modelos): en memoria a propósito — sin localStorage de estado (§2.10);
   // se reinicia al recargar, como un taxímetro de la sentada
@@ -551,6 +587,26 @@ export function PanelAgente({
           onChange={(e) => {
             const archivo = e.target.files?.[0];
             if (archivo) void adjuntarReferencia(archivo);
+            e.target.value = "";
+          }}
+        />
+        <BotonIcono
+          tam={36}
+          etiqueta={t("Aplicar un guion (.json con pasos): se ejecuta sin modelo, con encuadre automático y auditoría")}
+          onClick={() => entradaGuionRef.current?.click()}
+          deshabilitado={pensando}
+        >
+          <span aria-hidden className="font-mono text-[12px] leading-none">{"{}"}</span>
+        </BotonIcono>
+        <input
+          ref={entradaGuionRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          data-testid="entrada-guion"
+          onChange={(e) => {
+            const archivo = e.target.files?.[0];
+            if (archivo) void aplicarGuionDeArchivo(archivo);
             e.target.value = "";
           }}
         />

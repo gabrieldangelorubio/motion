@@ -66,3 +66,32 @@ test("resumenDeGuion cuenta pasos aplicados, errores y rondas", () => {
   assert.ok(r.startsWith("LECTURA. a\nGUION. b"));
   assert.match(r, /Ejecuté 2 pasos del guion \(1 no se pudieron aplicar\) en 2 rondas\./);
 });
+
+test("aplicarGuionExterno: parsea, ejecuta, encuadra automáticamente y audita — sin modelo", async () => {
+  const { aplicarGuionExterno } = await import("@/lib/motion/guionista-puro");
+  let comp = crearComposicion({ nombre: "ext" });
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "p", forma: "rect", x: 720, y: 450, ancho: 1440, alto: 900 }).comp;
+  comp = { ...comp, capas: comp.capas.map((c) => (c.id === "p" ? { ...c, grupo: "p" } : c)) };
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "t", texto: "HOLA", x: 720, y: 300 }).comp;
+  comp = { ...comp, capas: comp.capas.map((c) => (c.id === "t" ? { ...c, grupo: "p" } : c)) };
+  const guion = JSON.stringify({
+    guion: ["LECTURA. una pantalla", "GUION. 4 s"],
+    pasos: [
+      { herramienta: "ajustar_composicion", input: { duracion: 4000 } },
+      { herramienta: "definir_camara", input: { base: { x: 960, y: 450, zoom: 1.33 } } },
+      { herramienta: "definir_entrada", input: { capaId: "t", preset: "subirDesenfocado", en: 200, duracion: 800, easing: "salidaExpo" } },
+      { herramienta: "definir_entrada", input: { capaId: "nope", preset: "subir" } },
+    ],
+  });
+  const res = aplicarGuionExterno(comp, guion);
+  assert.ok(res.ok, res.ok ? "" : res.error);
+  if (!res.ok) return;
+  assert.equal(res.errores, 1);
+  assert.equal(res.guion.length, 2);
+  // el x = 960 se corrigió a 720 por el encuadre automático y quedó anotado
+  assert.equal(res.comp.camara?.base?.x, 720);
+  assert.ok(res.informe.some((l) => l.includes("encuadre automático")));
+  assert.equal(res.comp.capas.find((c) => c.id === "t")?.entrada?.preset, "subirDesenfocado");
+  assert.deepEqual(res.auditoria.filter((h) => h.startsWith("ENCUADRE")), []);
+  assert.match((aplicarGuionExterno(comp, "esto no es json") as { error: string }).error, /no trae JSON/);
+});

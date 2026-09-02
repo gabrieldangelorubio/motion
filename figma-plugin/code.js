@@ -849,13 +849,24 @@ async function exportarSeleccion() {
     "<p>" + titulo + "</p>" +
     '<p>1. Copiá el JSON · 2. En el editor de motion: <b>Importar de Figma</b> · 3. Pegá.</p>' +
     '<textarea id="j" style="width:100%; height:150px; font: 10px monospace" readonly></textarea><br><br>' +
-    '<button id="c" style="padding:8px 16px; cursor:pointer">Copiar JSON</button> <span id="ok"></span>' +
+    '<button id="c" style="padding:8px 16px; cursor:pointer">Copiar JSON</button> ' +
+    '<button id="d" style="padding:8px 16px; cursor:pointer">Descargar JSON</button> <span id="ok"></span>' +
     "<script>" +
     'var j = document.getElementById("j");' +
     "onmessage = function (e) { j.value = e.data.pluginMessage; };" +
     'document.getElementById("c").onclick = function () {' +
     "  j.select(); document.execCommand('copy');" +
     '  document.getElementById("ok").textContent = "copiado ✓";' +
+    "};" +
+    // el archivo tal cual (JSON puro, no RTF): para mandarlo al director
+    // externo sin pasar por el portapapeles ni por TextEdit
+    'document.getElementById("d").onclick = function () {' +
+    "  var nombre = 'pantalla';" +
+    "  try { nombre = (JSON.parse(j.value).frame.nombre || nombre).replace(/[^a-z0-9._-]+/gi, '-'); } catch (e) {}" +
+    "  var a = document.createElement('a');" +
+    "  a.href = URL.createObjectURL(new Blob([j.value], { type: 'application/json' }));" +
+    "  a.download = nombre + '.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a);" +
+    '  document.getElementById("ok").textContent = "descargado ✓";' +
     "};" +
     "</script></div>";
   figma.showUI(html, { width: 440, height: 320 });

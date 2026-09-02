@@ -55,8 +55,13 @@ function normalizar(comp: Composicion): Composicion {
           )
         : undefined,
     })),
+    // la cámara ENTERA: base (el encuadre sin animar) y temblor viajan con
+    // las pistas — antes se reconstruía sólo con pistas y cada ida y vuelta
+    // al server (autosave, director, panel) perdía el encuadre base, que
+    // caía al centro del render
     camara: comp.camara
       ? {
+          ...comp.camara,
           pistas: Object.fromEntries(
             Object.entries(comp.camara.pistas ?? {}).map(([k, v]) => [k, v ? ordenarKeyframes(v) : v]),
           ),

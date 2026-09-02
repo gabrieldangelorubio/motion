@@ -94,3 +94,20 @@ test("encuadrarEnPantalla corrige lo que Flash escribió a ojo: x 960 → 720 y 
   // sin cámara o sin placas, no hace nada
   assert.equal(encuadrarEnPantalla(landing()).ajustes, 0);
 });
+
+test("serializar/deserializar conserva la BASE y el TEMBLOR de la cámara (antes se perdían en cada ida y vuelta)", async () => {
+  const { serializar, deserializar } = await import("@/lib/motion/serializar-puro");
+  let comp = landing();
+  comp = ejecutarHerramienta(comp, "definir_camara", {
+    base: { x: 720, y: 330, zoom: 1.7 },
+    y: [{ t: 2000, v: 330 }, { t: 0, v: 330 }],
+    temblor: { preset: "flotar", intensidad: 0.35, velocidad: 0.8 },
+  }).comp;
+  const vuelta = deserializar(serializar(comp));
+  assert.deepEqual(vuelta.camara?.base, { x: 720, y: 330, zoom: 1.7 });
+  assert.equal(vuelta.camara?.temblor?.preset, "flotar");
+  assert.deepEqual(vuelta.camara?.pistas.y?.map((k) => k.t), [0, 2000], "las pistas siguen ordenadas");
+  assert.deepEqual(vuelta.encuadres, undefined);
+  const conEscenas = marcarEncuadre(comp, { x: 720, y: 330, zoom: 1.7 });
+  assert.equal(deserializar(serializar(conEscenas)).encuadres?.[0].id, "esc-1");
+});

@@ -13,6 +13,30 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Comparativa Gemini vs Fable en el mismo editor: «Descargar JSON» en el plugin y «Aplicar guion» en el panel (2026-09-02)
+- **Pedido de Gabriel:** que el plugin descargue el JSON (no sólo copiarlo),
+  que Fable dirija con ese JSON y devuelva el guion, y que el módulo tenga
+  un botón para importar ese guion y verlo renderizado, para comparar contra
+  Gemini y aprender de la diferencia.
+- **Plugin:** botón «Descargar JSON» junto a «Copiar JSON» (mismo
+  `VERSION_PLUGIN`, es UI): baja `<frame>.json` puro, sin pasar por TextEdit
+  (el primer archivo llegó como RTF y hubo que destilarlo).
+- **Panel del director:** botón `{}` «Aplicar un guion (.json con pasos)»
+  → `aplicarGuionExterno` (guionista-puro): parsea, valida, ejecuta con el
+  mismo ejecutor, encuadre automático si no hay escenas marcadas, auditoría;
+  sin modelo. El chat muestra «GUION IMPORTADO «archivo»: N pasos, E con
+  error» con el guion, los ✗ y la auditoría; el log lleva el informe.
+  Verificado en browser real (`pw/verificar-guion-externo.mjs`).
+- **Bug viejo y serio que destapó el smoke:** `deserializar` reconstruía la
+  cámara sólo con las pistas y TIRABA `base` y `temblor`. Cada ida y vuelta
+  al server (autosave, director, snapshot del panel) perdía el encuadre base
+  de la cámara, que caía al centro del render: parte del «descentrado» de
+  las pruebas de Flash venía de acá, no del modelo. Corregido con test.
+- **Flujo de comparativa:** Descargar JSON → subirlo al chat de desarrollo
+  → Fable escribe el guion (`_andamiaje/director-externo`) → «Aplicar
+  guion» en el mismo editor → render. Mismo pedido a Flash en modo guion →
+  dos piezas sobre la misma pantalla, y los dos guiones como pares de datos.
+
 ### [HECHO] ESCENAS MARCADAS + ENCUADRE AUTOMÁTICO: la geometría de la cámara la pone el código (2026-09-02, G7)
 - **Segunda corrida de Flash en modo guion (log de Gabriel):** guion de 57
   pasos, $0,09, decisiones correctas; la cámara otra vez a ojo (x = 960 en
