@@ -326,7 +326,14 @@ export async function loopGemini(opts: {
       });
     }
     contents.push({ role: "user", parts: respuestas });
-    opts.onEvento?.({ tipo: "paso", iteracion: iteracion + 1, msModelo, ops: opsIteracion, uso: usoPaso });
+    // el texto que vino JUNTO a las herramientas (el guion de lectura) va al
+    // log: se ve qué leyó el director antes de animar
+    const textoPaso = partes
+      .filter((p): p is { text: string } => "text" in p && typeof p.text === "string")
+      .map((p) => p.text)
+      .join("\n")
+      .trim();
+    opts.onEvento?.({ tipo: "paso", iteracion: iteracion + 1, msModelo, ops: opsIteracion, uso: usoPaso, texto: textoPaso || undefined });
   }
 
   return { ok: true, respuesta: "Corté acá para no seguir en bucle — revisá lo aplicado y pedime el siguiente paso.", uso: usoTotal };

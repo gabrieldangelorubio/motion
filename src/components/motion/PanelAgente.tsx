@@ -39,6 +39,7 @@ export function PanelAgente({
   composicionId,
   onAplicar,
   renderizarFrames,
+  renderizarLectura,
 }: {
   obtenerSnapshot: () => string;
   /** la locución de la escena (palabra@ms por línea) para que el director
@@ -53,6 +54,10 @@ export function PanelAgente({
   /** renderiza frames del snapshot con el motor real (el Editor los pinta
       con su media): habilita la REVISIÓN VISUAL automática del director */
   renderizarFrames?: (snapshot: string, tiempos: number[]) => Promise<ImagenRevision[]>;
+  /** renderiza el DISEÑO en reposo, una imagen por pantalla (+ tramos), con
+      el texto que las conecta a sus pantallaId: la LECTURA DE PANTALLA que
+      el director mira antes de animar */
+  renderizarLectura?: (snapshot: string) => Promise<{ imagenes: ImagenRevision[]; contexto: string }>;
 }) {
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [texto, setTexto] = useState("");
@@ -192,7 +197,7 @@ export function PanelAgente({
       resto = lineas.pop() ?? "";
       for (const linea of lineas) {
         if (!linea.trim()) continue;
-        let evento: FinAgente & { tipo?: string; iteracion?: number; msModelo?: number; ms?: number; resumen?: string };
+        let evento: FinAgente & { tipo?: string; iteracion?: number; msModelo?: number; ms?: number; resumen?: string; texto?: string };
         try {
           evento = JSON.parse(linea);
         } catch {
@@ -224,6 +229,8 @@ export function PanelAgente({
               }`
             : "";
           log.push(`[+${ts}s] paso ${evento.iteracion} · modelo ${(((evento.msModelo ?? 0)) / 1000).toFixed(1)}s${tokensPaso}${opsPaso.length ? ` · ${opsPaso.join(" | ")}` : " · respuesta final"}`);
+          // el guion (o cualquier texto junto a las herramientas) se lee acá
+          if (evento.texto) log.push(`  guion: ${evento.texto.replace(/\s+/g, " ").slice(0, 1200)}`);
           setProgreso({ paso: evento.iteracion ?? 0, ultimaOp: opsPaso[opsPaso.length - 1] ?? null });
         } else if (evento.tipo === "fin") {
           log.push(`[+${ts}s] fin${evento.error ? ` con ERROR: ${evento.error}` : ` (${evento.ops?.length ?? 0} ops)`}`);
@@ -275,16 +282,35 @@ export function PanelAgente({
       const log: string[] = [`[+0.0s] pedido: «${pedido.slice(0, 200)}»${refDelPedido ? ` + referencia «${refDelPedido.meta.nombre}» (${refDelPedido.imagenes.length} imgs${refDelPedido.archivo ? " + video para el analista" : ""})` : ""}`];
       setProgreso(refDelPedido?.archivo ? { paso: 0, ultimaOp: t("el analista está viendo el video de la referencia…") } : null);
       setTranscurrido(0);
+      const snapshot = obtenerSnapshot();
+      // LECTURA DE PANTALLA: el diseño en reposo viaja con el pedido — el
+      // director lo mira y escribe el guion antes de animar. Si el render
+      // falla, el pedido sale igual (sin imágenes: degradar, no romper).
+      let lectura: { imagenes: ImagenRevision[]; contexto: string } = { imagenes: [], contexto: "" };
+      try {
+        lectura = (await renderizarLectura?.(snapshot)) ?? lectura;
+      } catch {
+        lectura = { imagenes: [], contexto: "" };
+      }
+      if (lectura.imagenes.length > 0) {
+        const pantallas = new Set(lectura.contexto.match(/pantallaId [^)]+\)/g) ?? []).size;
+        log.push(`[+${((performance.now() - t0) / 1000).toFixed(1)}s] lectura de pantalla: ${lectura.imagenes.length} imagen(es) de ${pantallas} pantalla(s)`);
+      }
+      const imagenesRef = refDelPedido?.imagenes ?? [];
       const { fin, pasos } = await pedirAlAgente(
         {
           composicionId,
-          snapshot: obtenerSnapshot(),
+          snapshot,
           mensaje: pedido,
           historial,
           contextoAudio: obtenerContextoAudio?.(),
           contextoEstilo: obtenerContextoEstilo?.(),
           nivel,
-          imagenes: refDelPedido?.imagenes,
+          imagenes: [...lectura.imagenes, ...imagenesRef],
+          contextoLectura: lectura.contexto
+            ? lectura.contexto.replace(/\nLas \d+ imágenes que siguen[^\n]*/, "") +
+              (imagenesRef.length ? `\nLas ${imagenesRef.length} imágenes que siguen NO son el diseño: son la REFERENCIA ADJUNTA (ver su bloque).` : "")
+            : undefined,
           contextoReferencias: refDelPedido?.contexto,
           // el video ENTERO para el analista (si entró en el límite inline)
           videoReferencia: refDelPedido?.archivo

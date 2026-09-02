@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CanalCamara, Capa, CapaMedia, CapaTexto, CapaVideo, Composicion, Keyframe, NombrePropiedad, Segmento, TemblorCamara } from "@/lib/motion/modelo";
 import { PRESETS, escalonadoSano } from "@/lib/motion/presets-puro";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
+import { planDeLectura, contextoDeLectura } from "@/lib/motion/lectura-puro";
 import {
   CAMARA_ID,
   agregarCapa,
@@ -1387,6 +1388,34 @@ export function Editor({
     });
   }, [obtenerMedia]);
 
+  // LECTURA DE PANTALLA: el director VE el diseño en reposo antes de animar
+  // — una imagen por pantalla (con su fondo), las páginas largas en tramos.
+  // Mismo pintor que el render; lo que ve es lo que hay.
+  const renderizarLectura = useCallback(async (snapshot: string): Promise<{ imagenes: ImagenRevision[]; contexto: string }> => {
+    const comp = sinCapasReferencia(deserializar(snapshot));
+    const plan = planDeLectura(comp);
+    if (plan.length === 0) return { imagenes: [], contexto: "" };
+    const media = obtenerMedia();
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return { imagenes: [], contexto: "" };
+    const imagenes: ImagenRevision[] = [];
+    for (const tramo of plan) {
+      canvas.width = Math.round(tramo.comp.ancho * tramo.escala);
+      canvas.height = Math.round((tramo.yHasta - tramo.yDesde) * tramo.escala);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = tramo.comp.fondo || comp.fondo || "#17171b";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // la escena ya mira la placa entera con su cámara fija: el tramo es
+      // un corrimiento vertical en px de render
+      ctx.setTransform(tramo.escala, 0, 0, tramo.escala, 0, -tramo.yDesde * tramo.escala);
+      pintar(estadoVivo(tramo.comp, 0), ctx as unknown as Contexto2D, media, tramo.escala);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+      imagenes.push({ mime: "image/jpeg", datosBase64: dataUrl.slice(dataUrl.indexOf(",") + 1) });
+    }
+    return { imagenes, contexto: contextoDeLectura(plan) };
+  }, [obtenerMedia]);
+
   // El largo real de un path sólo lo sabe el DOM de SVG (getTotalLength):
   // se mide UNA vez al importar y queda guardado en la capa — el motor puro
   // y el export nunca tocan el DOM. Si algo falla, largo 0 = trazo completo.
@@ -2381,6 +2410,7 @@ export function Editor({
                 composicionId={escenaActiva}
                 obtenerContextoEstilo={() => descripcionSensacion(sensacionRef.current) ?? undefined}
                 renderizarFrames={renderizarFramesRevision}
+                renderizarLectura={renderizarLectura}
                 onAplicar={(snapshot) => {
                   registrar();
                   setComposicion(deserializar(snapshot));

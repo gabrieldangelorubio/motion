@@ -13,6 +13,40 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] LECTURA DE PANTALLA: el director VE el diseño antes de animar (2026-09-02)
+- **Diagnóstico confirmado a Gabriel:** el director NO veía la pantalla al
+  planear. Recibía la descripción textual de las capas (`describir`) y
+  sólo veía imágenes en la revisión visual, DESPUÉS de animar, y eran 4
+  frames del render (lo que ve la cámara). Por eso animaba «los layers»
+  escalonados sin saber qué eran, encuadraba mal y no distinguía un botón
+  de un título.
+- **`lectura-puro.ts`:** `sinAnimacion(comp)` (el diseño en reposo),
+  `planDeLectura(comp)` (una imagen por placa CON su fondo, escalada a 1024
+  de ancho, las páginas largas en tramos verticales de 2048 px de imagen,
+  tope 6 imágenes: primero las pantallas, dentro de cada una el arranque) y
+  `contextoDeLectura` (el bloque «PANTALLAS ADJUNTAS» que conecta cada
+  imagen con su pantallaId y su caja en el lienzo, y separa las imágenes de
+  REFERENCIA que puedan seguir). El editor las pinta con el mismo pintor
+  (`renderizarLectura`) y viajan con el pedido; la ruta las acepta (tope 14
+  imágenes: 6 de lectura + 8 de referencia) y `armarPrimerUsuario` las pone
+  después del estado, antes del pedido.
+- **Regla LECTURA DE PANTALLA en el SISTEMA:** mirar las imágenes ANTES de
+  la primera herramienta y escribir el GUION (qué es la pieza, secciones y
+  protagonistas, qué elementos son sistemas y qué son —un botón se anima
+  como botón, una lista como lista, una cita como cita—, qué palabra va sola
+  por color/peso, orden de lectura, dónde termina cada escena y su encuadre).
+  El texto que el modelo escribe junto a las herramientas ahora viaja en el
+  evento del paso (`texto`) y el log lo muestra como «guion: …» — se ve qué
+  leyó.
+- **Verificado en browser real** (`pw/verificar-lectura.mjs`): al mandar un
+  pedido con la pantalla del fixture, el POST lleva 1 imagen JPEG de 390×844
+  y el bloque con `pantallaId` y caja. 5 tests puros.
+- **Pendiente de medir con Gabriel:** el mismo pedido de lemlist — leer el
+  «guion:» en el log y ver si el orden, los encuadres y el carácter de cada
+  elemento salen de la imagen. Si Flash con la imagen sigue sin criterio, la
+  hipótesis 1 de Gabriel (ve pero no alcanza) pasa a ser la vigente y el
+  camino es el guion externo (Fable) o el nivel «fino».
+
 ### [HECHO] G5: secuencia PNG POR PANTALLA para ensamblar en AE (2026-09-02)
 - **El pipeline del fork:** las animaciones se dirigen acá con GSAP de
   motor; AE sólo ensambla las pantallas y hace los movimientos de cámara

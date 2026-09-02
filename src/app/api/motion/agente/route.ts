@@ -35,6 +35,9 @@ export async function POST(pedido: Request): Promise<Response> {
       imagenes?: { mime?: string; datosBase64?: string }[];
       /** el texto que explica los frames de referencia (opcional) */
       contextoReferencias?: string;
+      /** lectura de pantalla: el bloque que explica las imágenes del diseño
+          que van PRIMERAS en `imagenes` (opcional) */
+      contextoLectura?: string;
       /** el VIDEO de referencia entero, para que el ANALISTA (Gemini) lo
           vea frame a frame antes de dirigir (opcional) */
       videoReferencia?: { mime?: string; datosBase64?: string; nombre?: string; duracionMs?: number };
@@ -58,7 +61,7 @@ export async function POST(pedido: Request): Promise<Response> {
     const contextoAudio =
       typeof cuerpo.contextoAudio === "string" && cuerpo.contextoAudio ? cuerpo.contextoAudio.slice(0, 8000) : undefined;
     // frames saneados (revisión o referencia): pocos, chicos y de tipos
-    // conocidos — 12 banca una referencia de 8 frames + margen
+    // conocidos — 14 banca la lectura de pantalla (6) + una referencia de 8
     const imagenes = (cuerpo.imagenes ?? [])
       .filter(
         (im): im is { mime: string; datosBase64: string } =>
@@ -67,11 +70,13 @@ export async function POST(pedido: Request): Promise<Response> {
           im.datosBase64.length > 0 &&
           im.datosBase64.length < 3_000_000,
       )
-      .slice(0, 12);
+      .slice(0, 14);
     const contextoReferencias =
       typeof cuerpo.contextoReferencias === "string" && cuerpo.contextoReferencias
         ? cuerpo.contextoReferencias.slice(0, 4000)
         : undefined;
+    const contextoLectura =
+      typeof cuerpo.contextoLectura === "string" && cuerpo.contextoLectura ? cuerpo.contextoLectura.slice(0, 4000) : undefined;
     // el VIDEO para el analista, saneado: mime que Gemini declare y tamaño
     // inline (el base64 infla ×4/3: 19M chars ≈ 14MB de archivo). OJO: el
     // bodySizeLimit de next.config es de SERVER ACTIONS y no protege este
@@ -145,6 +150,7 @@ export async function POST(pedido: Request): Promise<Response> {
             nivel,
             contextoEstilo,
             contextoFinal,
+            contextoLectura,
           );
           if (!res.ok) emitir({ tipo: "fin", error: res.error });
           else emitir({ tipo: "fin", respuesta: res.respuesta, snapshot: serializar(res.composicion), ops: res.ops, uso: res.uso, modelo: res.modelo });

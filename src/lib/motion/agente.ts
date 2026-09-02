@@ -56,6 +56,7 @@ Cada pieza que dirigís tiene que verse PREMIUM, dinámica y al día con lo que 
 5. AL MENOS UNA COREOGRAFÍA A MEDIDA por pieza (definir_pista con 3+ keyframes: recorrido, hold, settle) en el momento hero, y micro-vida en la UI (un botón que respira 1→1.03→1, un contador, una tarjeta que se acomoda). Eso separa premium de plantilla.
 6. LA CÁMARA NARRA: en pantallas largas o múltiples, la cámara dirige la mirada (encuadre → hold → viaje con entradaSalida), acerca lo importante y los elementos entran CUANDO la cámara llega a ellos, no antes fuera de cuadro. Sin segundos muertos: en ningún tramo de más de 2s (o del 25% de la pieza) puede no moverse nada; si hay un hold, algo respira o la cámara viaja.
 7. PROHIBIDO: escala+bounce genérico como respuesta a todo; fade en todo; misma duración en todo; todo entrando en el primer segundo y quieto el resto; presets elásticos en más de un elemento por escena; capas quietas «porque no había tiempo». Si dudás entre lo seguro y lo vivo, elegí lo vivo y ajustalo.
+LECTURA DE PANTALLA: cuando el mensaje traiga «PANTALLAS ADJUNTAS», esas imágenes SON el diseño que vas a animar (en reposo, tal como lo ve el usuario), en el orden que dice el bloque, cada una conectada a su pantallaId y a su caja en el lienzo. Miralas de verdad ANTES de la primera herramienta y escribí el GUION como texto de tu primer paso (6-12 líneas, antes o junto con las primeras herramientas): (1) qué es esta pieza y qué cuenta; (2) sus secciones de arriba a abajo y el protagonista de cada una; (3) qué elementos son SISTEMAS y qué son (un botón se anima como botón —aparece, se presiona, carga—, una lista de pasos como lista —stagger—, una cita como cita, un logo como logo, un número como contador); (4) qué palabra o frase va SOLA porque está en otro color, peso o tamaño; (5) el orden de lectura (arriba→abajo, izquierda→derecha, lo grande antes que lo chico) que fija el orden de las entradas; (6) dónde termina cada ESCENA y el encuadre de cámara de cada una (centro y zoom, por las cajas). Ese guion manda sobre la ejecución: lo que anima cada capa tiene que salir de lo que ES en la imagen, no de su nombre de capa. Si el bloque no viene (composición sin pantallas), leé el estado con el mismo criterio.
 La REVISIÓN VISUAL trae una AUDITORÍA DE DIRECCIÓN medida sobre la composición (monotonía, plantilla, familias, easing/duración únicos, escalonado faltante, tiempo muerto, coreografía propia, cámara quieta): cada hallazgo es una violación de esta regla y se corrige ANTES de aprobar. Tu resumen final nombra la idea coreográfica de la pieza en una línea.
 
 # Tu criterio de dirección
@@ -114,6 +115,9 @@ export type EventoAgente = {
   ops: string[];
   /** tokens de ESTA llamada al modelo (para el log y el costo) */
   uso?: UsoTokens;
+  /** el TEXTO que el modelo escribió en un paso CON herramientas (el guion
+      de lectura, una aclaración): viaja al log para que se vea qué leyó */
+  texto?: string;
 };
 
 /** El PRIMER turno de usuario: estado + locución + estilo + referencias +
@@ -124,9 +128,13 @@ export function armarPrimerUsuario(
   contextoAudio?: string,
   contextoEstilo?: string,
   contextoReferencias?: string,
+  /** el bloque «PANTALLAS ADJUNTAS» que explica las imágenes del diseño */
+  contextoLectura?: string,
 ): string {
   const estilo = describirEstilo(estiloDePieza(comp));
   return `Estado actual de la composición:\n${describir(comp)}\n${estilo ? `\n${estilo}\n` : ""}${
+    contextoLectura ? `\n${contextoLectura}\n` : ""
+  }${
     contextoAudio
       ? `\nLA LOCUCIÓN de esta escena (cada palabra con el ms donde CAE — sincronizá: la entrada de cada elemento arranca en la palabra que le corresponde, los «en» de segmentos y keyframes caen EN estos tiempos, no aproximados):\n${contextoAudio}\n`
       : ""
@@ -163,11 +171,14 @@ export async function dirigirComposicion(
   /** referencias adjuntadas al chat: el texto que explica los frames que
       viajan en `imagenes` (contextoDeReferencias) */
   contextoReferencias?: string,
+  /** lectura de pantalla: el texto que explica las imágenes del DISEÑO que
+      van primeras en `imagenes` (contextoDeLectura) */
+  contextoLectura?: string,
 ): Promise<RespuestaAgente> {
   let comp = composicion;
   const ops: string[] = [];
 
-  const primerUsuario = armarPrimerUsuario(comp, mensaje, contextoAudio, contextoEstilo, contextoReferencias);
+  const primerUsuario = armarPrimerUsuario(comp, mensaje, contextoAudio, contextoEstilo, contextoReferencias, contextoLectura);
 
   const modelo = modeloDirector(
     {
@@ -301,7 +312,12 @@ export async function dirigirComposicion(
       });
     }
     mensajes.push({ role: "user", content: resultados });
-    onEvento?.({ tipo: "paso", iteracion: iteracion + 1, msModelo, ops: opsIteracion, uso: usoPaso });
+    const textoPaso = respuesta.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("\n")
+      .trim();
+    onEvento?.({ tipo: "paso", iteracion: iteracion + 1, msModelo, ops: opsIteracion, uso: usoPaso, texto: textoPaso || undefined });
   }
 
   return {
