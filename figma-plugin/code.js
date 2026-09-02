@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 11;
+var VERSION_PLUGIN = 12;
 
 function aHex(color) {
   var c = function (v) {
@@ -41,6 +41,24 @@ function colorDePintura(p) {
 
 function tieneEfectos(nodo) {
   return "effects" in nodo && nodo.effects && nodo.effects.some(function (e) { return e.visible !== false; });
+}
+
+// Efectos «de LOOK»: blur, ruido, textura, glass — cambian cómo se ve la
+// pieza de una manera que abrir el grupo por partes no reproduce (el
+// destello de un logo: líneas finas + blur del grupo). Las sombras NO
+// entran acá: son decorativas y las piezas siguen animables sin ellas.
+function tieneEfectosDeLook(nodo) {
+  return "effects" in nodo && nodo.effects && nodo.effects.some(function (e) {
+    return e.visible !== false && e.type !== "DROP_SHADOW" && e.type !== "INNER_SHADOW";
+  });
+}
+
+// Un grupo con modo de fusión PROPIO (screen, plus lighter…) compone sus
+// piezas ENTRE SÍ y después contra el fondo: por partes cada una se
+// fusionaría sola — otro look. Entero, la mezcla viaja con el raster.
+function tieneMezclaPropia(nodo) {
+  var modo = "blendMode" in nodo ? nodo.blendMode : "NORMAL";
+  return modo !== "NORMAL" && modo !== "PASS_THROUGH";
 }
 
 // Enum de blend de Figma → globalCompositeOperation de canvas. LINEAR_BURN y
@@ -611,6 +629,17 @@ async function nodoAIR(nodo, marco, salida) {
       salida.push(await rasterizar(nodo, marco, "grupo rotado: se rasterizó entero"));
       return;
     }
+    // v12: un contenedor con efectos de LOOK (blur, ruido, textura, glass) o
+    // con mezcla propia se rasteriza ENTERO como se ve — abrirlo por piezas
+    // perdía justamente lo que lo hace verse así (visto: el destello del
+    // logo de lemlist, líneas finas + blur del grupo, llegaba como rayitas
+    // crudas). Para animar sus partes: desagrupar en Figma y re-exportar.
+    if (tieneEfectosDeLook(nodo) || tieneMezclaPropia(nodo)) {
+      salida.push(await rasterizarComoSeVe(nodo, marco,
+        "grupo «" + nodo.name + "» con " + (tieneMezclaPropia(nodo) ? "mezcla propia" : "blur/efectos") +
+        ": se rasterizó ENTERO para conservar el look — desagrupalo en Figma si querés animar sus partes"));
+      return;
+    }
     var conEfectos = tieneEfectos(nodo);
     // el fondo sólido del frame entra como rect propio, después sus hijos
     var desdeSubgrupo = salida.length;
@@ -641,7 +670,7 @@ async function nodoAIR(nodo, marco, salida) {
     if (conEfectos && salida.length > desdeSubgrupo) {
       var primera = salida[desdeSubgrupo];
       primera.aviso = (primera.aviso ? primera.aviso + " | " : "") +
-        "los efectos del grupo «" + nodo.name + "» no viajan: se importó por partes para poder animarlas";
+        "las sombras del grupo «" + nodo.name + "» no viajan: se importó por partes para poder animarlas";
     }
     return;
   }

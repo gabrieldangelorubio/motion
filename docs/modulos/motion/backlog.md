@@ -13,6 +13,21 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Plugin v12: los grupos con blur o mezcla propia se importan ENTEROS (2026-09-01)
+- **Ronda de Gabriel (el destello del logo de lemlist llegaba como rayitas
+  crudas):** las LINE del grupo LOGO SHINY se rasterizaban bien (PNG fiel:
+  blanco con alfa decayendo — verificado leyendo píxeles), pero el GLOW
+  vive en el grupo (blur / modo de fusión) y el plugin, al abrir el grupo
+  por piezas, lo tiraba con el aviso «los efectos del grupo no viajan».
+  v12: un contenedor con efectos de LOOK (blur, ruido, textura, glass) o
+  con blendMode propio se rasteriza ENTERO como se ve
+  (`rasterizarComoSeVe`, con la mezcla en la capa) y avisa que para animar
+  sus partes hay que desagrupar en Figma; las SOMBRAS siguen importándose
+  por piezas (decorativas, las partes quedan animables). OJO: re-copiar
+  code.js en Figma y re-exportar. Anotado: la opacidad de grupo tampoco
+  viaja por piezas (cada hijo se funde solo) — evaluar rasterizar entero
+  también cuando el grupo tiene opacity < 1 si se ve en uso real.
+
 ### [HECHO] FORMATO del render: decisión del proyecto, no de la pantalla importada (2026-09-01, F1)
 - **Pedido de Gabriel (importó una landing de 9000px de alto y el render
   quedó «gigante, alargadísimo»):** la primera pantalla importada pisaba
