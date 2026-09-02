@@ -41,9 +41,18 @@
   (`rasterizarComoSeVe`, con la mezcla en la capa) y avisa que para animar
   sus partes hay que desagrupar en Figma; las SOMBRAS siguen importándose
   por piezas (decorativas, las partes quedan animables). OJO: re-copiar
-  code.js en Figma y re-exportar. Anotado: la opacidad de grupo tampoco
-  viaja por piezas (cada hijo se funde solo) — evaluar rasterizar entero
-  también cuando el grupo tiene opacity < 1 si se ve en uso real.
+  code.js en Figma y re-exportar.
+- **v13 (misma ronda, seguía crudo):** el grupo de las líneas ya no entra
+  por piezas pero el look sigue a pleno donde Figma lo muestra tenue →
+  (a) la OPACIDAD de grupo < 100% también es look propio (raster entero,
+  opacidad en la capa); (b) el aviso del grupo rasterizado ahora dice
+  EXACTAMENTE qué tiene (tipos de efecto con radio, blendMode, opacidad)
+  para diagnosticar sin adivinar; (c) el clon que se exporta va con
+  opacidad 100% y mezcla NORMAL: el PNG trae píxeles puros y la capa
+  lleva opacidad/mezcla — antes podían aplicarse dos veces (export +
+  motor). Pendiente de confirmar con el JSON de LOGO SHINY exportado con
+  v13: si el aviso no muestra ningún look propio en ningún nivel, el glow
+  viene de otra parte (capas de brillo aparte, o el `Mid`).
 
 ### [HECHO] FORMATO del render: decisión del proyecto, no de la pantalla importada (2026-09-01, F1)
 - **Pedido de Gabriel (importó una landing de 9000px de alto y el render

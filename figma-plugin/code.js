@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 12;
+var VERSION_PLUGIN = 13;
 
 function aHex(color) {
   var c = function (v) {
@@ -59,6 +59,27 @@ function tieneEfectosDeLook(nodo) {
 function tieneMezclaPropia(nodo) {
   var modo = "blendMode" in nodo ? nodo.blendMode : "NORMAL";
   return modo !== "NORMAL" && modo !== "PASS_THROUGH";
+}
+
+// Opacidad de grupo: por piezas cada hija se fundiría SOLA con el fondo —
+// dos piezas superpuestas al 40% no dan lo mismo que el grupo al 40%.
+function tieneOpacidadPropia(nodo) {
+  return "opacity" in nodo && typeof nodo.opacity === "number" && nodo.opacity < 0.999;
+}
+
+// Para el aviso: QUÉ tiene el grupo, exacto — así el diagnóstico de un look
+// que no viajó se lee en el import, sin adivinar.
+function detalleDeLook(nodo) {
+  var partes = [];
+  if ("effects" in nodo && nodo.effects) {
+    nodo.effects.forEach(function (e) {
+      if (e.visible === false) return;
+      partes.push(e.type + (typeof e.radius === "number" ? " " + Math.round(e.radius) + "px" : ""));
+    });
+  }
+  if (tieneMezclaPropia(nodo)) partes.push("mezcla " + nodo.blendMode);
+  if (tieneOpacidadPropia(nodo)) partes.push("opacidad " + Math.round(nodo.opacity * 100) + "%");
+  return partes.join(", ");
 }
 
 // Enum de blend de Figma → globalCompositeOperation de canvas. LINEAR_BURN y
@@ -178,6 +199,11 @@ async function rasterizarComoSeVe(nodo, marco, aviso) {
     clon = nodo.clone();
     figma.currentPage.appendChild(clon);
     clon.relativeTransform = nodo.absoluteTransform;
+    // el PNG con los píxeles PUROS: opacidad y mezcla viajan en la capa
+    // (rasterizar las lee del original) — si quedaran en el clon, el export
+    // ya las traería horneadas y el motor las aplicaría OTRA vez
+    try { if ("opacity" in clon) clon.opacity = 1; } catch (e1) { /* no editable */ }
+    try { if ("blendMode" in clon) clon.blendMode = "NORMAL"; } catch (e2) { /* no editable */ }
     return await rasterizar(nodo, marco, aviso, clon);
   } catch (e) {
     return await rasterizar(nodo, marco, aviso);
@@ -634,10 +660,10 @@ async function nodoAIR(nodo, marco, salida) {
     // perdía justamente lo que lo hace verse así (visto: el destello del
     // logo de lemlist, líneas finas + blur del grupo, llegaba como rayitas
     // crudas). Para animar sus partes: desagrupar en Figma y re-exportar.
-    if (tieneEfectosDeLook(nodo) || tieneMezclaPropia(nodo)) {
+    if (tieneEfectosDeLook(nodo) || tieneMezclaPropia(nodo) || tieneOpacidadPropia(nodo)) {
       salida.push(await rasterizarComoSeVe(nodo, marco,
-        "grupo «" + nodo.name + "» con " + (tieneMezclaPropia(nodo) ? "mezcla propia" : "blur/efectos") +
-        ": se rasterizó ENTERO para conservar el look — desagrupalo en Figma si querés animar sus partes"));
+        "grupo «" + nodo.name + "» con look propio (" + detalleDeLook(nodo) +
+        "): se rasterizó ENTERO para conservarlo — desagrupalo en Figma si querés animar sus partes"));
       return;
     }
     var conEfectos = tieneEfectos(nodo);
