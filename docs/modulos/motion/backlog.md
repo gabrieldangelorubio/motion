@@ -45,6 +45,12 @@
   thinking, en el director y en el analista. El nivel «fino» (Claude) va con
   `thinking: adaptive` + `effort: xhigh`. El log ya muestra «pensó N tokens»
   por paso: ahí se verifica.
+- **Revisión adversarial (Sonnet) del commit, 4 hallazgos corregidos:**
+  TIEMPO MUERTO pide ≥3 entradas (un título + claim que quedan quietos no
+  se reprueba); POCAS FAMILIAS rige desde 5 como promete el SISTEMA (decía
+  6); el `xhigh` de Claude va SOLO en nivel «fino» (la revisión visual usa
+  el default del modelo); la escalera de Gemini 2.5 salta alto → apagado
+  (alto y dinámico eran el mismo request).
 - **Pendiente de medir con Gabriel:** el mismo pedido de la landing con la
   regla puesta — cuántos hallazgos da la auditoría en la primera pasada y si
   la revisión los cierra en ≤2 rondas. Si la auditoría queda demasiado

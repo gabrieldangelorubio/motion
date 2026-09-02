@@ -92,10 +92,11 @@ test("un texto dividido sin escalonado se marca con su nombre; con escalonado no
 });
 
 test("tiempo muerto: un hueco lo tapa una pista, un viaje de cámara o una salida — no un hold ni el temblor", () => {
-  // dos entradas al principio, 10s de pieza: hueco de ~8.5s
+  // tres entradas al principio, 10s de pieza: hueco de ~8.5s
   const base = () => piezaCon([
     { preset: "revelar", en: 200, duracion: 700, easing: "salidaQuint", escalonado: 40 },
     { preset: "subirDesenfocado", en: 600, duracion: 700, easing: "salidaCubic" },
+    { preset: "voltear", en: 900, duracion: 500, easing: "salidaBack" },
   ]);
   const muerto = auditarDireccion(base()).find((x) => x.startsWith("TIEMPO MUERTO"));
   assert.ok(muerto, "debería marcar el hueco");
@@ -126,6 +127,28 @@ test("tiempo muerto: un hueco lo tapa una pista, un viaje de cámara o una salid
     capaId: "t1", propiedad: "escala", keyframes: [{ t: 1500, v: 1, hold: true }, { t: 9500, v: 1 }],
   }).comp;
   assert.ok(auditarDireccion(hold).some((x) => x.startsWith("TIEMPO MUERTO")));
+});
+
+test("una pieza chica (título + claim que entran y quedan) NO se reprueba por tiempo muerto ni por variedad", () => {
+  const chica = piezaCon([
+    { preset: "revelar", en: 200, duracion: 800, easing: "salidaQuint", escalonado: 60 },
+    { preset: "aparecer", en: 700, duracion: 500, easing: "salidaSine" },
+  ]);
+  assert.deepEqual(auditarDireccion(chica), []);
+});
+
+test("POCAS FAMILIAS rige desde 5 entradas, como promete el SISTEMA", () => {
+  // 5 entradas, 2 familias (texto + máscaras), sin monotonía (2/5 = 40 %)
+  const comp = piezaCon([
+    { preset: "subir", en: 200, duracion: 700, easing: "salidaQuint" },
+    { preset: "revelar", en: 1500, duracion: 800, easing: "salidaCubic", escalonado: 50 },
+    { preset: "caer", en: 3500, duracion: 600, easing: "salidaBack" },
+    { preset: "aparecer", en: 5500, duracion: 500, easing: "salidaSine" },
+    { preset: "deslizarIzquierda", en: 7500, duracion: 650, easing: "salidaExpo" },
+  ]);
+  const claves = auditarDireccion(comp).map((x) => x.split(":")[0]);
+  assert.ok(claves.includes("POCAS FAMILIAS"), `faltó en ${claves}`);
+  assert.ok(!claves.includes("MONOTONÍA"));
 });
 
 test("nada animado con varias capas es UN hallazgo tajante; una comp vacía o de una capa no dice nada", () => {

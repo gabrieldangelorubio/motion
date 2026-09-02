@@ -24,6 +24,11 @@ const PRESETS_DE_PLANTILLA = new Set(["aparecer", "escalar", "pop"]);
     con dos textos no necesita cuatro familias). */
 const MIN_PARA_VARIEDAD = 5;
 
+/** Piso para exigir que la pieza no tenga tramos muertos: con una o dos
+    entradas que quedan quietas (un título y un claim) no hay pieza que
+    «respirar», y exigirle cámara o pistas sería movimiento espurio. */
+const MIN_PARA_TIEMPO_MUERTO = 3;
+
 const pct = (parte: number, total: number) => Math.round((parte / total) * 100);
 
 function porcentajes<T>(items: T[], clave: (x: T) => string): [string, number][] {
@@ -128,7 +133,7 @@ export function auditarDireccion(comp: Composicion): string[] {
 
   // 3. Pocas familias
   const familias = new Set(entradas.map((s) => PRESETS[s.preset]?.categoria ?? s.preset));
-  if (n >= 6 && familias.size < 3) {
+  if (n >= MIN_PARA_VARIEDAD && familias.size < 3) {
     hallazgos.push(
       `POCAS FAMILIAS: ${n} entradas y solo ${familias.size} categoría(s) de preset (${[...familias].join(", ")}). Mínimo tres familias en una pieza de este tamaño.`,
     );
@@ -162,7 +167,7 @@ export function auditarDireccion(comp: Composicion): string[] {
   const tramos = tramosVivos(comp, animables);
   const hueco = huecoMuerto(comp, tramos);
   const tolerancia = Math.max(2000, comp.duracion * 0.25);
-  if (hueco && hueco.hasta - hueco.desde > tolerancia) {
+  if (n >= MIN_PARA_TIEMPO_MUERTO && hueco && hueco.hasta - hueco.desde > tolerancia) {
     hallazgos.push(
       `TIEMPO MUERTO: entre ${Math.round(hueco.desde)}ms y ${Math.round(hueco.hasta)}ms no se mueve nada (${((hueco.hasta - hueco.desde) / 1000).toFixed(1)}s de ${(comp.duracion / 1000).toFixed(1)}s). Repartí las entradas en el tiempo, sumá salidas, micro-vida o un viaje de cámara.`,
     );

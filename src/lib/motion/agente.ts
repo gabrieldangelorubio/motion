@@ -244,9 +244,10 @@ export async function dirigirComposicion(
       // el director «fino» piensa A FONDO: pensamiento adaptativo + esfuerzo
       // xhigh (el nivel de los trabajos agénticos largos). Los bloques de
       // pensamiento vuelven enteros en respuesta.content y se reenvían tal
-      // cual en el turno siguiente (abajo), como pide la API.
-      thinking: { type: "adaptive" },
-      output_config: { effort: "xhigh" },
+      // cual en el turno siguiente (abajo), como pide la API. La revisión
+      // visual y el nivel «rapido» sin Gemini van con el default del modelo:
+      // mirar frames y retocar no paga el esfuerzo máximo.
+      ...(nivel === "fino" ? { thinking: { type: "adaptive" as const }, output_config: { effort: "xhigh" as const } } : {}),
       system: [{ type: "text", text: SISTEMA, cache_control: { type: "ephemeral" } }],
       tools: DEFINICIONES_HERRAMIENTAS as unknown as Anthropic.Tool[],
       messages: mensajes,

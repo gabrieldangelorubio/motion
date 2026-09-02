@@ -329,9 +329,11 @@ test("configGeneracion: thinkingLevel high para los 3.x, presupuesto dinámico p
 
 test("la escalera de pensamiento baja alto → dinámico → apagado y cada peldaño cambia el request", async () => {
   const { configGeneracion, bajarPensamiento } = await import("@/lib/motion/agente-gemini");
-  assert.equal(bajarPensamiento("alto"), "dinamico");
-  assert.equal(bajarPensamiento("dinamico"), "apagado");
-  assert.equal(bajarPensamiento("apagado"), "apagado");
+  assert.equal(bajarPensamiento("alto", "gemini-3.6-flash"), "dinamico");
+  assert.equal(bajarPensamiento("dinamico", "gemini-3.6-flash"), "apagado");
+  assert.equal(bajarPensamiento("apagado", "gemini-3.6-flash"), "apagado");
+  // la 2.5 no tiene peldaño intermedio distinto: alto → apagado sin repetir el request
+  assert.equal(bajarPensamiento("alto", "gemini-2.5-flash"), "apagado");
   assert.deepEqual(configGeneracion("gemini-3.6-flash", "dinamico"), { thinkingConfig: { thinkingBudget: -1 } });
   assert.equal(configGeneracion("gemini-3.6-flash", "apagado"), undefined);
   assert.equal(configGeneracion("gemini-2.5-flash", "apagado"), undefined);

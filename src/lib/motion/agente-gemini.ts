@@ -69,8 +69,10 @@ export function partesDeUsuario(texto: string, imagenes?: ImagenRevision[]): Par
     degradar, no romper. */
 export type NivelPensamiento = "alto" | "dinamico" | "apagado";
 
-export function bajarPensamiento(nivel: NivelPensamiento): NivelPensamiento {
-  return nivel === "alto" ? "dinamico" : "apagado";
+export function bajarPensamiento(nivel: NivelPensamiento, modelo: string): NivelPensamiento {
+  // la 2.5 no distingue alto de dinámico (los dos son presupuesto -1):
+  // repetir el mismo request sería gastar un intento — directo a apagado
+  return nivel === "alto" && /^gemini-[3-9]/.test(modelo) ? "dinamico" : "apagado";
 }
 
 /** El PENSAMIENTO de Gemini a fondo. Sólo para las familias que lo soportan
@@ -167,7 +169,7 @@ export async function analizarVideoGemini(opts: {
         }
         // mismo retry que loopGemini: modelo que rechaza thinkingConfig
         if (res.status === 400 && pensamiento !== "apagado" && /thinking/i.test(detalle)) {
-          pensamiento = bajarPensamiento(pensamiento);
+          pensamiento = bajarPensamiento(pensamiento, modeloVivo);
           continue;
         }
         return { ok: false, error: `El analista (${modeloVivo}) respondió ${ultimoDetalle}` };
@@ -261,7 +263,7 @@ export async function loopGemini(opts: {
       }
       // el modelo no acepta este thinkingConfig: un peldaño menos y de nuevo
       if (res.status === 400 && pensamiento !== "apagado" && /thinking/i.test(detalle)) {
-        pensamiento = bajarPensamiento(pensamiento);
+        pensamiento = bajarPensamiento(pensamiento, modeloVivo);
         iteracion--;
         continue;
       }
