@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CanalCamara, Capa, CapaMedia, CapaTexto, CapaVideo, Composicion, Keyframe, NombrePropiedad, Segmento, TemblorCamara } from "@/lib/motion/modelo";
 import { PRESETS, escalonadoSano } from "@/lib/motion/presets-puro";
+import { exportarMp4, descargarBlob } from "@/lib/motion/exportar";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
 import { planDeLectura, contextoDeLectura } from "@/lib/motion/lectura-puro";
 import {
@@ -1432,11 +1433,28 @@ export function Editor({
       // frames del RENDER (lo que ve la cámara) en los ms pedidos: la
       // revisión visual del director externo
       frames: (tiempos: number[], snapshot?: string) => renderizarFramesRevision(snapshot ?? serializar(compRef.current), tiempos),
+      // export MP4 directo, con progreso observable (window.__motion.progreso)
+      // y blur temporal a elección: el driver headless no puede mirar la UI
+      exportar: async (opciones: { muestrasBlur?: number; desdeMs?: number; hastaMs?: number } = {}) => {
+        const comp = sinCapasReferencia(compRef.current);
+        const estado = w.__motion as { progreso?: string };
+        const blob = await exportarMp4(comp, obtenerMedia(), {
+          muestrasBlur: opciones.muestrasBlur ?? 1,
+          desdeMs: opciones.desdeMs,
+          hastaMs: opciones.hastaMs,
+          onProgreso: (frame, total) => {
+            estado.progreso = `${frame}/${total}`;
+          },
+        });
+        estado.progreso = "listo";
+        descargarBlob(blob, `${comp.nombre.replace(/\s+/g, "-")}.mp4`);
+        return blob.size;
+      },
     };
     return () => {
       delete w.__motion;
     };
-  }, [registrar, renderizarLectura, renderizarFramesRevision]);
+  }, [registrar, renderizarLectura, renderizarFramesRevision, obtenerMedia]);
 
   // El largo real de un path sólo lo sabe el DOM de SVG (getTotalLength):
   // se mide UNA vez al importar y queda guardado en la capa — el motor puro
