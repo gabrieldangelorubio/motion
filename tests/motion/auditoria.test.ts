@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { auditarDireccion, bloqueDeAuditoria, cajaVisibleEn } from "@/lib/motion/auditoria-puro";
+import { auditarDireccion, bloqueDeAuditoria, cajaAproximada, cajaVisibleEn } from "@/lib/motion/auditoria-puro";
 import { crearComposicion } from "@/lib/motion/herramientas-puro";
 import { ejecutarHerramienta } from "@/lib/motion/agente-herramientas";
 import type { Composicion } from "@/lib/motion/modelo";
@@ -197,4 +197,10 @@ test("ENCUADRE CORTA: una capa que termina de entrar a medias del cuadro se marc
   // con el centro corrido a x 640 la cámara ve desde x 75: el logo entra entero
   const corregida = ejecutarHerramienta(comp, "definir_camara", { base: { x: 640, y: 330, zoom: 1.7 } }).comp;
   assert.deepEqual(auditarDireccion(corregida).filter((x) => x.startsWith("ENCUADRE CORTA")), []);
+});
+
+test("cajaAproximada: trazos y vectores tienen caja (un logo importado suele ser vector)", () => {
+  const vector = { tipo: "vector" as const, id: "v", nombre: "logo", x: 181, y: 92, ancho: 142, alto: 142, path: "M0 0 L1 1", color: "#fff" };
+  const caja = cajaAproximada(vector as unknown as import("@/lib/motion/modelo").Capa);
+  assert.deepEqual(caja, { x1: 110, y1: 21, x2: 252, y2: 163 });
 });

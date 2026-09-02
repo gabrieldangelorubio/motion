@@ -189,7 +189,10 @@ async function llamarGuionista(opts: {
   }
   if (!process.env.ANTHROPIC_API_KEY) return { ok: false, error: "Falta ANTHROPIC_API_KEY en el entorno (ver ENTREGA.md)" };
   const cliente = new Anthropic();
-  const respuesta = await cliente.messages.create({
+  // un guion entero puede ser largo: streaming (el SDK rechaza max_tokens
+  // grandes sin stream) y el mensaje completo al final
+  const respuesta = await cliente.messages
+    .stream({
     model: opts.modelo,
     max_tokens: 32000,
     ...(opts.nivel === "fino" ? { thinking: { type: "adaptive" as const }, output_config: { effort: "xhigh" as const } } : {}),
@@ -212,7 +215,8 @@ async function llamarGuionista(opts: {
           : opts.texto,
       },
     ],
-  });
+    })
+    .finalMessage();
   if (respuesta.stop_reason === "refusal") return { ok: false, error: "El modelo declinó el pedido" };
   const texto = respuesta.content
     .filter((b): b is Anthropic.TextBlock => b.type === "text")
@@ -248,7 +252,6 @@ async function dirigirPorGuion(opts: {
   const ops: string[] = [];
   const informeTotal: string[] = [];
   let guion: string[] = [];
-  let erroresTotales = 0;
   const historial: TurnoAgente[] = [...opts.historial];
   let texto = opts.primerUsuario;
   let imagenes = opts.imagenes;
@@ -269,7 +272,6 @@ async function dirigirPorGuion(opts: {
     const aplicado = aplicarGuion(comp, parseado.pasos);
     comp = aplicado.comp;
     informeTotal.push(...aplicado.informe);
-    erroresTotales = aplicado.errores;
     for (const linea of aplicado.informe) if (linea.startsWith("✓")) ops.push(linea.replace(/^✓ \d+ /, "").replace(/\s+\[.*\]$/, ""));
     opts.onEvento?.({
       tipo: "paso",
@@ -284,8 +286,13 @@ async function dirigirPorGuion(opts: {
     // el turno de corrección: el guion ya aplicado queda como turno del modelo
     historial.push({ rol: "usuario", texto }, { rol: "agente", texto: res.texto.slice(0, 20000) });
     texto = mensajeDeCorreccion(aplicado.informe, auditoria);
+    // la corrección va sin las imágenes: son ajustes puntuales sobre pasos
+    // ya escritos y las imágenes se pagarían de nuevo en cada turno
     imagenes = undefined;
   }
+  // los ✗ que quedaron sin resolver cuentan aunque la corrección haya salido
+  // limpia: el resumen no puede decir «todo aplicado» si hubo pasos perdidos
+  const erroresTotales = informeTotal.filter((l) => l.startsWith("✗")).length;
   return {
     ok: true,
     respuesta: resumenDeGuion(guion, informeTotal, erroresTotales, Math.min(ronda + 1, MAX_RONDAS)),
@@ -333,7 +340,7 @@ export async function dirigirComposicion(
   // (el guionista escribe el plan entero como JSON, el código lo ejecuta, un
   // turno de corrección si algo dio error o la auditoría marcó). Una pieza
   // ya dirigida se retoca con el loop iterativo de herramientas.
-  if (elegirModo(comp) === "guion" && process.env.MOTION_DIRECTOR_MODO !== "iterativo") {
+  if (elegirModo(comp, historial) === "guion" && process.env.MOTION_DIRECTOR_MODO !== "iterativo") {
     return dirigirPorGuion({ comp, modelo, historial, primerUsuario, imagenes, nivel, onEvento });
   }
 

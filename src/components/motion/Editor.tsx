@@ -52,6 +52,30 @@ import { aplicarSensacion, descripcionSensacion, type Sensacion } from "@/lib/mo
 import { Deslizador } from "@/components/ui/Deslizador";
 import { cajaMundoDeCapa } from "@/lib/motion/cajas-puro";
 import { cargarComposicionAction, guardarComposicionAction } from "@/app/(app)/(modulos)/motion/acciones";
+import { caminoDeGuardado } from "@/lib/motion/persistencia-puro";
+
+/** Guarda un snapshot por el camino que su tamaño permite: la server action
+    (el de siempre) o el route handler para los grandes — Flight no acepta
+    strings de más de 1e6 caracteres como argumento de una action. */
+async function guardarSnapshot(
+  composicionId: string,
+  snapshot: string,
+  baseRev: number,
+): Promise<Awaited<ReturnType<typeof guardarComposicionAction>>> {
+  if (caminoDeGuardado(snapshot) === "action") return guardarComposicionAction(composicionId, snapshot, baseRev);
+  try {
+    const res = await fetch("/api/motion/composicion", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ composicionId, snapshot, baseRev }),
+    });
+    const datos = (await res.json().catch(() => null)) as Awaited<ReturnType<typeof guardarComposicionAction>> | null;
+    if (!datos) return { ok: false, error: `El guardado respondió ${res.status}` };
+    return datos;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "No se pudo guardar" };
+  }
+}
 import { escenaDuplicada, escenaNueva, idDeEscena, quitarEscena, type EscenaInfo } from "@/lib/motion/escenas-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
@@ -500,7 +524,7 @@ export function Editor({
     if (timerGuardadoRef.current) clearTimeout(timerGuardadoRef.current);
     if (fallosRef.current >= MAX_FALLOS) return;
     timerGuardadoRef.current = setTimeout(async () => {
-      const res = await guardarComposicionAction(escenaActivaRef.current, serializar(composicion), revRef.current);
+      const res = await guardarSnapshot(escenaActivaRef.current, serializar(composicion), revRef.current);
       if (!res.ok) {
         fallosRef.current += 1;
         setAvisoGuardado(
@@ -532,7 +556,7 @@ export function Editor({
       clearTimeout(timerGuardadoRef.current);
       timerGuardadoRef.current = null;
     }
-    const res = await guardarComposicionAction(escenaActivaRef.current, serializar(compRef.current), revRef.current);
+    const res = await guardarSnapshot(escenaActivaRef.current, serializar(compRef.current), revRef.current);
     if (res.ok) revRef.current = res.rev;
   }, []);
 

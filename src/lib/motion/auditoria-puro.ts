@@ -101,7 +101,7 @@ function tieneCoreografiaPropia(capa: Capa): boolean {
 export function cajaAproximada(capa: Capa): { x1: number; y1: number; x2: number; y2: number } {
   let w = 0;
   let h = 0;
-  if (capa.tipo === "forma" || capa.tipo === "media" || capa.tipo === "video") {
+  if (capa.tipo === "forma" || capa.tipo === "media" || capa.tipo === "video" || capa.tipo === "trazo" || capa.tipo === "vector") {
     w = capa.ancho / 2;
     h = capa.alto / 2;
   } else if (capa.tipo === "texto") {

@@ -21,6 +21,8 @@ test("elegirModo: pieza sin dirigir → guion; con una entrada o un viaje de cá
   assert.equal(elegirModo(animada), "iterativo");
   const conCamara = ejecutarHerramienta(comp, "definir_camara", { zoom: [{ t: 0, v: 1 }, { t: 1000, v: 1.2 }] }).comp;
   assert.equal(elegirModo(conCamara), "iterativo");
+  // con charla previa NO se reescribe la pieza aunque esté sin animar
+  assert.equal(elegirModo(comp, [{ rol: "usuario", texto: "animá" }, { rol: "agente", texto: "listo" }]), "iterativo");
 });
 
 test("parsearGuion tolera fences y texto alrededor, valida los pasos y separa el guion", () => {

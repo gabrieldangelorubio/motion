@@ -16,15 +16,19 @@
 ----------------------------------------------------------------------------- */
 
 import type { Composicion } from "@/lib/motion/modelo";
+import type { TurnoAgente } from "@/lib/motion/agente";
 import { validarGuion, type PasoGuion } from "@/lib/motion/guion-puro";
 
 export type ModoDirector = "guion" | "iterativo";
 
-/** Una pieza SIN dirigir (ninguna capa animada, cámara quieta) se dirige por
-    GUION: plan entero primero. Una pieza ya dirigida se retoca con el loop
-    iterativo de herramientas: ahí el pedido suele ser un ajuste puntual y el
-    estado que el director ve ES el guion vigente. */
-export function elegirModo(comp: Composicion): ModoDirector {
+/** Una pieza SIN dirigir (ninguna capa animada, cámara quieta) y SIN
+    conversación previa se dirige por GUION: plan entero primero. Una pieza
+    ya dirigida —o una charla ya empezada, aunque la pieza haya quedado sin
+    animar— se retoca con el loop iterativo: ahí el pedido suele ser puntual
+    («cambiá el color del título») y reescribir la pieza entera sería
+    desobedecerlo. */
+export function elegirModo(comp: Composicion, historial: TurnoAgente[] = []): ModoDirector {
+  if (historial.length > 0) return "iterativo";
   const animada = comp.capas.some((c) => c.entrada || c.salida || (c.pistas && Object.keys(c.pistas).length > 0));
   const camaraViaja = Object.values(comp.camara?.pistas ?? {}).some((k) => k && k.length >= 2);
   return animada || camaraViaja ? "iterativo" : "guion";

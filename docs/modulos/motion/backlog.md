@@ -13,6 +13,29 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Guardado de snapshots grandes por route handler (2026-09-02)
+- **Causa exacta del «Maximum array nesting exceeded» con la landing de
+  34 MB:** React Flight, al decodificar los argumentos de una server action,
+  cuenta la LONGITUD de cada string contra un tope de 1.000.000
+  (`arraySizeLimit`), sin importar el `bodySizeLimit` de 50 MB de Next. Todo
+  snapshot mayor a ~1 MB fallaba y el editor perdía el guardado en silencio
+  (con rasters de Figma a 2× eso es cualquier pantalla real).
+- **Fix:** `persistencia-puro.ts` decide el camino por tamaño
+  (`caminoDeGuardado`: > 800 000 chars → ruta); `POST /api/motion/composicion`
+  recibe el body crudo con el mismo gate y `guardarComposicion` (CAS +
+  fusión) que la action; el Editor usa `guardarSnapshot` en el autosave y en
+  el flush al cambiar de escena. Verificado con el snapshot real de lemlist:
+  `POST /api/motion/composicion 200 in 4.2s`. La carga (server → cliente) no
+  tiene ese tope.
+- **Revisión adversarial del director en dos fases, 5 hallazgos cerrados:**
+  el guionista con Claude pedía 32 000 tokens sin streaming y el SDK lo
+  rechazaba antes de llamar (ahora `messages.stream(...).finalMessage()`);
+  `cajaAproximada` trataba trazos y vectores como un punto (los logos
+  importados son vectores: ENCUADRE CORTA no los veía); los ✗ de la ronda 1
+  se perdían del resumen si la corrección salía limpia; `elegirModo` con
+  charla previa va a iterativo aunque la pieza esté sin animar (un «cambiá el
+  color» no reescribe la pieza); la corrección va sin imágenes, documentado.
+
 ### [HECHO] DIRECTOR EN DOS FASES: guionista → ejecución por código → corrección (2026-09-02, G6)
 - **Origen:** Gabriel comparó la landing de lemlist dirigida por Flash con la
   dirigida por Fable desde el chat (guion de 129 pasos escrito ANTES de
