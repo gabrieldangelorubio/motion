@@ -1214,12 +1214,12 @@ export function Editor({
     setComposicion(agregarKeyframeCamara(compRef.current, alFrameActual(), vista));
   }, [registrar, alFrameActual]);
 
-  // ESCENAS MARCADAS: la vista actual (o la cámara en el playhead si el
-  // lienzo no reporta vista) se guarda como encuadre; el director las recorre
+  // ESCENAS MARCADAS: el encuadre de la CÁMARA en el playhead (el cuadro que
+  // se arrastra en el lienzo, no el viewport del editor) se guarda como la
+  // escena siguiente; el director las recorre en orden
   const marcarEncuadreActual = useCallback(() => {
-    const vista = lienzoRef.current?.vistaActual() ?? camaraEn(compRef.current, tiempoRef.current);
     registrar();
-    setComposicion(marcarEncuadre(compRef.current, vista));
+    setComposicion(marcarEncuadre(compRef.current, camaraEn(compRef.current, tiempoRef.current)));
   }, [registrar]);
   const quitarEncuadreMarcado = useCallback((id: string) => {
     registrar();

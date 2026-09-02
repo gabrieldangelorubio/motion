@@ -248,10 +248,10 @@ export function InspectorCamara({
             onClick={onMarcarEscena}
             className="boton inline-flex h-9 w-full items-center justify-center rounded-control px-3 text-[13px] shadow-control hover:bg-ink/[0.06]"
           >
-            {t("Marcar escena {n} (la vista actual)", { n: (composicion.encuadres?.length ?? 0) + 1 })}
+            {t("Marcar escena {n} (este encuadre)", { n: (composicion.encuadres?.length ?? 0) + 1 })}
           </button>
           <div className="mt-1.5 text-xs text-muted">
-            {t("Encuadrá con la cámara y marcá: el director recorre estas escenas en orden y decide solo los tiempos. La geometría es tuya.")}
+            {t("Movē el cuadro de la cámara en el lienzo (o los valores de arriba) y marcá: el director recorre estas escenas en orden y decide solo los tiempos. La geometría es tuya.").replace("Movē", "Mové")}
           </div>
         </section>
       )}
