@@ -214,3 +214,10 @@ test("tools del director: derivar_pantalla y los campos de diseño nuevos de edi
   assert.match(ver.resultado, /ESTILO DE LA PIEZA/, "ver_composicion trae el estilo");
   assert.ok(DEFINICIONES_HERRAMIENTAS.some((d) => d.name === "derivar_pantalla"));
 });
+
+test("describir le da al director el RENDER y la CAJA de cada pantalla (para encuadrar sin centrar en el frame)", () => {
+  const desc = ejecutarHerramienta(compConPantalla(), "ver_composicion", {}).resultado;
+  assert.match(desc, /RENDER 1920×1080/);
+  assert.match(desc, /nunca el del render \(960, 540\)/);
+  assert.match(desc, /PLACA de pantalla.*caja 1000×600 de \(0, 0\) a \(1000, 600\), centro \(500, 300\)/);
+});

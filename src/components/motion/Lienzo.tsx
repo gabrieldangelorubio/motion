@@ -149,20 +149,46 @@ export const Lienzo = forwardRef<
 
     // El lienzo muestra el MUNDO: acá la cámara de la composición no
     // transforma (el export sí la aplica). En su lugar se dibuja el
-    // ENCUADRE — el render es exactamente lo que cae adentro.
+    // ENCUADRE — el render es exactamente lo que cae adentro. Sin el FONDO
+    // de la composición: el rectángulo ancho×alto del origen es solo el
+    // FORMATO del render (el tamaño de la cámara), no una caja del lienzo —
+    // pintarlo mostraba una placa oscura ajena al lado de la pantalla. El
+    // fondo sí se pinta en la vista cámara, el PiP y el export (adentro del
+    // frame, donde significa algo).
     pintar(
-      { ...estado, camara: { x: comp.ancho / 2, y: comp.alto / 2, zoom: 1 } },
+      { ...estado, fondo: "", camara: { x: comp.ancho / 2, y: comp.alto / 2, zoom: 1 } },
       ctx as unknown as Contexto2D,
       obtenerMedia?.() ?? {},
     );
 
+    // el encuadre de la cámara: visible SIEMPRE (acento, 1.5px; deseleccionada
+    // se veía casi nada en gris), pleno y más grueso con la cámara elegida
     const vista = estado.camara;
     const vw = comp.ancho / vista.zoom;
     const vh = comp.alto / vista.zoom;
     const camaraSeleccionada = obtenerSeleccionId() === CAMARA_ID;
-    ctx.strokeStyle = camaraSeleccionada ? tokensRef.current.acento : tokensRef.current.linea;
-    ctx.lineWidth = (camaraSeleccionada ? 2 : 1) / cam.escala;
+    ctx.save();
+    ctx.strokeStyle = tokensRef.current.acento;
+    ctx.globalAlpha = camaraSeleccionada ? 1 : 0.7;
+    ctx.lineWidth = (camaraSeleccionada ? 2 : 1.5) / cam.escala;
     ctx.strokeRect(vista.x - vw / 2, vista.y - vh / 2, vw, vh);
+    // marcas de esquina: el encuadre se lee aun sobre fondos claros u oscuros
+    const m = Math.min(vw, vh) * 0.06;
+    const esquinas: [number, number, number, number][] = [
+      [vista.x - vw / 2, vista.y - vh / 2, 1, 1],
+      [vista.x + vw / 2, vista.y - vh / 2, -1, 1],
+      [vista.x - vw / 2, vista.y + vh / 2, 1, -1],
+      [vista.x + vw / 2, vista.y + vh / 2, -1, -1],
+    ];
+    ctx.lineWidth = (camaraSeleccionada ? 3 : 2.5) / cam.escala;
+    for (const [ex, ey, sx, sy] of esquinas) {
+      ctx.beginPath();
+      ctx.moveTo(ex, ey + sy * m);
+      ctx.lineTo(ex, ey);
+      ctx.lineTo(ex + sx * m, ey);
+      ctx.stroke();
+    }
+    ctx.restore();
 
     // marco de selección: borde azul de 2px constantes, rotando con la capa
     // (§3.1); con selección múltiple, un marco por capa elegida

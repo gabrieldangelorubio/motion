@@ -13,6 +13,23 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] El formato es SOLO la cámara: sin caja de fondo en el mundo, encuadre visible, director que centra en la pantalla (2026-09-01, F1b)
+- **Ronda de Gabriel («el 16:9 me crea una caja nueva que no tiene nada
+  que ver», «la cámara deseleccionada casi no se ve», «la animación quedó
+  descentrada y la cámara no sigue la acción»):** (1) la vista Mundo
+  pintaba el FONDO de la composición sobre el rectángulo ancho×alto del
+  origen — con el formato desacoplado de la pantalla quedaba como una
+  placa oscura ajena; ahora el mundo se pinta sin fondo (el rectángulo del
+  render es solo el tamaño de la cámara) y el fondo sigue en vista cámara,
+  PiP y export. (2) El encuadre se dibuja siempre en acento (1.5px, 70%)
+  con marcas de esquina; pleno y más grueso seleccionado. (3) El director
+  centraba la cámara en el centro del RENDER (960,540) y la pantalla de
+  1440 está en otro lado: describir ahora abre con la regla del render
+  (la cámara ve ancho/zoom × alto/zoom, zoom = ancho_render/ancho_región,
+  centro = el de la región) y da la CAJA de cada placa (tamaño, esquinas,
+  centro); regla ENCUADRE en el system prompt (jamás el centro del render
+  por defecto; recorrer páginas por secciones con holds). 353 tests.
+
 ### [HECHO] Plugin v12: los grupos con blur o mezcla propia se importan ENTEROS (2026-09-01)
 - **Ronda de Gabriel (el destello del logo de lemlist llegaba como rayitas
   crudas):** las LINE del grupo LOGO SHINY se rasterizaban bien (PNG fiel:

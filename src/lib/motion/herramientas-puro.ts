@@ -489,9 +489,9 @@ export function moverKeyframeCamara(
 /** Resumen legible de la composición — el contexto que un tool le da al asistente. */
 export function describir(comp: Composicion): string {
   const lineas = [
-    `«${comp.nombre}» — ${comp.ancho}×${comp.alto} @ ${comp.fps}fps${
+    `«${comp.nombre}» — RENDER ${comp.ancho}×${comp.alto} @ ${comp.fps}fps${
       comp.fpsAnimacion ? ` (animación cuantizada a ${comp.fpsAnimacion}fps, look stop-motion)` : ""
-    }, ${(comp.duracion / 1000).toFixed(2)}s, ${comp.capas.length} capas`,
+    }, ${(comp.duracion / 1000).toFixed(2)}s, ${comp.capas.length} capas. La cámara ve ${comp.ancho}/zoom × ${comp.alto}/zoom px del lienzo centrada en (x, y): para encuadrar una región de W px de ancho, zoom = ${comp.ancho}/W y el centro es el de ESA región (la caja de cada pantalla está abajo) — nunca el del render (${comp.ancho / 2}, ${comp.alto / 2}) salvo que la pantalla esté ahí.`,
   ];
   if (comp.camara) {
     // los keyframes van CON valores y easings: el asistente los reanima
@@ -525,7 +525,11 @@ export function describir(comp: Composicion): string {
     const partes = [`  · [${capa.tipo}] «${capa.nombre}» (id: ${capa.id}) en (${Math.round(capa.x)}, ${Math.round(capa.y)})`];
     // pantallas del lienzo: la placa es la MANIJA (su id es el pantallaId de
     // derivar_pantalla); sus capas dicen a qué pantalla pertenecen
-    if (esPlaca(capa)) partes.push("PLACA de pantalla (su id es el pantallaId)");
+    if (esPlaca(capa) && capa.tipo === "forma") {
+      const x1 = Math.round(capa.x - capa.ancho / 2);
+      const y1 = Math.round(capa.y - capa.alto / 2);
+      partes.push(`PLACA de pantalla (su id es el pantallaId): caja ${Math.round(capa.ancho)}×${Math.round(capa.alto)} de (${x1}, ${y1}) a (${x1 + Math.round(capa.ancho)}, ${y1 + Math.round(capa.alto)}), centro (${Math.round(capa.x)}, ${Math.round(capa.y)})`);
+    }
     else if (capa.grupo) partes.push(`pantalla ${capa.grupo}`);
     if (capa.tipo === "texto" && capa.division !== "ninguna") partes.push(`división ${capa.division}`);
     if (capa.tipo === "texto" && capa.deformaciones?.length) {
