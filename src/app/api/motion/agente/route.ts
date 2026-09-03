@@ -22,6 +22,10 @@ async function actorDeSesion(): Promise<Actor> {
   return { id: "dev-local", rol: "admin", email: "dev@local" };
 }
 
+// el catálogo lee el entorno en cada pedido: sin esto Next lo evaluaría
+// una vez al build y una clave nueva no aparecería hasta rebuildear
+export const dynamic = "force-dynamic";
+
 /** El catálogo de modelos que este servidor puede correr (según las
     claves cargadas): el panel arma su desplegable con esto. */
 export async function GET(): Promise<Response> {
