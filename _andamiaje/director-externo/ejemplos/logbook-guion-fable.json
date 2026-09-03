@@ -1,8 +1,8 @@
 {
   "guion": [
-    "LECTURA. logbook.so, una historia en 7 cuadros sobre fondo oscuro (1440×6752): hero con el título «Once upon a project» y tres avatares con su rol; «It all began with a full process» con un Gantt de barras de colores y dos tarjetas a los lados; «The first delays sneaked in» con cuatro avisos como notificaciones; «The team reacted quickly» con un segundo Gantt; «But things snowballed» con una pila de avisos girada; «The project fell behind» con las barras caídas fuera del Gantt; y las nubes del cierre.",
-    "GUION (brief: SaaS súper premium, muchas animaciones secundarias, la cámara sigue la historia paso a paso, todo suave con ease). 28 s, 7 escenas. La cámara hace hold en cada cuadro con un push-in lento y viaja 1 s entre cuadros con entradaSalidaCubic, flotando apenas. (1) 0–3,6 s HERO (la cámara hace un tilt lento hacia el garabato): logo y Beta, título desde el fondo enderezándose, avatares con pop y sus chips, respiración de avatares, garabato que invita a bajar. (2) 3,6–9 s EL PLAN: título palabra por palabra, la tarjeta sube, las tarjetas laterales llegan girando, las barras CARGAN de izquierda a derecha en cascada, avatares con pop. (3) 9–13,5 s LOS AVISOS: título, cuatro notificaciones que entran alternando de lado con un asentamiento de escala. (4) 13,5–18 s LA REACCIÓN: título, segundo Gantt, barras que cargan más rápido. (5) 18–21,5 s BOLA DE NIEVE: título y la pila entra en remolino, y sigue meciéndose. (6) 21,5–25,5 s LA CAÍDA: título línea a línea, tarjeta vacía, barras que CAEN una tras otra. (7) 25,5–28 s NUBES: suben despacio y cierran.",
-    "CARÁCTER. Expo y quint en protagonistas, cubic y sine en secundarios, back.out en los pops. Ninguna capa entra sola: cada título trae su tarjeta, cada tarjeta sus barras, cada barra su borde. La cámara nunca corta: hold, viaje, hold. VIDA AMBIENTE: durante cada hold, avatares, tarjetas laterales y notificaciones siguen moviéndose apenas (±4–8 px, ±1°, ciclos de 2–3 s en sine): nada entra y se congela."
+    "LECTURA. logbook.so, una historia en 7 cuadros sobre fondo oscuro (1440×6752): hero con el título raster «Once upon a project» y tres avatares con su rol; «It all began with a full process» con un Gantt de barras de colores y dos tarjetas laterales; «The first delays sneaked in» con cuatro avisos como notificaciones; «The team reacted quickly» con un segundo Gantt; «But things snowballed» con una pila de avisos girada; «The project fell behind» con las barras caídas fuera del Gantt; y las nubes del cierre. Los fondos de sección (div#dark-intro, la página) NO son contenido: llenan el cuadro.",
+    "GUION (brief: video corporativo de SaaS súper premium, muy extra, animaciones secundarias, la cámara se va ACERCANDO a los planos, nada fuera de los márgenes seguros, movimiento continuo pero escalonado, nunca cargado). 28 s, 7 escenas, fondo de la pieza #1e1c1a para que la cámara pueda abrir sin bandas. (1) 0–3,6 s HERO abierto a 1.22: logo y Beta, título desde el fondo enderezándose, avatares con pop y sus chips, respiración, tilt al garabato que invita a bajar. (2) 3,6–9 s EL PLAN a página completa: título palabra por palabra, el Gantt sube, las tarjetas laterales llegan girando, barras que CARGAN en cascada, avatares con pop; el título se va y la cámara tiltea a los avatares. (3) 9–13,5 s LOS AVISOS, más cerca (1.36 → 1.46): cuatro notificaciones alternando de lado con asentamiento. (4) 13,5–18 s LA REACCIÓN: título, y la cámara baja al segundo Gantt mientras las barras cargan más rápido (1.36 → 1.42 → 1.45). (5) 18–21,5 s BOLA DE NIEVE: la pila entra en remolino y sigue meciéndose, la cámara se acerca a 1.50. (6) 21,5–25,5 s LA CAÍDA: título línea a línea que se va, tarjeta vacía, tilt a las barras que CAEN una tras otra (1.40 → 1.41). (7) 25,5–28 s NUBES: suben despacio, derivan y la cámara cierra acercándose.",
+    "CARÁCTER. Protagonistas 900–1100 ms con salidaExpo/salidaQuint (tarjetas suben y asientan con subirDesenfocado, el título raster llega con acercarDesenfocado); secundarios 500–700 ms cubic (avatares pop back.out(1.5), chips subir); micro 250–450 ms sine (bordes, fondos). Un solo elástico en toda la pieza. Cada hold tiene push-in lento y dos o tres elementos secundarios vivos (cursores, avatares, tarjetas, la pila, las nubes): nada entra y se congela, pero tampoco todo se mueve a la vez. Solapes de 150–400 ms entre entradas; el título de cada escena arranca antes de que el viaje termine."
   ],
   "pasos": [
     {
@@ -25,6 +25,25 @@
           {
             "t": 0,
             "v": 720
+          },
+          {
+            "t": 17600,
+            "v": 720
+          },
+          {
+            "t": 18500,
+            "v": 600,
+            "easing": "entradaSalidaCubic"
+          },
+          {
+            "t": 21000,
+            "v": 500,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 22000,
+            "v": 720,
+            "easing": "entradaSalidaCubic"
           }
         ],
         "y": [
@@ -68,15 +87,25 @@
           {
             "t": 13000,
             "v": 2480,
-            "easing": "entradaSalidaCubic"
+            "easing": "salidaSine"
           },
           {
             "t": 14000,
-            "v": 3382
+            "v": 3250
+          },
+          {
+            "t": 14400,
+            "v": 3250,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 15200,
+            "v": 3454,
+            "easing": "entradaSalidaSine"
           },
           {
             "t": 17600,
-            "v": 3382,
+            "v": 3454,
             "easing": "entradaSalidaCubic"
           },
           {
@@ -99,12 +128,12 @@
           },
           {
             "t": 23300,
-            "v": 5580,
+            "v": 5566,
             "easing": "entradaSalidaSine"
           },
           {
             "t": 25000,
-            "v": 5580,
+            "v": 5566,
             "easing": "entradaSalidaCubic"
           },
           {
@@ -154,32 +183,42 @@
           },
           {
             "t": 9600,
-            "v": 1.33,
+            "v": 1.36,
             "easing": "entradaSalidaSine"
           },
           {
             "t": 13000,
-            "v": 1.4,
+            "v": 1.42,
             "easing": "salidaSine"
           },
           {
             "t": 14000,
-            "v": 1.22,
+            "v": 1.36,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 14400,
+            "v": 1.36,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 15200,
+            "v": 1.42,
             "easing": "entradaSalidaSine"
           },
           {
             "t": 17600,
-            "v": 1.28,
+            "v": 1.45,
             "easing": "salidaSine"
           },
           {
             "t": 18500,
-            "v": 1.33,
+            "v": 1.36,
             "easing": "entradaSalidaSine"
           },
           {
             "t": 21000,
-            "v": 1.45,
+            "v": 1.5,
             "easing": "salidaSine"
           },
           {
@@ -194,12 +233,12 @@
           },
           {
             "t": 23300,
-            "v": 1.334,
+            "v": 1.4,
             "easing": "entradaSalidaSine"
           },
           {
             "t": 25000,
-            "v": 1.355,
+            "v": 1.41,
             "easing": "salidaSine"
           },
           {
@@ -209,7 +248,8 @@
           },
           {
             "t": 28000,
-            "v": 1.36
+            "v": 1.5,
+            "easing": "salidaSine"
           }
         ],
         "temblor": {
@@ -218,7 +258,18 @@
           "velocidad": 0.6
         }
       },
-      "nota": "la cámara cuenta la historia: hero con tilt lento hacia el garabato, hold en cada cuadro con push-in (sine), viaje de 1 s con entradaSalidaCubic, flotar apenas Márgenes seguros: el hero abre a 1.22 → 1.25 (la página es del color del fondo: abrir no muestra vacío) para que el logo y los avatares queden a más del 5 % del borde, y el tilt baja hasta y 650 para descubrir el garabato entero; en el plan y en la caída la página se ve entera a lo ancho (zoom 1.334, las tarjetas laterales sangran por el borde de la página y abrir más mostraría el recorte) y como el contenido es más alto que el cuadro, la cámara TILTEA del título a los avatares/barras caídas mientras entran, con un push-in corto (1.334 → 1.355) que no deja nada a menos del 5 % del borde; en la reacción (nada sangra, página del color del fondo) abre a 1.22 → 1.28 con el contenido en el 80 % del cuadro."
+      "nota": "La cámara cuenta la historia y se va ACERCANDO a los planos: hero abierto (1.22 → 1.25 con tilt al garabato), plan a página completa (1.334 → 1.355, tilt del título al Gantt), avisos más cerca (1.36 → 1.42), reacción con tilt del título al segundo Gantt (1.36 → 1.42 → 1.45), bola de nieve (1.36 → 1.50, y la cámara PANEA de x 720 a 500 porque la pila vive a la izquierda de la página: acercarse a ella en vez de dejar la derecha vacía), caída con tilt a las barras (1.334 → 1.40 → 1.41: las tarjetas laterales sangran por la página, así que nunca por debajo de 1.334) y las nubes cierran acercándose (1.33 → 1.50). Cada hold tiene push-in; los viajes duran ~1 s con entradaSalidaCubic; flotar apenas. Márgenes seguros: cada encuadre deja el contenido a más del 5 % del borde (medido con la auditoría)."
+    },
+    {
+      "herramienta": "definir_salida",
+      "input": {
+        "capaId": "fig-29-the-team-reacted-quickly-the-pla",
+        "preset": "elevarDesenfocado",
+        "en": 14900,
+        "duracion": 500,
+        "easing": "entradaSine"
+      },
+      "nota": "el título se va mientras la cámara baja al Gantt: si se quedara, el tilt lo cortaría por arriba"
     },
     {
       "herramienta": "definir_salida",
@@ -1790,16 +1841,21 @@
         "keyframes": [
           {
             "t": 20300,
-            "v": 4530,
+            "v": 4530
+          },
+          {
+            "t": 21400,
+            "v": 4538,
             "easing": "entradaSalidaSine"
           },
           {
-            "t": 21000,
-            "v": 4530
+            "t": 22500,
+            "v": 4530,
+            "easing": "entradaSalidaSine"
           }
         ]
       },
-      "nota": "la pila flota mientras se mece"
+      "nota": "vida ambiente: la pila de caos respira en y mientras termina de mecerse"
     },
     {
       "herramienta": "definir_pista",
@@ -1809,15 +1865,21 @@
         "keyframes": [
           {
             "t": 23500,
-            "v": 0,
+            "v": 0
+          },
+          {
+            "t": 24250,
+            "v": -0.8,
             "easing": "entradaSalidaSine"
           },
           {
             "t": 25000,
-            "v": 0
+            "v": 0,
+            "easing": "entradaSalidaSine"
           }
         ]
-      }
+      },
+      "nota": "vida ambiente: la tarjeta lateral sigue meciéndose apenas durante el hold"
     },
     {
       "herramienta": "definir_pista",
@@ -1827,15 +1889,21 @@
         "keyframes": [
           {
             "t": 23600,
-            "v": 0,
+            "v": 0
+          },
+          {
+            "t": 24300,
+            "v": 0.8,
             "easing": "entradaSalidaSine"
           },
           {
             "t": 25000,
-            "v": 0
+            "v": 0,
+            "easing": "entradaSalidaSine"
           }
         ]
-      }
+      },
+      "nota": "vida ambiente: la otra tarjeta, en contrafase"
     },
     {
       "herramienta": "definir_pista",
@@ -1844,17 +1912,17 @@
         "propiedad": "x",
         "keyframes": [
           {
-            "t": 27200,
-            "v": 720,
-            "easing": "entradaSalidaSine"
+            "t": 26800,
+            "v": 720
           },
           {
             "t": 28000,
-            "v": 720
+            "v": 728,
+            "easing": "entradaSalidaSine"
           }
         ]
       },
-      "nota": "las nubes derivan hasta el final"
+      "nota": "vida ambiente: las nubes derivan apenas hacia la derecha hasta el final"
     }
   ]
 }

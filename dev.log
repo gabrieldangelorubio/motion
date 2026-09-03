@@ -5,31 +5,32 @@
 ▲ Next.js 16.2.9 (Turbopack)
 - Local:         http://localhost:3000
 - Network:       http://192.0.2.2:3000
-✓ Ready in 1706ms
-⚠ Slow filesystem detected. The benchmark took 358ms. If /home/user/motion/.next/dev is a network drive, consider moving it to a local folder.
+✓ Ready in 3.1s
+⚠ Slow filesystem detected. The benchmark took 311ms. If /home/user/motion/.next/dev is a network drive, consider moving it to a local folder.
 See more: https://nextjs.org/docs/app/guides/local-development
 - Experiments (use with caution):
   · serverActions
 
 ○ Compiling /motion ...
- GET /motion 200 in 11.1s (next.js: 10.7s, application-code: 372ms)
- GET /motion 200 in 118ms (next.js: 8ms, application-code: 110ms)
- POST /api/motion/bandeja 200 in 791ms (next.js: 777ms, application-code: 15ms)
- GET /api/motion/bandeja 200 in 8ms (next.js: 2ms, application-code: 6ms)
- GET /motion 200 in 146ms (next.js: 7ms, application-code: 139ms)
- GET /api/motion/agente 200 in 199ms (next.js: 189ms, application-code: 10ms)
- GET /api/motion/bandeja 200 in 9ms (next.js: 3ms, application-code: 7ms)
- GET /api/motion/bandeja?id=b-mtlsvu1l-g0pl 200 in 7ms (next.js: 3ms, application-code: 4ms)
- POST /motion 200 in 21ms (next.js: 6ms, application-code: 15ms)
-  └─ ƒ guardarComposicionAction("demo", "{\"version\":1,\"nombre\":\"Frame 16163\",\"ancho\":1920,\"alto\":1080,\"fps\":30,\"duracion\":5000,\"fondo\":\"#ffffff\",\"capas\":[{\"id\":\"pantalla-frame-16163\",\"nombre\":\"Frame 16163 (fondo)\",\"tipo\":\"forma\",\"forma\":\"rectangulo\",\"ancho\":838,\"alto\":405,\"color\":\"#ffffff\",\"x\":419,\"y\":202.5,\"grupo\":\"pantalla-frame-16163\",\"v\":1},{\"id\":\"fig-0-rectangle-14\",\"nombre\":\"Rectangle 14\",\"v\":0,\"subgrupo\":\"pantalla-frame-16163:Group 135\",\"subgrupoNombre\":\"Group 135\",\"ruta\":\"Group 135 / Group 134 / Group 129\",\"tipo\":\"vector\",\"rotacion\":-90,\"path\":\"M0 35.0383 C0 15.6872 15.6872 0 35.0382 0 L98.4408 0 C117.792 0 133.479 15.6872 133.479 35.0382 L133.479 492.204 C133.479 511.555 117.792 527.242 98.4408 527.242 L35.0382 527.242 C15.6872 527.242 0 511.555 0 492.204 L0 35.0383 Z\",\"ancho\":133.48,\"alto\":527.24,\"relleno\":\"#fe6627\",\"trazoColor\":\"#fe6627\",\"trazoGrosor\":3.34,\"remate\":\"recto\",\"x\":418.62,\"y\":202.74,\"grupo\":\"pantalla-frame-16163\"},{\"id\":\"fig-1-buy-now\",\"nombre\":\"buy now\",\"v\":1,\"subgrupo\":\"pantalla-frame-16163:Group 135\",\"subgrupoNombre\":\"Group 135\",\"ruta\":\"Group 135 / Group 134 / Group 129\",\"tipo\":\"texto\",\"texto\":\"BUY NOW\",\"fuente\":{\"familia\":\"'Yamantaka', -apple-system, 'Segoe UI', Roboto, sans-serif\",\"tamano\":121.79959106445312,\"peso\":250,\"estilo\":\"Thin\",\"interletrado\":-3.65,\"interlineado\":103.53},\"color\":\"#fdfbe4\",\"division\":\"ninguna\",\"alineacion\":\"izquierda\",\"x\":194.21,\"y\":247.52,\"grupo\":\"pantalla-frame-16163\"}],\"camara\":{\"pistas\":{},\"base\":{\"x\":419,\"y\":202.5,\"zoom\":2.2911694510739857}}}", 0) in 1ms acciones.ts
+ GET /motion 200 in 2.1s (next.js: 1915ms, application-code: 148ms)
+ GET /motion 200 in 151ms (next.js: 3ms, application-code: 148ms)
+ GET /api/motion/agente 200 in 470ms (next.js: 457ms, application-code: 13ms)
+ GET /api/motion/bandeja 200 in 25ms (next.js: 20ms, application-code: 5ms)
+ GET /motion 200 in 99ms (next.js: 5ms, application-code: 94ms)
+ GET /motion 200 in 135ms (next.js: 5ms, application-code: 130ms)
+ GET /api/motion/agente 200 in 7ms (next.js: 3ms, application-code: 4ms)
+ GET /api/motion/bandeja 200 in 8ms (next.js: 3ms, application-code: 5ms)
  GET /api/motion/bandeja 200 in 7ms (next.js: 3ms, application-code: 4ms)
- GET /motion 200 in 101ms (next.js: 8ms, application-code: 92ms)
- POST /api/motion/bandeja 200 in 9ms (next.js: 3ms, application-code: 6ms)
- GET /motion 200 in 121ms (next.js: 2ms, application-code: 119ms)
- GET /api/motion/agente 200 in 6ms (next.js: 3ms, application-code: 4ms)
- GET /api/motion/bandeja 200 in 12ms (next.js: 3ms, application-code: 9ms)
- GET /api/motion/bandeja?id=b-mtltao1s-05kh 200 in 7ms (next.js: 3ms, application-code: 4ms)
- DELETE /api/motion/bandeja?id=b-mtltao1s-05kh 200 in 10ms (next.js: 2ms, application-code: 7ms)
- POST /motion 200 in 16ms (next.js: 3ms, application-code: 13ms)
-  └─ ƒ guardarComposicionAction("demo", "{\"version\":1,\"nombre\":\"Frame 16163\",\"ancho\":1920,\"alto\":1080,\"fps\":30,\"duracion\":5000,\"fondo\":\"#ffffff\",\"capas\":[{\"id\":\"pantalla-frame-16163\",\"nombre\":\"Frame 16163 (fondo)\",\"tipo\":\"forma\",\"forma\":\"rectangulo\",\"ancho\":838,\"alto\":405,\"color\":\"#ffffff\",\"x\":419,\"y\":202.5,\"grupo\":\"pantalla-frame-16163\",\"v\":1},{\"id\":\"fig-0-rectangle-14\",\"nombre\":\"Rectangle 14\",\"v\":0,\"subgrupo\":\"pantalla-frame-16163:Group 135\",\"subgrupoNombre\":\"Group 135\",\"ruta\":\"Group 135 / Group 134 / Group 129\",\"tipo\":\"vector\",\"rotacion\":-90,\"path\":\"M0 35.0383 C0 15.6872 15.6872 0 35.0382 0 L98.4408 0 C117.792 0 133.479 15.6872 133.479 35.0382 L133.479 492.204 C133.479 511.555 117.792 527.242 98.4408 527.242 L35.0382 527.242 C15.6872 527.242 0 511.555 0 492.204 L0 35.0383 Z\",\"ancho\":133.48,\"alto\":527.24,\"relleno\":\"#fe6627\",\"trazoColor\":\"#fe6627\",\"trazoGrosor\":3.34,\"remate\":\"recto\",\"x\":418.62,\"y\":202.74,\"grupo\":\"pantalla-frame-16163\"},{\"id\":\"fig-1-buy-now\",\"nombre\":\"buy now\",\"v\":1,\"subgrupo\":\"pantalla-frame-16163:Group 135\",\"subgrupoNombre\":\"Group 135\",\"ruta\":\"Group 135 / Group 134 / Group 129\",\"tipo\":\"texto\",\"texto\":\"BUY NOW\",\"fuente\":{\"familia\":\"'Yamantaka', -apple-system, 'Segoe UI', Roboto, sans-serif\",\"tamano\":121.79959106445312,\"peso\":250,\"estilo\":\"Thin\",\"interletrado\":-3.65,\"interlineado\":103.53},\"color\":\"#fdfbe4\",\"division\":\"ninguna\",\"alineacion\":\"izquierda\",\"x\":194.21,\"y\":247.52,\"grupo\":\"pantalla-frame-16163\"}],\"camara\":{\"pistas\":{},\"base\":{\"x\":419,\"y\":202.5,\"zoom\":2.2911694510739857}}}", 0) in 1ms acciones.ts
- GET /api/motion/bandeja 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ POST /api/motion/composicion 200 in 248ms (next.js: 39ms, application-code: 208ms)
+ GET /motion 200 in 99ms (next.js: 7ms, application-code: 92ms)
+ GET /api/motion/agente 200 in 7ms (next.js: 2ms, application-code: 5ms)
+ POST /api/motion/composicion 200 in 3.1s (next.js: 2ms, application-code: 3.1s)
+ GET /motion 200 in 91ms (next.js: 6ms, application-code: 85ms)
+ GET /api/motion/agente 200 in 7ms (next.js: 2ms, application-code: 5ms)
+ POST /api/motion/composicion 200 in 3.2s (next.js: 2ms, application-code: 3.2s)
+ GET /motion 200 in 94ms (next.js: 4ms, application-code: 90ms)
+ GET /api/motion/agente 200 in 7ms (next.js: 2ms, application-code: 5ms)
+ POST /api/motion/composicion 200 in 3.0s (next.js: 2ms, application-code: 3.0s)
+ GET /motion 200 in 110ms (next.js: 3ms, application-code: 107ms)
+ GET /api/motion/agente 200 in 5ms (next.js: 2ms, application-code: 3ms)
+ POST /api/motion/composicion 200 in 3.1s (next.js: 3ms, application-code: 3.1s)
