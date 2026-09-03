@@ -32,3 +32,12 @@
 ✓ Compiled in 50ms
 ✓ Compiled in 36ms
 ✓ Compiled in 46ms
+ GET /motion 200 in 124ms (next.js: 6ms, application-code: 118ms)
+ GET /api/motion/agente 200 in 14ms (next.js: 2ms, application-code: 12ms)
+ POST /api/motion/composicion 200 in 2.4s (next.js: 2ms, application-code: 2.4s)
+ GET /motion 200 in 83ms (next.js: 3ms, application-code: 81ms)
+ GET /api/motion/agente 200 in 6ms (next.js: 1978µs, application-code: 4ms)
+ POST /api/motion/composicion 200 in 2.4s (next.js: 2ms, application-code: 2.4s)
+ GET /motion 200 in 83ms (next.js: 3ms, application-code: 80ms)
+ GET /api/motion/agente 200 in 5ms (next.js: 1692µs, application-code: 3ms)
+ POST /api/motion/composicion 200 in 2.3s (next.js: 1952µs, application-code: 2.3s)

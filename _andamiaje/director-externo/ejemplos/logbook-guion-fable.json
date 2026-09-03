@@ -47,18 +47,18 @@
             "v": 1500
           },
           {
-            "t": 4700,
+            "t": 5000,
             "v": 1500,
             "easing": "entradaSalidaSine"
           },
           {
             "t": 5600,
-            "v": 1650,
+            "v": 1690,
             "easing": "entradaSalidaSine"
           },
           {
             "t": 8600,
-            "v": 1650,
+            "v": 1690,
             "easing": "entradaSalidaCubic"
           },
           {
@@ -99,12 +99,12 @@
           },
           {
             "t": 23300,
-            "v": 5560,
+            "v": 5580,
             "easing": "entradaSalidaSine"
           },
           {
             "t": 25000,
-            "v": 5560,
+            "v": 5580,
             "easing": "entradaSalidaCubic"
           },
           {
@@ -138,7 +138,7 @@
             "easing": "entradaSalidaSine"
           },
           {
-            "t": 4700,
+            "t": 5000,
             "v": 1.334,
             "easing": "entradaSalidaSine"
           },
@@ -219,6 +219,39 @@
         }
       },
       "nota": "la cámara cuenta la historia: hero con tilt lento hacia el garabato, hold en cada cuadro con push-in (sine), viaje de 1 s con entradaSalidaCubic, flotar apenas Márgenes seguros: el hero abre a 1.22 → 1.25 (la página es del color del fondo: abrir no muestra vacío) para que el logo y los avatares queden a más del 5 % del borde, y el tilt baja hasta y 650 para descubrir el garabato entero; en el plan y en la caída la página se ve entera a lo ancho (zoom 1.334, las tarjetas laterales sangran por el borde de la página y abrir más mostraría el recorte) y como el contenido es más alto que el cuadro, la cámara TILTEA del título a los avatares/barras caídas mientras entran, con un push-in corto (1.334 → 1.355) que no deja nada a menos del 5 % del borde; en la reacción (nada sangra, página del color del fondo) abre a 1.22 → 1.28 con el contenido en el 80 % del cuadro."
+    },
+    {
+      "herramienta": "definir_salida",
+      "input": {
+        "capaId": "fig-2-it-all-began-with-a-full",
+        "preset": "elevarDesenfocado",
+        "en": 5300,
+        "duracion": 500,
+        "easing": "entradaSine"
+      },
+      "nota": "el título ya se leyó: se eleva y desenfoca mientras la cámara tiltea al Gantt (si se quedara, el tilt lo cortaría por arriba)"
+    },
+    {
+      "herramienta": "definir_salida",
+      "input": {
+        "capaId": "fig-3-process-that-took-days-to-get-in",
+        "preset": "elevarDesenfocado",
+        "en": 5450,
+        "duracion": 500,
+        "easing": "entradaSine"
+      },
+      "nota": "sigue al título"
+    },
+    {
+      "herramienta": "definir_salida",
+      "input": {
+        "capaId": "fig-51-the-project-fell-behind-until-ne",
+        "preset": "elevarDesenfocado",
+        "en": 22800,
+        "duracion": 500,
+        "easing": "entradaSine"
+      },
+      "nota": "el título se va cuando empiezan a caer las barras: el tilt lo cortaría por arriba"
     },
     {
       "herramienta": "definir_entrada",
