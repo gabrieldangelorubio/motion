@@ -139,7 +139,10 @@ export const Lienzo = forwardRef<
       ctx.beginPath();
       ctx.rect(0, 0, comp.ancho, comp.alto);
       ctx.clip();
-      pintar(estado, ctx as unknown as Contexto2D, obtenerMedia?.() ?? {});
+      // blur y sombras van en px de dispositivo: el pintor necesita la
+      // escala real de la vista (zoom × densidad) para que se vean igual a
+      // cualquier zoom, como en el export
+      pintar(estado, ctx as unknown as Contexto2D, obtenerMedia?.() ?? {}, cam.escala * factor);
       ctx.restore();
       ctx.strokeStyle = tokensRef.current.linea;
       ctx.lineWidth = 1 / cam.escala;
@@ -159,6 +162,7 @@ export const Lienzo = forwardRef<
       { ...estado, fondo: "", camara: { x: comp.ancho / 2, y: comp.alto / 2, zoom: 1 } },
       ctx as unknown as Contexto2D,
       obtenerMedia?.() ?? {},
+      cam.escala * factor,
     );
 
     // el encuadre de la cámara: visible SIEMPRE (acento, 1.5px; deseleccionada
@@ -260,7 +264,7 @@ export const Lienzo = forwardRef<
       ctx.translate(px, py);
       const s = pipW / comp.ancho;
       ctx.scale(s, s);
-      pintar(estado, ctx as unknown as Contexto2D, obtenerMedia?.() ?? {});
+      pintar(estado, ctx as unknown as Contexto2D, obtenerMedia?.() ?? {}, s * factor);
       ctx.restore();
       ctx.strokeStyle = tokensRef.current.acento;
       ctx.lineWidth = 1;

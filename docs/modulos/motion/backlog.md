@@ -25,6 +25,19 @@
   todo lo de adentro. El estado del director dice «dentro de «padre»».
   3 tests nuevos.
 
+### [HECHO] Plugin v21: sombra en texto, sombra de frame con fondo transparente, y el editor escala blur/sombras con el zoom (2026-09-03)
+- **Qué:** Gabriel seguía sin ver «detallitos de sombra». Medido en el
+  render real (zoom 1.5): la sombra de las barras SÍ está (11 % bajo la
+  barra, blanco a 45 px). Lo que faltaba: (1) la tarjeta blanca del Gantt
+  (frame con fondo transparente + sombra → aviso «no viajan»): ahora la
+  sombra va a la pieza que cubre ≥ 80 % del frame; (2) los títulos con
+  sombra: el plugin la manda y `pintarTexto` la aplica por corrida; (3) el
+  Lienzo del editor llamaba a `pintar` sin `escalaPx`, así que blur y
+  sombras quedaban en px de dispositivo sin escalar por el zoom de la
+  vista — ahora pasa zoom × densidad (mundo, cámara y PiP).
+- **v20 revisado:** fallback sin clon ya no duplica hijos (`entero`),
+  mezcla neutralizada en el clon, caja del original (auto-layout hug).
+
 ### [HECHO] Plugin v19/v20: ruta de carpetas en todas las capas + árbol en el panel; relleno de imagen de un frame (2026-09-03)
 - **v19 (árbol):** Gabriel: «¿mucho problema mantener el mismo orden,
   distribución y nombre de las capas de Figma?». Orden y nombres ya eran

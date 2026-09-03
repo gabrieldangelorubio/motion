@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 20;
+var VERSION_PLUGIN = 21;
 
 function aHex(color) {
   var c = function (v) {
@@ -35,23 +35,37 @@ function tieneRellenoNoSolido(fills) {
 // (el diagnóstico lo mostró: «SIN capas»). Sin hijos, el frame es esa
 // imagen: se rasteriza en su lugar. Con hijos, se exporta un clon SIN los
 // hijos (solo el relleno) y después se abren los hijos como siempre.
+// Devuelve { salida, entero }: `entero` = true cuando no se pudo separar
+// el fondo y el raster ya trae a los hijos adentro (el caller NO los abre).
 async function rasterizarRellenoDeFrame(nodo, marco) {
   if (!("children" in nodo) || nodo.children.length === 0) {
-    return await rasterizar(nodo, marco, "frame con relleno de imagen/gradiente: se rasterizó a 2×");
+    return { salida: await rasterizar(nodo, marco, "frame con relleno de imagen/gradiente: se rasterizó a 2×"), entero: true };
   }
   var clon = null;
   try {
     clon = nodo.clone();
     figma.currentPage.appendChild(clon);
     clon.relativeTransform = nodo.absoluteTransform;
+    // sin hijos, un auto-layout «hug» se achicaría: la caja se congela a la
+    // del original antes de vaciarlo
+    try { if ("layoutMode" in clon && clon.layoutMode !== "NONE") clon.layoutMode = "NONE"; } catch (e0) { /* no editable */ }
     for (var i = clon.children.length - 1; i >= 0; i--) clon.children[i].remove();
+    try { clon.resize(nodo.width, nodo.height); } catch (e4) { /* no editable */ }
+    // píxeles PUROS: opacidad, mezcla y efectos viajan en la capa
     try { if ("opacity" in clon) clon.opacity = 1; } catch (e1) { /* no editable */ }
+    try { if ("blendMode" in clon) clon.blendMode = "NORMAL"; } catch (e5) { /* no editable */ }
     try { if ("effects" in clon) clon.effects = []; } catch (e2) { /* no editable */ }
     var salida = await rasterizar(nodo, marco, "relleno de imagen/gradiente del frame: se rasterizó a 2× (sus hijos van aparte)", clon);
+    // la caja es la del frame ORIGINAL (el relleno cubre exactamente eso)
+    var co = caja(nodo, marco);
+    salida.x = co.x; salida.y = co.y; salida.ancho = co.ancho; salida.alto = co.alto;
     salida.nombre = nodo.name + " (fondo)";
-    return salida;
+    return { salida: salida, entero: false };
   } catch (e) {
-    return await rasterizar(nodo, marco, "frame con relleno no sólido: se rasterizó entero (no se pudo separar el fondo)", null, true);
+    return {
+      salida: await rasterizar(nodo, marco, "frame con relleno no sólido: se rasterizó ENTERO con sus hijos (no se pudo separar el fondo)", null, true),
+      entero: true,
+    };
   } finally {
     if (clon) { try { clon.remove(); } catch (e3) { /* ya no está */ } }
   }
@@ -746,6 +760,9 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
       opacidad: nodo.opacity < 1 ? nodo.opacity : undefined,
       mezcla: mezclaTexto.mezcla,
       aviso: conAviso({ aviso: conAviso({ aviso: conAviso({ aviso: mezclaTexto.aviso || undefined }, avisoCaso) || undefined }, avisoMixto) || undefined }, avisoLineas) || undefined,
+      // v21: la sombra del texto viaja como en las formas (el pintor la
+      // aplica corrida por corrida)
+      sombra: sombraDe(nodo) || undefined,
       texto: {
         contenido: contenido,
         familia: nombreFuente.family,
@@ -936,9 +953,11 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
     if (nodo.type !== "GROUP") {
       var fondo = pinturaSolida(nodo.fills);
       if (!fondo && tieneRellenoNoSolido(nodo.fills)) {
-        var rellenoFrame = await rasterizarRellenoDeFrame(nodo, marco);
-        rellenoFrame.ruta = rutaDentroDe(nodo, marco);
-        salida.push(rellenoFrame);
+        var relleno = await rasterizarRellenoDeFrame(nodo, marco);
+        relleno.salida.ruta = relleno.entero ? rutaDe(nodo, marco) : rutaDentroDe(nodo, marco);
+        salida.push(relleno.salida);
+        // el raster ya trae a los hijos adentro: no se abren aparte
+        if (relleno.entero) return;
       }
       if (fondo) {
         var cf = caja(nodo, marco);
@@ -967,8 +986,26 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
     for (var s = desdeSubgrupo; s < salida.length; s++) {
       salida[s].subgrupo = nodo.name;
     }
-    // la sombra viajó en el fondo → nada que avisar; sin fondo (o con
-    // otros efectos) sigue el aviso de siempre
+    // v21: frame CON sombra y SIN fondo sólido (la tarjeta blanca del Gantt
+    // de logbook: fondo transparente, adentro un raster de 800×600). Figma
+    // sombrea la silueta del contenido: la sombra va a la pieza que cubre el
+    // frame (≥ 80 % de su caja); si ninguna lo cubre, sigue el aviso.
+    if (!sombraFrame && soloSombras(nodo) && salida.length > desdeSubgrupo) {
+      var sombraSuelta = sombraDe(nodo);
+      var cajaF = caja(nodo, marco);
+      var areaF = Math.max(1, cajaF.ancho * cajaF.alto);
+      for (var q = desdeSubgrupo; q < salida.length && sombraSuelta; q++) {
+        var pieza = salida[q];
+        if (pieza.sombra || (pieza.tipo !== "imagen" && pieza.tipo !== "rect" && pieza.tipo !== "elipse")) continue;
+        if ((pieza.ancho * pieza.alto) / areaF >= 0.8) {
+          pieza.sombra = sombraSuelta;
+          pieza.aviso = conAviso(pieza, "lleva la sombra del grupo «" + nodo.name + "» (fondo transparente)");
+          sombraFrame = sombraSuelta;
+        }
+      }
+    }
+    // la sombra viajó en el fondo (o en la pieza que lo cubre) → nada que
+    // avisar; sin fondo (o con otros efectos) sigue el aviso de siempre
     if (conEfectos && salida.length > desdeSubgrupo && !(sombraFrame && soloSombras(nodo))) {
       var primera = salida[desdeSubgrupo];
       primera.aviso = (primera.aviso ? primera.aviso + " | " : "") +

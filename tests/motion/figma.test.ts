@@ -400,3 +400,14 @@ test("la sombra del nodo (DROP_SHADOW) viaja a la capa y sumarAlLienzo NO la des
   const movida = sumada.capas.find((c) => c.nombre === "barra") as CapaForma;
   assert.deepEqual(movida.sombra, sombra);
 });
+
+test("v21: la sombra de un texto viaja a la capa", () => {
+  const datos: ImportFigma = {
+    origen: "figma",
+    version: 1,
+    frame: { nombre: "f", ancho: 400, alto: 400, fondo: "#000" },
+    nodos: [{ tipo: "texto", nombre: "T", x: 10, y: 10, ancho: 80, alto: 20, sombra: { x: 0, y: 9, desenfoque: 23.4, color: "rgba(0, 0, 0, 0.15)" }, texto: { contenido: "Hola", familia: "Nunito", peso: 800, tamano: 50, alineacion: "centro", color: "#fff" } }],
+  };
+  const capa = normalizarFigma(datos).composicion.capas[0];
+  assert.deepEqual(capa.sombra, { x: 0, y: 9, desenfoque: 23.4, color: "rgba(0, 0, 0, 0.15)" });
+});

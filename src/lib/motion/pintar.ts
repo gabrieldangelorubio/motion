@@ -66,8 +66,8 @@ function filtroDe(desenfoque: number, blurX: number, blurY: number, escalaPx: nu
  * render. `difusion` (spread) no tiene equivalente en canvas: se ignora, así
  * que la sombra queda apenas más chica que en Figma.
  *
- * El texto queda AFUERA por ahora (pintarTexto pinta corrida por corrida y
- * cada una arrastraría su propia sombra).
+ * El texto también: pintarTexto la aplica por unidad (corrida/letra) y como
+ * las unidades no se solapan, se lee como una sola sombra.
  */
 // Con un preset de revelado (u.recorte) el clip de la caja corta también la
 // sombra hasta que la capa asienta — como un track matte en AE; aceptado.
@@ -91,7 +91,7 @@ function recortarACaja(ctx: Contexto2D, ancho: number, alto: number, margen = 0)
   ctx.clip();
 }
 
-function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): void {
+function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number, escalaMundo: number): void {
   const capa = estado.capa;
   if (capa.tipo !== "texto") return;
   const { familia, tamano, peso, interletrado = 0 } = capa.fuente;
@@ -172,6 +172,9 @@ function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
     ctx.save();
     ctx.globalAlpha *= u.opacidad;
     ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
+    // la sombra del texto (títulos de logbook): cada corrida arrastra la
+    // suya, y como las corridas no se solapan, se ve como una sola
+    aplicarSombra(ctx, estado, u, escalaMundo);
     if (u.recorte) {
       // La máscara del revelado: la caja de REPOSO de la unidad (por eso el
       // rect va antes del translate por dx/dy). Generosa a los costados; en
@@ -502,7 +505,7 @@ export function pintar(estado: EstadoComposicion, ctx: Contexto2D, media: Fuente
     ctx.translate(capa.x, capa.y);
     if (capa.rotacion) ctx.rotate((capa.rotacion * Math.PI) / 180);
     if (capa.escala !== 1) ctx.scale(capa.escala, capa.escala);
-    if (capa.capa.tipo === "texto") pintarTexto(capa, ctx, escalaPx);
+    if (capa.capa.tipo === "texto") pintarTexto(capa, ctx, escalaPx, escalaMundo);
     else if (capa.capa.tipo === "forma") pintarForma(capa, ctx, escalaPx, escalaMundo);
     else if (capa.capa.tipo === "trazo") pintarTrazo(capa, ctx, escalaPx, escalaMundo);
     else if (capa.capa.tipo === "vector") pintarVector(capa, ctx, escalaPx, escalaMundo);

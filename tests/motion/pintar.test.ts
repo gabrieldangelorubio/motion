@@ -286,3 +286,16 @@ test("una forma con sombra setea color, blur y offsets (escalados por supersampl
   pintar(estadoEn({ ...comp, capas: [{ ...forma, sombra: undefined }] }, 0), sin.ctx);
   assert.deepEqual(sin.llamadas.filter((l) => l.startsWith("set shadow")), []);
 });
+
+test("un texto con sombra la aplica a sus corridas (títulos de logbook con sombra suave)", () => {
+  const comp = fixture();
+  const texto = comp.capas.find((c) => c.tipo === "texto");
+  assert.ok(texto);
+  const con = { ...comp, capas: comp.capas.map((c) => (c.id === texto!.id ? { ...c, sombra: { x: 0, y: 4, desenfoque: 12, color: "rgba(0, 0, 0, 0.3)" } } : c)) };
+  const { ctx, llamadas } = contextoFalso();
+  pintar(estadoEn(con, 0), ctx);
+  const iSombra = llamadas.indexOf("set shadowBlur=12");
+  const iTexto = llamadas.findIndex((l) => l.startsWith("fillText("));
+  assert.ok(iSombra > 0 && iTexto > iSombra, "la sombra se setea antes del primer fillText");
+  assert.ok(llamadas.includes("set shadowColor=rgba(0, 0, 0, 0.3)"));
+});
