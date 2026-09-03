@@ -77,6 +77,12 @@ export const LECCIONES: Leccion[] = [
   },
   {
     cuando: "2026-09-03",
+    pieza: "logbook (Gabriel, viendo el guion de Fable: «los mouse deberían seguir moviéndose un poquito»)",
+    leccion:
+      "VIDA AMBIENTE: nada entra y se congela. Durante cada hold, dos o tres elementos secundarios siguen moviéndose apenas (pistas de y ±4–8 px o rotación ±1–2° en ciclos de 1,5–3 s con entradaSalidaSine): cursores, avatares, tarjetas laterales, notificaciones, nubes. No todo ni todo el tiempo —a criterio— pero la pantalla nunca queda muerta mientras la cámara descansa.",
+  },
+  {
+    cuando: "2026-09-03",
     pieza: "logbook (cuatro pasos fallidos de Fable, una ronda perdida de Kimi)",
     leccion:
       "Los nombres de presets y herramientas son EXACTOS y son los del catálogo del estado: «elevarDesenfocado» no existe (es subirDesenfocado), «definar_camara» no existe (es definir_camara). Un nombre inventado es un paso perdido.",

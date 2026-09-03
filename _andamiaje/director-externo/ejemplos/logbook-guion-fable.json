@@ -2,7 +2,7 @@
  "guion": [
   "LECTURA. logbook.so, una historia en 7 cuadros sobre fondo oscuro (1440×6752): hero con el título «Once upon a project» y tres avatares con su rol; «It all began with a full process» con un Gantt de barras de colores y dos tarjetas a los lados; «The first delays sneaked in» con cuatro avisos como notificaciones; «The team reacted quickly» con un segundo Gantt; «But things snowballed» con una pila de avisos girada; «The project fell behind» con las barras caídas fuera del Gantt; y las nubes del cierre.",
   "GUION (brief: SaaS súper premium, muchas animaciones secundarias, la cámara sigue la historia paso a paso, todo suave con ease). 28 s, 7 escenas. La cámara hace hold en cada cuadro con un push-in lento y viaja 1 s entre cuadros con entradaSalidaCubic, flotando apenas. (1) 0–3,6 s HERO (la cámara hace un tilt lento hacia el garabato): logo y Beta, título desde el fondo enderezándose, avatares con pop y sus chips, respiración de avatares, garabato que invita a bajar. (2) 3,6–9 s EL PLAN: título palabra por palabra, la tarjeta sube, las tarjetas laterales llegan girando, las barras CARGAN de izquierda a derecha en cascada, avatares con pop. (3) 9–13,5 s LOS AVISOS: título, cuatro notificaciones que entran alternando de lado con un asentamiento de escala. (4) 13,5–18 s LA REACCIÓN: título, segundo Gantt, barras que cargan más rápido. (5) 18–21,5 s BOLA DE NIEVE: título y la pila entra en remolino, y sigue meciéndose. (6) 21,5–25,5 s LA CAÍDA: título línea a línea, tarjeta vacía, barras que CAEN una tras otra. (7) 25,5–28 s NUBES: suben despacio y cierran.",
-  "CARÁCTER. Expo y quint en protagonistas, cubic y sine en secundarios, back.out en los pops. Ninguna capa entra sola: cada título trae su tarjeta, cada tarjeta sus barras, cada barra su borde. La cámara nunca corta: hold, viaje, hold."
+  "CARÁCTER. Expo y quint en protagonistas, cubic y sine en secundarios, back.out en los pops. Ninguna capa entra sola: cada título trae su tarjeta, cada tarjeta sus barras, cada barra su borde. La cámara nunca corta: hold, viaje, hold. VIDA AMBIENTE: durante cada hold, avatares, tarjetas laterales y notificaciones siguen moviéndose apenas (±4–8 px, ±1°, ciclos de 2–3 s en sine): nada entra y se congela."
  ],
  "pasos": [
   {
@@ -1417,6 +1417,369 @@
     }
    },
    "nota": "las nubes suben despacio y cierran"
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-11-rpzaphjp586snuq6odciybkaou-png",
+    "propiedad": "y",
+    "keyframes": [
+     {
+      "t": 6200,
+      "v": 1573,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 7200,
+      "v": 1567,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 8200,
+      "v": 1579,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 8600,
+      "v": 1573
+     }
+    ]
+   },
+   "nota": "vida ambiente: el avatar sigue flotando durante el hold"
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-10-i4i2niurh5x8malgqlqsgmvcsu-png",
+    "propiedad": "y",
+    "keyframes": [
+     {
+      "t": 6400,
+      "v": 1494,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 7500,
+      "v": 1500,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 8600,
+      "v": 1494
+     }
+    ]
+   }
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-26-qwuezwq7opkirgz9zqt2k94e-png",
+    "propiedad": "y",
+    "keyframes": [
+     {
+      "t": 6700,
+      "v": 1931,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 7600,
+      "v": 1926,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 8500,
+      "v": 1936,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 8600,
+      "v": 1931
+     }
+    ]
+   }
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-27-ixen6mk9zyoimbdpqzc8tzeksg-png",
+    "propiedad": "y",
+    "keyframes": [
+     {
+      "t": 6900,
+      "v": 1909,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 7900,
+      "v": 1914,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 8600,
+      "v": 1909
+     }
+    ]
+   }
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-4-div-framer-1gjac07",
+    "propiedad": "rotacion",
+    "keyframes": [
+     {
+      "t": 5700,
+      "v": 0,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 7200,
+      "v": -1.2,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 8600,
+      "v": 0
+     }
+    ]
+   },
+   "nota": "las tarjetas laterales respiran ±1°"
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-5-div-framer-ef4xmd",
+    "propiedad": "rotacion",
+    "keyframes": [
+     {
+      "t": 5850,
+      "v": 0,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 7350,
+      "v": 1.2,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 8600,
+      "v": 0
+     }
+    ]
+   }
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-65-lbmmk0dmwux7w4ukyp56jzditwy-png",
+    "propiedad": "y",
+    "keyframes": [
+     {
+      "t": 10850,
+      "v": 2357,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 11800,
+      "v": 2353,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 12750,
+      "v": 2361,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 13000,
+      "v": 2357
+     }
+    ]
+   },
+   "nota": "las notificaciones siguen vivas, fases alternadas"
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-67-igbzuaikqqkcfgaz0a1dojdwvzw-png",
+    "propiedad": "y",
+    "keyframes": [
+     {
+      "t": 11270,
+      "v": 2486,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 12220,
+      "v": 2490,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 13000,
+      "v": 2486
+     }
+    ]
+   }
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-69-wngfbmmes7gjfajfjxrjesx85k-png",
+    "propiedad": "y",
+    "keyframes": [
+     {
+      "t": 11690,
+      "v": 2614,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 12640,
+      "v": 2610,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 13000,
+      "v": 2614
+     }
+    ]
+   }
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-71-qlq0tgrtqui5ghtfwysrzsl19e-png",
+    "propiedad": "y",
+    "keyframes": [
+     {
+      "t": 12110,
+      "v": 2743,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 13000,
+      "v": 2743
+     }
+    ]
+   }
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-48-es7hixvi9ingyrcv71zkur8ozcu-png",
+    "propiedad": "y",
+    "keyframes": [
+     {
+      "t": 16100,
+      "v": 3348,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 17100,
+      "v": 3342,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 17600,
+      "v": 3348
+     }
+    ]
+   }
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-47-i4i2niurh5x8malgqlqsgmvcsu-png",
+    "propiedad": "y",
+    "keyframes": [
+     {
+      "t": 16300,
+      "v": 3431,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 17400,
+      "v": 3437,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 17600,
+      "v": 3431
+     }
+    ]
+   }
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-50-xfggfavhnuw6aiwusilyz9stms-png",
+    "propiedad": "y",
+    "keyframes": [
+     {
+      "t": 20300,
+      "v": 4530,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 21000,
+      "v": 4530
+     }
+    ]
+   },
+   "nota": "la pila flota mientras se mece"
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-52-div-framer-15i5kob",
+    "propiedad": "rotacion",
+    "keyframes": [
+     {
+      "t": 23500,
+      "v": 0,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 25000,
+      "v": 0
+     }
+    ]
+   }
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-53-div-framer-s0luui",
+    "propiedad": "rotacion",
+    "keyframes": [
+     {
+      "t": 23600,
+      "v": 0,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 25000,
+      "v": 0
+     }
+    ]
+   }
+  },
+  {
+   "herramienta": "definir_pista",
+   "input": {
+    "capaId": "fig-82-clip-path-group",
+    "propiedad": "x",
+    "keyframes": [
+     {
+      "t": 27200,
+      "v": 720,
+      "easing": "entradaSalidaSine"
+     },
+     {
+      "t": 28000,
+      "v": 720
+     }
+    ]
+   },
+   "nota": "las nubes derivan hasta el final"
   }
  ]
 }

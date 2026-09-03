@@ -125,12 +125,14 @@ export function herramientaMasCercana(nombre: string, conocidas: string[]): stri
     return fila[b.length];
   };
   const limpio = nombre.trim().toLowerCase().replace(/[\s-]+/g, "_");
-  let mejor: { n: string; d: number } | null = null;
-  for (const c of conocidas) {
-    const d = distancia(limpio, c);
-    if (d <= 2 && (!mejor || d < mejor.d)) mejor = { n: c, d };
-  }
-  return mejor?.n ?? null;
+  const puntajes = conocidas.map((c) => ({ n: c, d: distancia(limpio, c) })).filter((x) => x.d <= 2).sort((a, b) => a.d - b.d);
+  if (puntajes.length === 0) return null;
+  // el candidato tiene que ser ÚNICO a su distancia: si dos empatan, no se adivina
+  if (puntajes.length > 1 && puntajes[1].d === puntajes[0].d) return null;
+  // y nunca se «corrige» hacia una herramienta destructiva (quitar_capa está
+  // a distancia 2 de editar_capa): si lo más cercano es destructivo, nada
+  if (puntajes[0].n.startsWith("quitar_")) return null;
+  return puntajes[0].n;
 }
 
 /** Una capa «del diseño» es una placa o una capa que vive en una pantalla

@@ -511,6 +511,11 @@ test("un typo en el nombre de la herramienta se corrige solo y el resultado lo d
   assert.equal(herramientaMasCercana("definar_camara", ["definir_camara", "definir_entrada"]), "definir_camara");
   assert.equal(herramientaMasCercana("Definir Camara", ["definir_camara"]), "definir_camara");
   assert.equal(herramientaMasCercana("hacer_magia", ["definir_camara", "editar_capa"]), null);
+  // nunca hacia una destructiva, y nunca con empate
+  assert.equal(herramientaMasCercana("qitar_capa", ["quitar_capa", "editar_capa"]), null);
+  assert.equal(herramientaMasCercana("uitar_capa", ["quitar_capa", "editar_capa"]), null);
+  assert.equal(herramientaMasCercana("editr_capa", ["quitar_capa", "editar_capa"]), "editar_capa");
+  assert.equal(herramientaMasCercana("definir_x", ["definir_a", "definir_b"]), null);
   const comp = conTitulo();
   const res = ejecutarHerramienta(comp, "definar_entrada", { capaId: "titulo", preset: "subir" });
   assert.ok(!res.esError, res.resultado);
