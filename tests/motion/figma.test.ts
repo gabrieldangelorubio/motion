@@ -378,3 +378,25 @@ test("v17: esquinas distintas (cornerRadius mixed) llegan como radios por esquin
   assert.equal(capa.radio, 35);
   assert.deepEqual(capa.radios, [0, 35, 35, 0]);
 });
+
+test("la sombra del nodo (DROP_SHADOW) viaja a la capa y sumarAlLienzo NO la desplaza (es relativa)", async () => {
+  const { sumarAlLienzo } = await import("@/lib/motion/figma-puro");
+  const { crearComposicion } = await import("@/lib/motion/herramientas-puro");
+  const sombra = { x: 0, y: 4, desenfoque: 12, color: "rgba(0, 0, 0, 0.25)", difusion: 2 };
+  const datos: ImportFigma = {
+    origen: "figma",
+    version: 1,
+    frame: { nombre: "gantt", ancho: 1440, alto: 900, fondo: "#fff" },
+    nodos: [
+      { tipo: "rect", nombre: "barra", x: 100, y: 200, ancho: 300, alto: 24, forma: { color: "#f24e1e", radio: 12 }, sombra },
+      { tipo: "rect", nombre: "plana", x: 0, y: 0, ancho: 50, alto: 50, forma: { color: "#000" } },
+    ],
+  };
+  const res = normalizarFigma(datos);
+  const barra = res.composicion.capas.find((c) => c.nombre === "barra") as CapaForma;
+  assert.deepEqual(barra.sombra, sombra);
+  assert.equal((res.composicion.capas.find((c) => c.nombre === "plana") as CapaForma).sombra, undefined);
+  const sumada = sumarAlLienzo(crearComposicion({ nombre: "l" }), res, 2000, 100).composicion;
+  const movida = sumada.capas.find((c) => c.nombre === "barra") as CapaForma;
+  assert.deepEqual(movida.sombra, sombra);
+});

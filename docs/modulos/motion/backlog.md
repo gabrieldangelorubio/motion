@@ -13,6 +13,28 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Plugin v18 por logbook.so: líneas reales, sombras en el motor y diagnóstico por nodo (2026-09-03)
+- **Qué pasó (JSON de Gabriel, Framer → Figma):** (1) los títulos tienen
+  sombra y `absoluteRenderBounds` crece con ella: «It all began with a
+  "full"» (1 línea, 50 px) medía 106 px → 2 líneas estimadas, tinta 25 px
+  más arriba; el editor forzaba el salto y se pisaba con el texto de abajo.
+  (2) 30 avisos «las sombras del grupo no viajan»: cada barra y tarjeta
+  tiene drop shadow. (3) Los cuatro globos de «The first delays» llegaron
+  como frames transparentes SIN hijos y sin aviso: el plugin no vio nada.
+- **Hecho:** `contenidoConCortes` devuelve también las LÍNEAS REALES
+  (getRangeBounds) y mandan sobre cualquier estimación; con efectos no se
+  usa la caja de render ni para líneas ni para `tintaY`. Verificado
+  headless sobre el JSON simulado: tres líneas limpias. SOMBRAS de punta a
+  punta: `CapaBase.sombra {x,y,desenfoque,color,difusion?}`; el plugin la
+  lee de DROP_SHADOW (rect/elipse/vector nativos —ya no van al raster por
+  una sombra— y el fondo del frame lleva la del grupo); `pintar` la aplica
+  con canvas shadow escalada por escalaPx·zoom·escala; AE recibe «ADBE Drop
+  Shadow» (dirección/distancia/suavidad); `difusion` (spread) se ignora.
+  DIAGNÓSTICO: `diagnostico[]` en el JSON, una línea por nodo visitado
+  (ocultos incluidos) con cuántas capas dejó — para los globos perdidos.
+- **Pendiente:** con el JSON v18 de Gabriel, leer `diagnostico` y ver por
+  qué los globos no dejaron capas. Sombra en TEXTO (no se pinta aún).
+
 ### [HECHO] Desplegable de modelos reales en el panel (2026-09-03)
 - **Qué:** Gabriel: «¿cómo sé qué agente está elegido? En vez de rápido/fino
   un dropdown con los nombres reales». `modelos-director-puro.ts` arma el

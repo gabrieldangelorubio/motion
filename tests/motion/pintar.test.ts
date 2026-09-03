@@ -246,3 +246,43 @@ test("una forma con radios por esquina pinta roundRect con las cuatro esquinas",
   pintar(estadoEn(con, 0), ctx);
   assert.ok(llamadas.some((l) => l.startsWith("roundRect(") && l.endsWith(",0,35,35,0)")), llamadas.filter((l) => l.startsWith("roundRect")).join(" | "));
 });
+
+test("una forma con sombra setea color, blur y offsets (escalados por supersampling y zoom); sin sombra no toca nada", async () => {
+  const { crearComposicion } = await import("@/lib/motion/herramientas-puro");
+  const base = crearComposicion({ nombre: "sombra" });
+  const forma = {
+    id: "barra", nombre: "Barra", tipo: "forma" as const, forma: "rectangulo" as const,
+    ancho: 200, alto: 40, radio: 8, color: "#f24e1e", x: 300, y: 200,
+    sombra: { x: 0, y: 4, desenfoque: 12, color: "rgba(0, 0, 0, 0.25)", difusion: 2 },
+  };
+  const comp = { ...base, capas: [forma] };
+
+  const { ctx, llamadas } = contextoFalso();
+  pintar(estadoEn(comp, 0), ctx);
+  assert.ok(llamadas.includes("set shadowColor=rgba(0, 0, 0, 0.25)"), llamadas.join(" | "));
+  assert.ok(llamadas.includes("set shadowBlur=12"), "el blur va en px de mundo a 1×");
+  assert.ok(llamadas.includes("set shadowOffsetX=0"));
+  assert.ok(llamadas.includes("set shadowOffsetY=4"));
+  // el seteo va DENTRO del save/restore de la capa: nada lo hereda
+  const iSave = llamadas.lastIndexOf("save()");
+  const iSombra = llamadas.indexOf("set shadowBlur=12");
+  assert.ok(iSave < iSombra && llamadas[llamadas.length - 1] === "restore()");
+
+  // supersampling espacial ×2: blur y offsets se duplican (canvas no los
+  // pasa por la transform)
+  const doble = contextoFalso();
+  pintar(estadoEn(comp, 0), doble.ctx, {}, 2);
+  assert.ok(doble.llamadas.includes("set shadowBlur=24"));
+  assert.ok(doble.llamadas.includes("set shadowOffsetY=8"));
+
+  // el zoom de cámara también cuenta
+  const conZoom = { ...comp, camara: { pistas: {}, base: { zoom: 3 } } };
+  const zoom = contextoFalso();
+  pintar(estadoEn(conZoom, 0), zoom.ctx);
+  assert.ok(zoom.llamadas.includes("set shadowBlur=36"), zoom.llamadas.filter((l) => l.startsWith("set shadow")).join(" | "));
+
+  // control negativo: la MISMA capa sin sombra no registra ningún set
+  const sin = contextoFalso();
+  pintar(estadoEn({ ...comp, capas: [{ ...forma, sombra: undefined }] }, 0), sin.ctx);
+  assert.deepEqual(sin.llamadas.filter((l) => l.startsWith("set shadow")), []);
+});

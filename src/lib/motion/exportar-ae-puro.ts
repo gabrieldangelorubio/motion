@@ -107,6 +107,18 @@ function colorLit(hex: string): string {
   return `[${num(r)}, ${num(g)}, ${num(b)}]`;
 }
 
+/** `rgba(r, g, b, a)` (así viene el color de la sombra del import) → [r,g,b]
+    en 0–1 para AE y el alfa aparte, que en AE es su propia propiedad. Un hex
+    (o un color roto) degrada por colorAE con alfa 1. */
+function colorConAlfa(color: string): { rgb: [number, number, number]; alfa: number } {
+  const m = /^rgba?\(([^)]*)\)$/i.exec(color.trim());
+  if (!m) return { rgb: colorAE(color), alfa: 1 };
+  const partes = m[1].split(",").map((p) => Number(p.trim()));
+  const canal = (i: number) => redondear(Math.min(255, Math.max(0, partes[i] || 0)) / 255);
+  const a = partes.length > 3 ? partes[3] : 1;
+  return { rgb: [canal(0), canal(1), canal(2)], alfa: Number.isFinite(a) ? Math.min(1, Math.max(0, a)) : 1 };
+}
+
 /* ——— Fuentes del proyecto: viajan en fuentes/ dentro del zip ————————
    AE no puede instalar tipografías por script (eso es del sistema): van
    como ARCHIVOS para instalar con doble click antes de correr el .jsx,
@@ -815,6 +827,26 @@ function emitirTransform(
   }
 }
 
+/** La sombra suave de la capa (el DROP_SHADOW de Figma) como el efecto
+    «Drop Shadow» de AE, que no tiene x/y sino dirección + distancia: la
+    dirección va en grados AE (0 = arriba, sentido horario) y el softness es
+    el desenfoque. La `difusion` (spread) no tiene equivalente en el efecto:
+    se ignora — la sombra queda apenas más chica, igual que en el canvas.
+    El TEXTO queda afuera por ahora (el motor tampoco lo sombrea, y una capa
+    partida por renglón repetiría la sombra en cada uno). */
+function emitirSombra(L: string[], capa: Capa): void {
+  const sombra = capa.sombra;
+  if (!sombra || capa.tipo === "texto") return;
+  const { rgb, alfa } = colorConAlfa(sombra.color);
+  const direccion = ((Math.atan2(sombra.x, -sombra.y) * 180) / Math.PI + 360) % 360;
+  L.push(`fx = capa.property("ADBE Effect Parade").addProperty("ADBE Drop Shadow");`);
+  L.push(`fx.property("ADBE Drop Shadow-0001").setValue([${num(rgb[0])}, ${num(rgb[1])}, ${num(rgb[2])}]);`);
+  L.push(`fx.property("ADBE Drop Shadow-0002").setValue(${num(alfa * 100)});`);
+  L.push(`fx.property("ADBE Drop Shadow-0003").setValue(${num(direccion)});`);
+  L.push(`fx.property("ADBE Drop Shadow-0004").setValue(${num(Math.hypot(sombra.x, sombra.y))});`);
+  L.push(`fx.property("ADBE Drop Shadow-0005").setValue(${num(sombra.desenfoque)});`);
+}
+
 function emitirComunes(
   L: string[],
   capa: Capa,
@@ -830,6 +862,7 @@ function emitirComunes(
   if (capa.mezcla && MEZCLA_AE[capa.mezcla]) {
     L.push(`try { capa.blendingMode = BlendingMode.${MEZCLA_AE[capa.mezcla]}; } catch (e) {}`);
   }
+  emitirSombra(L, capa);
   const comentario = comentarioPendientes(capa, sinAnimacion, conAsset, animacion, animadores, conMascara, nota);
   if (comentario) L.push(`capa.comment = ${cadena(comentario)};`);
 }

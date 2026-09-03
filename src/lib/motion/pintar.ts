@@ -32,6 +32,10 @@ export type Contexto2D = Pick<
   lineWidth: number;
   lineCap: CanvasLineCap;
   lineDashOffset: number;
+  shadowColor: string;
+  shadowBlur: number;
+  shadowOffsetX: number;
+  shadowOffsetY: number;
 };
 
 /** Imágenes ya resueltas por el caller (el motor no sabe de red ni catálogo). */
@@ -49,6 +53,30 @@ function filtroDe(desenfoque: number, blurX: number, blurY: number, escalaPx: nu
   // con supersampling espacial el radio se multiplica para verse igual.
   const total = Math.max(desenfoque, blurX, blurY);
   return total > 0.3 ? `blur(${(total * escalaPx).toFixed(2)}px)` : "none";
+}
+
+/**
+ * La sombra suave de la capa (el DROP_SHADOW de Figma) sobre el contexto YA
+ * salvado: el restore() del final la limpia y nada la hereda.
+ *
+ * canvas 2D NO pasa shadowBlur ni los offsets por la transform (van en px de
+ * DISPOSITIVO, igual que ctx.filter): se multiplican por la escala efectiva
+ * — supersampling espacial × zoom de cámara × escala de la capa (base y
+ * animada) — para que la sombra se vea igual a cualquier zoom y en cualquier
+ * render. `difusion` (spread) no tiene equivalente en canvas: se ignora, así
+ * que la sombra queda apenas más chica que en Figma.
+ *
+ * El texto queda AFUERA por ahora (pintarTexto pinta corrida por corrida y
+ * cada una arrastraría su propia sombra).
+ */
+function aplicarSombra(ctx: Contexto2D, estado: EstadoCapa, u: EstadoUnidad, escalaMundo: number): void {
+  const sombra = estado.capa.sombra;
+  if (!sombra) return;
+  const escala = escalaMundo * estado.escala * (1 + u.dEscala);
+  ctx.shadowColor = sombra.color;
+  ctx.shadowBlur = sombra.desenfoque * escala;
+  ctx.shadowOffsetX = sombra.x * escala;
+  ctx.shadowOffsetY = sombra.y * escala;
 }
 
 /** La máscara del revelado para capas NO-texto: la caja de REPOSO de la
@@ -235,7 +263,7 @@ function pintarTexto(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
   }
 }
 
-function pintarTrazo(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): void {
+function pintarTrazo(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number, escalaMundo: number): void {
   const capa = estado.capa;
   if (capa.tipo !== "trazo") return;
   const u = estado.unidades[0];
@@ -243,6 +271,7 @@ function pintarTrazo(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
   ctx.save();
   ctx.globalAlpha *= u.opacidad;
   ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
+  aplicarSombra(ctx, estado, u, escalaMundo);
   if (u.recorte) recortarACaja(ctx, capa.ancho, capa.alto, capa.grosor / 2);
   ctx.translate(u.dx, u.dy);
   if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
@@ -265,13 +294,14 @@ function pintarTrazo(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
   ctx.restore();
 }
 
-function pintarVector(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): void {
+function pintarVector(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number, escalaMundo: number): void {
   const capa = estado.capa;
   if (capa.tipo !== "vector") return;
   const u = estado.unidades[0];
   ctx.save();
   ctx.globalAlpha *= u.opacidad;
   ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
+  aplicarSombra(ctx, estado, u, escalaMundo);
   if (u.recorte) recortarACaja(ctx, capa.ancho, capa.alto, (capa.trazoGrosor ?? 0) / 2);
   ctx.translate(u.dx, u.dy);
   if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
@@ -298,13 +328,14 @@ function pintarVector(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): vo
   ctx.restore();
 }
 
-function pintarForma(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): void {
+function pintarForma(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number, escalaMundo: number): void {
   const capa = estado.capa;
   if (capa.tipo !== "forma") return;
   const u = estado.unidades[0];
   ctx.save();
   ctx.globalAlpha *= u.opacidad;
   ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
+  aplicarSombra(ctx, estado, u, escalaMundo);
   if (u.recorte) recortarACaja(ctx, capa.ancho, capa.alto);
   ctx.translate(u.dx, u.dy);
   if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
@@ -330,13 +361,14 @@ function pintarForma(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
   ctx.restore();
 }
 
-function pintarMedia(estado: EstadoCapa, ctx: Contexto2D, media: FuentesDeMedia, escalaPx: number): void {
+function pintarMedia(estado: EstadoCapa, ctx: Contexto2D, media: FuentesDeMedia, escalaPx: number, escalaMundo: number): void {
   const capa = estado.capa;
   if (capa.tipo !== "media") return;
   const u = estado.unidades[0];
   ctx.save();
   ctx.globalAlpha *= u.opacidad;
   ctx.filter = filtroDe(u.desenfoque, u.blurX, u.blurY, escalaPx);
+  aplicarSombra(ctx, estado, u, escalaMundo);
   if (u.recorte) recortarACaja(ctx, capa.ancho, capa.alto);
   ctx.translate(u.dx, u.dy);
   if (u.dRotacion) ctx.rotate((u.dRotacion * Math.PI) / 180);
@@ -445,6 +477,12 @@ export function pintar(estado: EstadoComposicion, ctx: Contexto2D, media: Fuente
     ctx.translate(-cam.x, -cam.y);
   }
 
+  // La escala con la que un px de MUNDO llega al buffer: el supersampling
+  // espacial por el zoom de la cámara. Sólo la usan las sombras (canvas no
+  // pasa shadowBlur ni los offsets por la transform); a la escala propia de
+  // cada capa la suma aplicarSombra.
+  const escalaMundo = escalaPx * (cam?.zoom ?? 1);
+
   for (const capa of estado.capas) {
     if (!capa.visible || capa.opacidad <= 0) continue;
     ctx.save();
@@ -463,11 +501,11 @@ export function pintar(estado: EstadoComposicion, ctx: Contexto2D, media: Fuente
     if (capa.rotacion) ctx.rotate((capa.rotacion * Math.PI) / 180);
     if (capa.escala !== 1) ctx.scale(capa.escala, capa.escala);
     if (capa.capa.tipo === "texto") pintarTexto(capa, ctx, escalaPx);
-    else if (capa.capa.tipo === "forma") pintarForma(capa, ctx, escalaPx);
-    else if (capa.capa.tipo === "trazo") pintarTrazo(capa, ctx, escalaPx);
-    else if (capa.capa.tipo === "vector") pintarVector(capa, ctx, escalaPx);
+    else if (capa.capa.tipo === "forma") pintarForma(capa, ctx, escalaPx, escalaMundo);
+    else if (capa.capa.tipo === "trazo") pintarTrazo(capa, ctx, escalaPx, escalaMundo);
+    else if (capa.capa.tipo === "vector") pintarVector(capa, ctx, escalaPx, escalaMundo);
     else if (capa.capa.tipo === "video") pintarVideo(capa, ctx, media, escalaPx);
-    else pintarMedia(capa, ctx, media, escalaPx);
+    else pintarMedia(capa, ctx, media, escalaPx, escalaMundo);
     ctx.restore();
   }
   ctx.restore();

@@ -18,7 +18,7 @@ import { duracionDesdeAudio } from "@/lib/motion/audio-puro";
 import { nombreDeArchivo } from "@/lib/motion/exportar";
 import { quitarEscena } from "@/lib/motion/escenas-puro";
 import { estirarTiempoCapas, filasDeCapas, rangoAnimacionCapas } from "@/lib/motion/herramientas-puro";
-import type { CapaTexto, CapaTrazo, Composicion } from "@/lib/motion/modelo";
+import type { CapaForma, CapaTexto, CapaTrazo, Composicion } from "@/lib/motion/modelo";
 
 const base = (extra: Partial<Composicion> = {}): Composicion => ({
   version: 1,
@@ -790,4 +790,36 @@ test("fpsAnimacion: la comp de AE se crea a los fps de la animación (idioma «e
   assert.match(jsx, /addComp\("Prueba AE", 1920, 1080, 1, 4, 12\)/);
   // sin fpsAnimacion, a los fps del render
   assert.match(generarScriptAE([base({ capas: [titulo()] })]), /addComp\("Prueba AE", 1920, 1080, 1, 4, 30\)/);
+});
+
+test("sombra: la capa lleva un «ADBE Drop Shadow» con direccion/distancia AE y la opacidad del alfa", () => {
+  const barra: Composicion = base({
+    capas: [{
+      id: "barra", nombre: "Barra", tipo: "forma", forma: "rectangulo",
+      ancho: 300, alto: 24, radio: 12, color: "#f24e1e", x: 300, y: 200,
+      sombra: { x: 0, y: 4, desenfoque: 12, color: "rgba(0, 0, 0, 0.25)", difusion: 2 },
+    }],
+  });
+  const jsx = generarScriptAE([barra]);
+  assert.match(jsx, /addProperty\("ADBE Drop Shadow"\)/);
+  assert.match(jsx, /"ADBE Drop Shadow-0001"\)\.setValue\(\[0, 0, 0\]\);/);
+  assert.match(jsx, /"ADBE Drop Shadow-0002"\)\.setValue\(25\);/); // alfa 0.25 → 25 %
+  assert.match(jsx, /"ADBE Drop Shadow-0003"\)\.setValue\(180\);/); // hacia abajo = 180° (0 = arriba)
+  assert.match(jsx, /"ADBE Drop Shadow-0004"\)\.setValue\(4\);/); // distancia = hypot(x, y)
+  assert.match(jsx, /"ADBE Drop Shadow-0005"\)\.setValue\(12\);/); // softness = desenfoque
+
+  // una sombra en diagonal: 3 a la derecha y 4 abajo → 143.13°, distancia 5
+  const diagonal = base({
+    capas: [{
+      ...(barra.capas[0] as CapaForma),
+      sombra: { x: 3, y: 4, desenfoque: 8, color: "rgba(20, 20, 30, 0.5)" },
+    }],
+  });
+  const jsxDiagonal = generarScriptAE([diagonal]);
+  assert.match(jsxDiagonal, /"ADBE Drop Shadow-0003"\)\.setValue\(143\.1301\);/);
+  assert.match(jsxDiagonal, /"ADBE Drop Shadow-0004"\)\.setValue\(5\);/);
+  assert.match(jsxDiagonal, /"ADBE Drop Shadow-0002"\)\.setValue\(50\);/);
+
+  // una capa SIN sombra no emite el efecto
+  assert.doesNotMatch(generarScriptAE([base({ capas: [titulo()] })]), /ADBE Drop Shadow/);
 });

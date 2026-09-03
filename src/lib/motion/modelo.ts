@@ -138,6 +138,12 @@ export type CapaBase = {
       recorta en Figma («clip content»): fuera de ella no se pinta. Viene
       del import cuando la capa sobresale de su tarjeta. */
   recorte?: { x: number; y: number; ancho: number; alto: number };
+  /** sombra suave (el DROP_SHADOW de Figma): desplazamiento x/y y
+      `desenfoque` en px del lienzo, `color` como rgba() con su alfa. La
+      `difusion` (spread) viaja para el que sepa usarla — el canvas no tiene
+      equivalente y la ignora. Viene del import: las tarjetas y las barras
+      del diseño la traen puesta. */
+  sombra?: { x: number; y: number; desenfoque: number; color: string; difusion?: number };
   /** pantalla a la que pertenece la capa (id de su placa de fondo): el
       grupo liviano del lienzo multi-pantalla — arrastrar la placa mueve
       la pantalla entera, borrarla la borra completa */

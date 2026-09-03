@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 17;
+var VERSION_PLUGIN = 18;
 
 function aHex(color) {
   var c = function (v) {
@@ -41,6 +41,36 @@ function colorDePintura(p) {
 
 function tieneEfectos(nodo) {
   return "effects" in nodo && nodo.effects && nodo.effects.some(function (e) { return e.visible !== false; });
+}
+
+// v18: SOMBRAS. Una sombra exterior (DROP_SHADOW) ya no manda la pieza al
+// raster ni se pierde al abrir un grupo: viaja en la capa como `sombra` y
+// el motor la pinta (canvas shadow; AE, Drop Shadow). Con varias gana la de
+// más radio. Las sombras interiores y los blurs siguen al raster.
+function sombraDe(nodo) {
+  if (!("effects" in nodo) || !nodo.effects) return null;
+  var mejor = null;
+  for (var i = 0; i < nodo.effects.length; i++) {
+    var e = nodo.effects[i];
+    if (e.visible === false || e.type !== "DROP_SHADOW") continue;
+    if (!mejor || (e.radius || 0) > (mejor.radius || 0)) mejor = e;
+  }
+  if (!mejor) return null;
+  var c = mejor.color || { r: 0, g: 0, b: 0, a: 0.25 };
+  return {
+    x: Math.round((mejor.offset ? mejor.offset.x : 0) * 100) / 100,
+    y: Math.round((mejor.offset ? mejor.offset.y : 0) * 100) / 100,
+    desenfoque: Math.round((mejor.radius || 0) * 100) / 100,
+    color: "rgba(" + Math.round(c.r * 255) + ", " + Math.round(c.g * 255) + ", " + Math.round(c.b * 255) + ", " + Math.round((c.a === undefined ? 1 : c.a) * 100) / 100 + ")",
+    difusion: mejor.spread ? Math.round(mejor.spread * 100) / 100 : undefined,
+  };
+}
+
+// ¿Todos los efectos visibles son sombras exteriores? Entonces la pieza
+// puede viajar nativa con su sombra.
+function soloSombras(nodo) {
+  if (!tieneEfectos(nodo)) return false;
+  return nodo.effects.every(function (e) { return e.visible === false || e.type === "DROP_SHADOW"; });
 }
 
 // Efectos «de LOOK»: blur, ruido, textura, glass — cambian cómo se ve la
@@ -177,7 +207,7 @@ function vectorSolido(nodo) {
 
 // Empuja el nodo como capa «vector» a la salida. `avisoExtra` viaja además
 // del posible aviso del borde no centrado.
-function empujarVector(nodo, marco, salida, datos, avisoExtra) {
+function empujarVector(nodo, marco, salida, datos, avisoExtra, sombra) {
   var cv = caja(nodo, marco);
   var mezclaV = mezclaDe(nodo);
   var avisos = [datos.aviso, mezclaV.aviso, avisoExtra].filter(function (a) { return a; }).join("; ");
@@ -189,6 +219,7 @@ function empujarVector(nodo, marco, salida, datos, avisoExtra) {
     mezcla: mezclaV.mezcla,
     aviso: avisos || undefined,
     vector: datos.vector,
+    sombra: sombra || undefined,
   });
 }
 
@@ -403,11 +434,18 @@ function tramosDe(nodo, base) {
 // los índices de caracteres NO BLANCOS de los tramos no se corren), o null
 // si la API no está o algo falla — y el editor cae a la estimación de
 // siempre. Con cortes reales el editor no re-envuelve nada: fidelidad 1:1.
+// v18: devuelve también las LÍNEAS REALES que Figma pintó (tope distinto =
+// línea nueva), haya wrap o no. logbook.so: los títulos tienen sombra, y
+// la caja de render (absoluteRenderBounds) crece con ella — «It all began
+// with a "full"» (1 línea) medía 106 px y se estimaba en 2, el editor
+// forzaba el salto y se pisaba con el texto de abajo. Con la API de rangos
+// no hay que estimar nada.
 function contenidoConCortes(nodo) {
-  if (typeof nodo.getRangeBounds !== "function") return null;
+  if (typeof nodo.getRangeBounds !== "function") return { contenido: null, lineas: null };
   var chars = nodo.characters;
   var salida = "";
   var topeLinea = null;
+  var lineas = 0;
   var trasCorte = false; // los blancos pegados a un corte de wrap se descartan
   try {
     for (var i = 0; i < chars.length; i++) {
@@ -420,11 +458,14 @@ function contenidoConCortes(nodo) {
       }
       var b = nodo.getRangeBounds(i, i + 1);
       if (b && b.height > 0) {
-        if (topeLinea === null) topeLinea = b.y;
-        else if (b.y - topeLinea > b.height * 0.5) {
+        if (topeLinea === null) {
+          topeLinea = b.y;
+          lineas++;
+        } else if (b.y - topeLinea > b.height * 0.5) {
           salida = salida.replace(/[ \t]+$/, "");
           salida += "\n";
           topeLinea = b.y;
+          lineas++;
           trasCorte = true;
         }
       }
@@ -433,9 +474,9 @@ function contenidoConCortes(nodo) {
       salida += ch;
     }
   } catch (e) {
-    return null;
+    return { contenido: null, lineas: null };
   }
-  return salida.indexOf("\n") >= 0 ? salida : null;
+  return { contenido: salida.indexOf("\n") >= 0 ? salida : null, lineas: lineas > 0 ? lineas : null };
 }
 
 // v17: RECORTE DEL PADRE. Un frame con «clip content» recorta a sus hijos;
@@ -446,6 +487,12 @@ function contenidoConCortes(nodo) {
 // por la recursión: lo que queda ENTERO afuera no se importa (aviso
 // suelto), lo que sobresale viaja con `recorte` y el motor lo recorta.
 var AVISOS_SUELTOS = [];
+
+// v18: DIAGNÓSTICO. Una línea por nodo visitado —también los ocultos— con
+// cuántas capas dejó en el JSON. Gabriel (logbook.so): «no importó varias
+// imágenes, checkeá todo lo que tendría que haber puesto y lo que no
+// pudo»: con esto el JSON mismo cuenta qué vio el plugin y qué decidió.
+var DIAGNOSTICO = [];
 
 function interseccion(a, b) {
   if (!a) return b;
@@ -478,13 +525,23 @@ function dentroDe(n, r) {
 }
 
 async function nodoAIR(nodo, marco, salida, recorte) {
-  if (!nodo.visible) return;
+  var etiqueta = "«" + nodo.name + "» " + nodo.type +
+    ("opacity" in nodo && typeof nodo.opacity === "number" && nodo.opacity < 1 ? " op " + Math.round(nodo.opacity * 100) + "%" : "") +
+    ("children" in nodo && nodo.children ? " (" + nodo.children.length + " hijos)" : "");
+  if (!nodo.visible) {
+    DIAGNOSTICO.push("oculto en Figma: " + etiqueta);
+    return;
+  }
   if (recorte && nodo.absoluteBoundingBox && fueraDe(caja(nodo, marco), recorte)) {
     AVISOS_SUELTOS.push("«" + nodo.name + "» queda ENTERO fuera del recorte de su padre (clip content): no se importó");
+    DIAGNOSTICO.push("fuera del recorte: " + etiqueta);
     return;
   }
   var desde = salida.length;
   await nodoAIRInterno(nodo, marco, salida, recorte);
+  var nuevas = salida.length - desde;
+  DIAGNOSTICO.push((nuevas === 0 ? "SIN capas: " : nuevas + " capa(s): ") + etiqueta +
+    (nuevas === 1 ? " → " + salida[desde].tipo : ""));
   if (!recorte) return;
   for (var k = desde; k < salida.length; k++) {
     // el recorte más cercano (el de adentro) ya quedó puesto por la
@@ -551,7 +608,8 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
     // el motor pinta tal cual.
     // primero los cortes de línea REALES (getRangeBounds); si no hay API,
     // queda la estimación por geometría de siempre
-    var cortesReales = contenidoConCortes(nodo);
+    var rangos = contenidoConCortes(nodo);
+    var cortesReales = rangos.contenido;
     var contenido = cortesReales || nodo.characters;
     var avisoCaso = null;
     var caso = nodo.textCase === figma.mixed ? "MIXED" : (nodo.textCase || "ORIGINAL");
@@ -572,23 +630,28 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
     // (acá no hay medición de texto; allá sí).
     var lh = interlineado || tamano * 1.15;
     var rbTexto = nodo.absoluteRenderBounds;
+    // con sombra o blur la caja de render crece: no sirve para contar
+    // líneas ni para el tope de tinta
+    var conEfectosTexto = tieneEfectos(nodo);
     var lineasEstimadas;
-    if (cortesReales) {
+    if (rangos.lineas) {
+      lineasEstimadas = rangos.lineas;
+    } else if (cortesReales) {
       lineasEstimadas = contenido.split("\n").length;
     } else {
-      // La TINTA no miente: si la caja es fija y más chica que el texto (un
-      // display grande que desborda hacia abajo), el alto de la caja da un
-      // conteo corto — el alto de la tinta renderizada cuenta las líneas
-      // que Figma realmente pintó. Gana el mayor de los dos.
+      // La TINTA no miente (sin efectos): si la caja es fija y más chica que
+      // el texto (un display grande que desborda hacia abajo), el alto de la
+      // caja da un conteo corto — el alto de la tinta renderizada cuenta las
+      // líneas que Figma realmente pintó. Gana el mayor de los dos.
       var porCaja = Math.max(1, Math.round(nodo.height / lh));
-      var porTinta = rbTexto && rbTexto.height > 0 ? Math.max(1, Math.round(rbTexto.height / lh)) : 1;
+      var porTinta = !conEfectosTexto && rbTexto && rbTexto.height > 0 ? Math.max(1, Math.round(rbTexto.height / lh)) : 1;
       lineasEstimadas = Math.max(porCaja, porTinta);
     }
     // diagnóstico visible en la vista previa del import: cuántas líneas se
     // detectaron y por qué método — si el número no coincide con Figma, el
     // problema está acá y no en el editor
     var avisoLineas = lineasEstimadas > 1
-      ? lineasEstimadas + " líneas " + (cortesReales
+      ? lineasEstimadas + " líneas " + (rangos.lineas || cortesReales
           ? "(cortes reales de Figma)"
           : "(estimadas: caja " + Math.round(nodo.height) + "px, tinta " + (rbTexto ? Math.round(rbTexto.height) : 0) + "px, interlineado " + Math.round(lh) + "px)")
       : null;
@@ -616,7 +679,7 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
     // vertical del editor — sin depender de modelos de métricas.
     var tintaY;
     var rb = nodo.absoluteRenderBounds;
-    if (rb && marco.absoluteBoundingBox) {
+    if (rb && marco.absoluteBoundingBox && !conEfectosTexto) {
       tintaY = Math.round((rb.y - marco.absoluteBoundingBox.y) * 100) / 100;
     }
 
@@ -715,19 +778,20 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
   // «vector» con el path SVG real: se pinta nítido a cualquier escala y el
   // export a AE lo arma como shape EDITABLE. Nada de rasterizar. Lo que no
   // califica (gradiente, imagen, varios fills) sigue al rasterizado.
-  if ((nodo.type === "VECTOR" || nodo.type === "STAR" || nodo.type === "POLYGON") && !rotado && !tieneEfectos(nodo)) {
+  if ((nodo.type === "VECTOR" || nodo.type === "STAR" || nodo.type === "POLYGON") && !rotado && (!tieneEfectos(nodo) || soloSombras(nodo))) {
     var datosV = vectorSolido(nodo);
     if (datosV) {
-      empujarVector(nodo, marco, salida, datosV, null);
+      empujarVector(nodo, marco, salida, datosV, null, sombraDe(nodo));
       return;
     }
     salida.push(await rasterizar(nodo, marco, "fill o borde no sólido (gradiente/imagen): se rasterizó a 2×"));
     return;
   }
 
-  if ((nodo.type === "RECTANGLE" || nodo.type === "ELLIPSE") && !rotado && !tieneEfectos(nodo)) {
+  if ((nodo.type === "RECTANGLE" || nodo.type === "ELLIPSE") && !rotado && (!tieneEfectos(nodo) || soloSombras(nodo))) {
     var p = pinturaSolida(nodo.fills);
     var sinBorde = nodo.strokes === figma.mixed || !nodo.strokes || nodo.strokes.length === 0;
+    var sombraRE = sombraDe(nodo);
     if (p && sinBorde) {
       var cc = caja(nodo, marco);
       var mezclaForma = mezclaDe(nodo);
@@ -739,6 +803,7 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
         mezcla: mezclaForma.mezcla,
         aviso: mezclaForma.aviso || undefined,
         forma: Object.assign({ color: colorDePintura(p) }, nodo.type === "RECTANGLE" ? esquinasDe(nodo) : {}),
+        sombra: sombraRE || undefined,
       });
       return;
     }
@@ -746,7 +811,7 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
     // de rendirse al bitmap — la geometría computada ya trae las esquinas
     var datosRE = vectorSolido(nodo);
     if (datosRE) {
-      empujarVector(nodo, marco, salida, datosRE, null);
+      empujarVector(nodo, marco, salida, datosRE, null, sombraRE);
       return;
     }
     salida.push(await rasterizar(nodo, marco, "fill no sólido: se rasterizó a 2×"));
@@ -806,17 +871,23 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
       return;
     }
     var conEfectos = tieneEfectos(nodo);
-    // el fondo sólido del frame entra como rect propio, después sus hijos
+    // el fondo sólido del frame entra como rect propio, después sus hijos;
+    // la SOMBRA del frame va en ese fondo (es lo que Figma sombrea: la
+    // silueta del frame) — con fondo transparente no hay silueta y se avisa
     var desdeSubgrupo = salida.length;
+    var sombraFrame = null;
     if (nodo.type !== "GROUP") {
       var fondo = pinturaSolida(nodo.fills);
       if (fondo) {
         var cf = caja(nodo, marco);
+        var opFondo = fondo.opacity === undefined ? 1 : fondo.opacity;
+        sombraFrame = opFondo > 0.01 ? sombraDe(nodo) : null;
         salida.push({
           tipo: "rect",
           nombre: nodo.name + " (fondo)",
           x: cf.x, y: cf.y, ancho: cf.ancho, alto: cf.alto,
           forma: Object.assign({ color: colorDePintura(fondo) }, esquinasDe(nodo)),
+          sombra: sombraFrame || undefined,
         });
       }
     }
@@ -831,10 +902,12 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
     for (var s = desdeSubgrupo; s < salida.length; s++) {
       salida[s].subgrupo = nodo.name;
     }
-    if (conEfectos && salida.length > desdeSubgrupo) {
+    // la sombra viajó en el fondo → nada que avisar; sin fondo (o con
+    // otros efectos) sigue el aviso de siempre
+    if (conEfectos && salida.length > desdeSubgrupo && !(sombraFrame && soloSombras(nodo))) {
       var primera = salida[desdeSubgrupo];
       primera.aviso = (primera.aviso ? primera.aviso + " | " : "") +
-        "las sombras del grupo «" + nodo.name + "» no viajan: se importó por partes para poder animarlas";
+        (sombraFrame ? "los efectos del grupo «" : "las sombras del grupo «") + nodo.name + "» no viajan: se importó por partes para poder animarlas";
     }
     return;
   }
@@ -900,6 +973,7 @@ var CONTENEDORES = ["FRAME", "COMPONENT", "INSTANCE", "SECTION", "GROUP"];
 async function marcoAIR(marco) {
   var nodos = [];
   AVISOS_SUELTOS = [];
+  DIAGNOSTICO = [];
   var recorteMarco = marco.clipsContent === true ? { x: 0, y: 0, ancho: marco.width, alto: marco.height } : null;
   for (var i = 0; i < marco.children.length; i++) {
     await nodoAIR(marco.children[i], marco, nodos, recorteMarco);
@@ -922,6 +996,7 @@ async function marcoAIR(marco) {
     },
     nodos: nodos,
     avisos: AVISOS_SUELTOS.slice(),
+    diagnostico: DIAGNOSTICO.slice(),
   };
 }
 

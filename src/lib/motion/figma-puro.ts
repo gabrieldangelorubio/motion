@@ -74,6 +74,11 @@ export type NodoFigma = {
   /** v17: la caja (px del frame) del padre con «clip content» que lo
       recorta — solo cuando el nodo sobresale de ella */
   recorte?: { x: number; y: number; ancho: number; alto: number };
+  /** la sombra suave del nodo (DROP_SHADOW de Figma): x/y y `desenfoque`
+      (el radius) en px del frame, `color` rgba() y la `difusion` (spread)
+      que el canvas no sabe usar. Viaja tal cual a la capa — es relativa a
+      ella, así que no se desplaza al sumar la pantalla al lienzo. */
+  sombra?: { x: number; y: number; desenfoque: number; color: string; difusion?: number };
 };
 
 export type ImportFigma = {
@@ -86,6 +91,9 @@ export type ImportFigma = {
   /** v17: avisos que no son de ningún nodo (los que quedaron enteros fuera
       del recorte de su padre y no se importaron) */
   avisos?: string[];
+  /** v18: una línea por nodo visitado (ocultos incluidos) con cuántas capas
+      dejó — para saber qué vio el plugin y qué decidió, sin adivinar */
+  diagnostico?: string[];
 };
 
 /** Varios frames exportados juntos: entran todos al lienzo de una. */
@@ -197,7 +205,7 @@ export function validarImportFigma(datos: unknown): datos is ImportFigma {
 /** La versión del plugin que este build espera: el JSON exportado lleva el
     sello `plugin: N` y un sello menor delata un plugin desactualizado en
     Figma (la causa clásica de «el fix no anda»: el code.js viejo). */
-export const PLUGIN_ESPERADO = 17;
+export const PLUGIN_ESPERADO = 18;
 
 /** El aviso de plugin viejo, o null si el sello está al día. */
 export function avisoDePluginViejo(datos: unknown): string | null {
@@ -341,6 +349,9 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
       subgrupo: nodo.subgrupo,
       subgrupoNombre: nodo.subgrupo,
       recorte: nodo.recorte,
+      // la sombra es RELATIVA a la capa: viaja tal cual (sumarAlLienzo no
+      // la toca, a diferencia del recorte, que es de mundo)
+      sombra: nodo.sombra,
     };
 
     if (nodo.tipo === "texto" && nodo.texto) {
