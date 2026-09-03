@@ -134,6 +134,10 @@ export type CapaBase = {
   motionBlur?: number;
   /** modo de mezcla con lo que hay debajo; ausente = normal */
   mezcla?: MezclaCapa;
+  /** caja (esquina superior izquierda, px del lienzo) del padre que la
+      recorta en Figma («clip content»): fuera de ella no se pinta. Viene
+      del import cuando la capa sobresale de su tarjeta. */
+  recorte?: { x: number; y: number; ancho: number; alto: number };
   /** pantalla a la que pertenece la capa (id de su placa de fondo): el
       grupo liviano del lienzo multi-pantalla — arrastrar la placa mueve
       la pantalla entera, borrarla la borra completa */

@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 16;
+var VERSION_PLUGIN = 17;
 
 function aHex(color) {
   var c = function (v) {
@@ -426,8 +426,56 @@ function contenidoConCortes(nodo) {
   return salida.indexOf("\n") >= 0 ? salida : null;
 }
 
-async function nodoAIR(nodo, marco, salida) {
+// v17: RECORTE DEL PADRE. Un frame con «clip content» recorta a sus hijos;
+// abrirlo por piezas perdía eso: los cuadrados del logo de Figma de
+// diagram.com empezaban 34 px fuera de su tarjeta, y nueve «Section» de
+// fondo seguían enteras por debajo de la página. Ahora la caja del recorte
+// (intersección de todos los padres que recortan, en px del frame) baja
+// por la recursión: lo que queda ENTERO afuera no se importa (aviso
+// suelto), lo que sobresale viaja con `recorte` y el motor lo recorta.
+var AVISOS_SUELTOS = [];
+
+function interseccion(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  var x1 = Math.max(a.x, b.x);
+  var y1 = Math.max(a.y, b.y);
+  var x2 = Math.min(a.x + a.ancho, b.x + b.ancho);
+  var y2 = Math.min(a.y + a.alto, b.y + b.alto);
+  return { x: x1, y: y1, ancho: Math.max(0, x2 - x1), alto: Math.max(0, y2 - y1) };
+}
+
+// separados de verdad (una LINE de alto 0 dentro del recorte NO está afuera)
+function fueraDe(c, r) {
+  return c.x + c.ancho < r.x || c.x > r.x + r.ancho || c.y + c.alto < r.y || c.y > r.y + r.alto;
+}
+
+function dentroDe(c, r) {
+  return c.x >= r.x - 0.5 && c.y >= r.y - 0.5 && c.x + c.ancho <= r.x + r.ancho + 0.5 && c.y + c.alto <= r.y + r.alto + 0.5;
+}
+
+async function nodoAIR(nodo, marco, salida, recorte) {
   if (!nodo.visible) return;
+  if (recorte && nodo.absoluteBoundingBox && fueraDe(caja(nodo, marco), recorte)) {
+    AVISOS_SUELTOS.push("«" + nodo.name + "» queda ENTERO fuera del recorte de su padre (clip content): no se importó");
+    return;
+  }
+  var desde = salida.length;
+  await nodoAIRInterno(nodo, marco, salida, recorte);
+  if (!recorte) return;
+  for (var k = desde; k < salida.length; k++) {
+    // el recorte más cercano (el de adentro) ya quedó puesto por la
+    // recursión; acá solo se marca lo que sobresale y no lo tenía
+    if (!salida[k].recorte && !dentroDe(salida[k], recorte)) {
+      salida[k].recorte = {
+        x: Math.round(recorte.x * 100) / 100, y: Math.round(recorte.y * 100) / 100,
+        ancho: Math.round(recorte.ancho * 100) / 100, alto: Math.round(recorte.alto * 100) / 100,
+      };
+    }
+  }
+}
+
+async function nodoAIRInterno(nodo, marco, salida, recorte) {
   // Umbral PERCEPTIBLE: en Figma quedan micro-rotaciones accidentales de
   // edición (0.02°, invisibles) que antes mandaban grupos y textos enteros
   // al rasterizado — medio grado no se ve, y abre el camino editable.
@@ -757,8 +805,10 @@ async function nodoAIR(nodo, marco, salida) {
         });
       }
     }
+    // un frame con «clip content» recorta a sus hijos (los grupos no recortan)
+    var recorteHijos = nodo.type !== "GROUP" && nodo.clipsContent === true ? interseccion(recorte, caja(nodo, marco)) : recorte;
     for (var i = 0; i < nodo.children.length; i++) {
-      await nodoAIR(nodo.children[i], marco, salida);
+      await nodoAIR(nodo.children[i], marco, salida, recorteHijos);
     }
     // SUBGRUPO: todo lo que este contenedor aportó queda marcado con su
     // nombre — el contenedor MÁS EXTERNO (debajo del frame) pisa a los de
@@ -834,8 +884,10 @@ var CONTENEDORES = ["FRAME", "COMPONENT", "INSTANCE", "SECTION", "GROUP"];
 
 async function marcoAIR(marco) {
   var nodos = [];
+  AVISOS_SUELTOS = [];
+  var recorteMarco = marco.clipsContent === true ? { x: 0, y: 0, ancho: marco.width, alto: marco.height } : null;
   for (var i = 0; i < marco.children.length; i++) {
-    await nodoAIR(marco.children[i], marco, nodos);
+    await nodoAIR(marco.children[i], marco, nodos, recorteMarco);
   }
   var fondoMarco = pinturaSolida(marco.fills);
   var b = marco.absoluteBoundingBox;
@@ -854,6 +906,7 @@ async function marcoAIR(marco) {
       y: b ? Math.round(b.y * 100) / 100 : undefined,
     },
     nodos: nodos,
+    avisos: AVISOS_SUELTOS.slice(),
   };
 }
 

@@ -449,6 +449,14 @@ export function pintar(estado: EstadoComposicion, ctx: Contexto2D, media: Fuente
     ctx.globalAlpha = capa.opacidad;
     // el modo de mezcla es de la CAPA contra lo ya pintado (fiel a Figma)
     if (capa.capa.mezcla) ctx.globalCompositeOperation = capa.capa.mezcla;
+    // el recorte del padre (clip content de Figma) es de MUNDO: la capa se
+    // mueve y rota adentro de una ventana fija, como en la tarjeta original
+    if (capa.capa.recorte) {
+      const r = capa.capa.recorte;
+      ctx.beginPath();
+      ctx.rect(r.x, r.y, r.ancho, r.alto);
+      ctx.clip();
+    }
     ctx.translate(capa.x, capa.y);
     if (capa.rotacion) ctx.rotate((capa.rotacion * Math.PI) / 180);
     if (capa.escala !== 1) ctx.scale(capa.escala, capa.escala);

@@ -124,6 +124,7 @@ export function derivarPantalla(
       id,
       x: c.x + dx,
       y: c.y + dy,
+      recorte: c.recorte ? { ...c.recorte, x: c.recorte.x + dx, y: c.recorte.y + dy } : undefined,
       grupo: pantallaId,
       subgrupo: c.subgrupo ? `${pantallaId}:${c.subgrupo.startsWith(prefijoSub) ? c.subgrupo.slice(prefijoSub.length) : c.subgrupo}` : undefined,
       pistas,

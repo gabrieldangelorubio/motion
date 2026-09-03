@@ -71,6 +71,9 @@ export type NodoFigma = {
       debajo del frame): el editor lo pliega y AE lo precompone */
   subgrupo?: string;
   aviso?: string;
+  /** v17: la caja (px del frame) del padre con «clip content» que lo
+      recorta — solo cuando el nodo sobresale de ella */
+  recorte?: { x: number; y: number; ancho: number; alto: number };
 };
 
 export type ImportFigma = {
@@ -80,6 +83,9 @@ export type ImportFigma = {
       lote, las pantallas conservan su disposición relativa */
   frame: { nombre: string; ancho: number; alto: number; fondo: string; x?: number; y?: number };
   nodos: NodoFigma[];
+  /** v17: avisos que no son de ningún nodo (los que quedaron enteros fuera
+      del recorte de su padre y no se importaron) */
+  avisos?: string[];
 };
 
 /** Varios frames exportados juntos: entran todos al lienzo de una. */
@@ -191,7 +197,7 @@ export function validarImportFigma(datos: unknown): datos is ImportFigma {
 /** La versión del plugin que este build espera: el JSON exportado lleva el
     sello `plugin: N` y un sello menor delata un plugin desactualizado en
     Figma (la causa clásica de «el fix no anda»: el code.js viejo). */
-export const PLUGIN_ESPERADO = 16;
+export const PLUGIN_ESPERADO = 17;
 
 /** El aviso de plugin viejo, o null si el sello está al día. */
 export function avisoDePluginViejo(datos: unknown): string | null {
@@ -284,6 +290,7 @@ export function sumarAlLienzo(
       id,
       x: c.x + dx,
       y: c.y + dy,
+      recorte: c.recorte ? { ...c.recorte, x: c.recorte.x + dx, y: c.recorte.y + dy } : undefined,
       grupo: idPantalla,
       // el subgrupo se hace único POR PANTALLA: dos imports con "Group 1"
       // no se mezclan (el nombre visible queda en subgrupoNombre)
@@ -313,6 +320,7 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
   const capas: Capa[] = [];
   const reajustes: ReajusteTexto[] = [];
   const anclas: AnclaTexto[] = [];
+  (datos.avisos ?? []).forEach((a) => avisos.push(a));
 
   datos.nodos.forEach((nodo, i) => {
     if (nodo.aviso) avisos.push(`«${nodo.nombre}»: ${nodo.aviso}`);
@@ -332,6 +340,7 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
       // sumarAlLienzo lo hace único por pantalla
       subgrupo: nodo.subgrupo,
       subgrupoNombre: nodo.subgrupo,
+      recorte: nodo.recorte,
     };
 
     if (nodo.tipo === "texto" && nodo.texto) {

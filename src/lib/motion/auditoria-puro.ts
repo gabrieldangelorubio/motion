@@ -109,7 +109,13 @@ export function cajaAproximada(capa: Capa): { x1: number; y1: number; x2: number
     w = (capa.fuente.tamano * 0.6 * Math.max(...lineas.map((l) => l.length), 1)) / 2;
     h = (capa.fuente.tamano * 1.2 * lineas.length) / 2;
   }
-  return { x1: capa.x - w, y1: capa.y - h, x2: capa.x + w, y2: capa.y + h };
+  const caja = { x1: capa.x - w, y1: capa.y - h, x2: capa.x + w, y2: capa.y + h };
+  // lo que el padre recorta (clip content) no existe para la cámara
+  const r = capa.recorte;
+  if (!r) return caja;
+  const x1 = Math.max(caja.x1, r.x);
+  const y1 = Math.max(caja.y1, r.y);
+  return { x1, y1, x2: Math.max(x1, Math.min(caja.x2, r.x + r.ancho)), y2: Math.max(y1, Math.min(caja.y2, r.y + r.alto)) };
 }
 
 /** Valor de un canal de cámara en t: interpolación lineal entre keyframes

@@ -340,3 +340,29 @@ test("un vector ROTADO llega con su rotación en la capa (el path sin rotar)", a
   assert.equal(capa.rotacion, 45);
   assert.equal(capa.x, 100); // el ancla sigue siendo el centro de la caja
 });
+
+test("v17: el recorte del padre (clip content) viaja a la capa, los avisos sueltos llegan y sumarAlLienzo lo desplaza", async () => {
+  const { sumarAlLienzo } = await import("@/lib/motion/figma-puro");
+  const { crearComposicion } = await import("@/lib/motion/herramientas-puro");
+  const datos: ImportFigma = {
+    origen: "figma",
+    version: 1,
+    frame: { nombre: "diagram", ancho: 1440, alto: 900, fondo: "#1e1e21" },
+    avisos: ["«Section 5» queda ENTERO fuera del recorte de su padre (clip content): no se importó"],
+    nodos: [
+      { tipo: "rect", nombre: "tarjeta", x: 1038, y: 539, ancho: 282, alto: 400, forma: { color: "#222" } },
+      // el cuadrado del logo empieza 34 px a la izquierda de la tarjeta
+      { tipo: "rect", nombre: "figma-box", x: 1004, y: 697, ancho: 70, alto: 70, forma: { color: "#f24e1e" }, recorte: { x: 1038, y: 539, ancho: 282, alto: 400 } },
+    ],
+  };
+  const res = normalizarFigma(datos);
+  assert.ok(res.avisos.some((a) => a.includes("Section 5") && a.includes("no se importó")));
+  const caja = res.composicion.capas.find((c) => c.nombre === "figma-box") as CapaForma;
+  assert.deepEqual(caja.recorte, { x: 1038, y: 539, ancho: 282, alto: 400 });
+  assert.equal((res.composicion.capas.find((c) => c.nombre === "tarjeta") as CapaForma).recorte, undefined);
+  // al lienzo: el recorte se mueve con la pantalla
+  const sumada = sumarAlLienzo(crearComposicion({ nombre: "l" }), res, 2000, 100).composicion;
+  const movida = sumada.capas.find((c) => c.nombre === "figma-box") as CapaForma;
+  assert.deepEqual(movida.recorte, { x: 3038, y: 639, ancho: 282, alto: 400 });
+  assert.equal(movida.x, 2000 + 1004 + 35);
+});

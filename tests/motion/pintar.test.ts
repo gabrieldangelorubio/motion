@@ -218,3 +218,21 @@ test("media «cubrir»: medio píxel de redondeo no recorta, y si recorta de ver
   pintar(estadoEn(comp, 2000), c.ctx, { imagenDe: () => ancha });
   assert.deepEqual(rects(c.llamadas), ["rect(-600.000,-200.000,1200.000,400.000)"]);
 });
+
+test("una capa con recorte de padre se pinta dentro de un clip de MUNDO (la ventana no se mueve con la capa)", () => {
+  const comp = fixture();
+  const capa = comp.capas.find((c) => c.tipo === "forma");
+  assert.ok(capa);
+  const conRecorte = {
+    ...comp,
+    capas: comp.capas.map((c) => (c.id === capa!.id ? { ...c, recorte: { x: 100, y: 200, ancho: 300, alto: 150 } } : c)),
+  };
+  const { ctx, llamadas } = contextoFalso();
+  pintar(estadoEn(conRecorte, 0), ctx);
+  const i = llamadas.indexOf("rect(100.000,200.000,300.000,150.000)");
+  assert.ok(i > 0, "el rect del recorte se dibuja");
+  assert.equal(llamadas[i + 1], "clip()");
+  // el clip va ANTES del translate de la capa: es de mundo
+  const j = llamadas.slice(i).findIndex((l) => l.startsWith("translate("));
+  assert.ok(j > 1);
+});

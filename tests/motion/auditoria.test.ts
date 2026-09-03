@@ -259,3 +259,9 @@ test("ENCUADRE CORTA: una pieza que sangra por el borde de la página no cuenta 
   assert.equal(h.length, 1, h.join(" | "));
   assert.match(h[0], /«boton»/);
 });
+
+test("cajaAproximada: lo que el padre recorta (clip content) no cuenta para la cámara", () => {
+  const capa = { id: "b", nombre: "b", tipo: "forma", forma: "rectangulo", x: 1039, y: 732, ancho: 70, alto: 70, color: "#f00", recorte: { x: 1038, y: 539, ancho: 282, alto: 400 } };
+  const caja = cajaAproximada(capa as unknown as import("@/lib/motion/modelo").Capa);
+  assert.deepEqual(caja, { x1: 1038, y1: 697, x2: 1074, y2: 767 });
+});

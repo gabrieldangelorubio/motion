@@ -13,6 +13,23 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] RECORTE DEL PADRE: el «clip content» de Figma llega al motor (plugin v17, 2026-09-03)
+- **Qué pasó:** con el JSON v15 de diagram.com a la vista: los `div.figma-box`
+  son RECTS nativos que empiezan 34 px a la izquierda de su tarjeta (Figma
+  los recorta; el motor los pintaba enteros), y las «Section 5–9» de fondo
+  (1440×847 cada una) viven enteras por debajo de la página: un padre con
+  clip las recortaba y acá se veían como un cielo estrellado de 7000 px.
+  v16 solo arreglaba los rasters con look propio; esto es general.
+- **Hecho:** `Capa.recorte {x, y, ancho, alto}` (px del lienzo): en `pintar`
+  es un clip de MUNDO antes del translate de la capa; `cajaAproximada` lo
+  intersecta (la auditoría de encuadre no cuenta lo recortado);
+  `sumarAlLienzo` y `derivarPantalla` lo desplazan. Plugin: la caja del
+  recorte (intersección de los padres con clipsContent) baja por la
+  recursión; lo que queda entero afuera no se importa (aviso suelto en
+  `avisos` del JSON), lo que sobresale viaja con `recorte`. Sello 17.
+- **Pendiente:** el export a AE ignora `recorte` (habría que emitir una
+  mask rectangular por capa). Gabriel valida v17 con diagram.com.
+
 ### [HECHO] Plugin v16: el raster «como se ve» se exporta EN SU LUGAR (2026-09-03)
 - **Qué pasó:** diagram.com en el editor: la Figma-blur de «Figma's new AI
   bestie» y el mock de «Magically rename your layers» desbordan su tarjeta.
