@@ -103,7 +103,10 @@ export function esFondoDeSeccion(capa: Capa, comp: Composicion): boolean {
   if (esPlaca(capa)) return false;
   const pantalla = comp.capas.find((c) => c.id === capa.grupo && esPlaca(c));
   const anchoRef = pantalla && pantalla.tipo === "forma" ? pantalla.ancho : comp.ancho;
-  return capa.ancho >= anchoRef * 0.98 && capa.alto >= 200;
+  // y ALTO de sección: al menos el 30 % del cuadro (o de la pantalla, si es
+  // más baja) — una tarjeta de 1440×200 que entra deslizando es contenido
+  const altoRef = Math.min(comp.alto, pantalla && pantalla.tipo === "forma" ? pantalla.alto : comp.alto);
+  return capa.ancho >= anchoRef * 0.98 && capa.alto >= Math.max(200, altoRef * 0.3);
 }
 
 function tieneCoreografiaPropia(capa: Capa): boolean {
@@ -201,10 +204,14 @@ export function colorVisibleDePantalla(comp: Composicion, p: CapaForma, ve: Caja
   const px1 = p.x - p.ancho / 2, px2 = p.x + p.ancho / 2, py1 = p.y - p.alto / 2, py2 = p.y + p.alto / 2;
   const rx1 = Math.max(ve.x1, px1), rx2 = Math.min(ve.x2, px2), ry1 = Math.max(ve.y1, py1), ry2 = Math.min(ve.y2, py2);
   let color = p.color;
+  // solo formas con color: una imagen no tiene «un» color (queda como
+  // limitación: una foto full-bleed no decide). Se usa la caja aproximada
+  // (con el recorte del padre, sin rotación): igual que el resto de la
+  // auditoría.
   for (const c of comp.capas) {
-    if (c.tipo !== "forma" || c.oculta || esPlaca(c) || !c.color) continue;
-    const cx1 = c.x - c.ancho / 2, cx2 = c.x + c.ancho / 2, cy1 = c.y - c.alto / 2, cy2 = c.y + c.alto / 2;
-    if (cx1 <= rx1 + 1 && cx2 >= rx2 - 1 && cy1 <= ry1 + 1 && cy2 >= ry2 - 1) color = c.color; // la última es la de más adelante
+    if (c.tipo !== "forma" || c.oculta || esPlaca(c) || !c.color || (c.opacidad ?? 1) <= 0) continue;
+    const cc = cajaAproximada(c);
+    if (cc.x1 <= rx1 + 1 && cc.x2 >= rx2 - 1 && cc.y1 <= ry1 + 1 && cc.y2 >= ry2 - 1) color = c.color; // la última es la de más adelante
   }
   return color;
 }
@@ -279,7 +286,10 @@ export function encuadresDescentrados(comp: Composicion): string[] {
       // el cuadro es más ancho que la pantalla y el fondo de la pieza se ve
       // como BANDAS a los costados (un teléfono sobre fondo, < 60 %, es a
       // propósito; una landing apenas más angosta que el cuadro, no)
-      if (!invisible && p.ancho > vw * 0.6 && vw - p.ancho > tolX * 2) {
+      // (si lo que asoma al costado es OTRA pantalla —dos placas lado a lado,
+      // una comparación A/B— no son bandas: es la vista buscada)
+      const otraAlCostado = placas.some((q) => q !== p && q.x + q.ancho / 2 > ve.x1 && q.x - q.ancho / 2 < ve.x2 && q.y + q.alto / 2 > ve.y1 && q.y - q.alto / 2 < ve.y2);
+      if (!invisible && !otraAlCostado && p.ancho > vw * 0.6 && vw - p.ancho > tolX * 2) {
         problemas.push(`el cuadro (${r(vw)}) es más ancho que la pantalla (${r(p.ancho)}): el fondo de la pieza ${comp.fondo} se ve como BANDAS de ${r((vw - p.ancho) / 2)} px a cada costado sobre una sección ${colorVisibleDePantalla(comp, p, ve)} — los FONDOS tienen que llenar el cuadro, nunca quedar dentro de los márgenes: zoom ≥ ${Math.round((comp.ancho / p.ancho) * 100) / 100}, o el fondo de la pieza del color de la sección (ajustar_composicion {fondo})`);
       }
     }
@@ -288,7 +298,8 @@ export function encuadresDescentrados(comp: Composicion): string[] {
       if (!invisible && ve.y2 > py2 + tolY) problemas.push(`muestra ${r(ve.y2 - py2)} px de vacío ABAJO de la pantalla`);
     } else {
       if (Math.abs((ve.y1 + ve.y2) / 2 - p.y) > tolY) problemas.push(`la pantalla queda descentrada en y (centro de cámara ${r((ve.y1 + ve.y2) / 2)}, centro de la pantalla ${r(p.y)})`);
-      if (!invisible && p.alto > vh * 0.6 && vh - p.alto > tolY * 2) {
+      const otraArribaAbajo = placas.some((q) => q !== p && q.x + q.ancho / 2 > ve.x1 && q.x - q.ancho / 2 < ve.x2 && q.y + q.alto / 2 > ve.y1 && q.y - q.alto / 2 < ve.y2);
+      if (!invisible && !otraArribaAbajo && p.alto > vh * 0.6 && vh - p.alto > tolY * 2) {
         problemas.push(`el cuadro (${r(vh)}) es más alto que la pantalla (${r(p.alto)}): el fondo de la pieza se ve como BANDAS arriba y abajo — zoom ≥ ${Math.round((comp.alto / p.alto) * 100) / 100} o el fondo de la pieza del color de la sección`);
       }
     }
@@ -511,8 +522,21 @@ export function auditarDireccion(comp: Composicion): string[] {
       const fix = correccionSegura(caja, vp, zoom, MARGEN_SEGURO.accion, { x: ejeExigible(p, vp, "x"), y: ejeExigible(p, vp, "y") });
       const cx = r((vp.x1 + vp.x2) / 2);
       const cy = r((vp.y1 + vp.y2) / 2);
+      // el zoom no puede bajar de donde el fondo de la pieza asoma como bandas
+      // (BANDAS y AL BORDE tiran del mismo escalar en sentidos opuestos: si no
+      // hay zoom que cumpla las dos, se encuadra por secciones o se cambia el
+      // fondo; la auditoría lo dice en vez de pedir dos cosas contradictorias)
+      const pisoX = p && !vacioInvisible(comp, p, vp) && p.ancho > (vp.x2 - vp.x1) * 0.6 ? comp.ancho / p.ancho : 0;
+      const pisoY = p && !vacioInvisible(comp, p, vp) && p.alto > (vp.y2 - vp.y1) * 0.6 ? comp.alto / p.alto : 0;
+      const piso = Math.round(Math.max(pisoX, pisoY) * 100) / 100;
+      const arreglo =
+        fix.zoom < piso && !fix.centro
+          ? `no hay zoom que la meta en la zona segura sin que el fondo de la pieza asome como bandas (haría falta ${fix.zoom}, y por debajo de ${piso} el cuadro es más grande que la pantalla): encuadrá esta escena por SECCIONES (un tilt del título a lo de abajo, o dos encuadres) o poné el fondo de la pieza del color de la sección (ajustar_composicion {fondo}) y bajá a ${fix.zoom}`
+          : fix.zoom < piso && fix.centro
+            ? `centro (${fix.centro.x}, ${fix.centro.y}) con el zoom actual (bajar el zoom a ${fix.zoom} mostraría el fondo de la pieza como bandas: el piso es ${piso})`
+            : `zoom ${fix.zoom} con el centro actual (${cx}, ${cy})${fix.centro ? `, o centro (${fix.centro.x}, ${fix.centro.y}) con el zoom actual` : ""}`;
       alBorde.push(
-        `ENCUADRE AL BORDE: «${c.nombre}» queda en ${r(peor.t)}ms ${lados.join(" y ")} del cuadro; la zona segura deja ${r(margenPx)} px libres por lado (el 5 % del cuadro: ${describirMargenSeguro(vp)}). Caja x ${r(caja.x1)}–${r(caja.x2)}, y ${r(caja.y1)}–${r(caja.y2)}; la cámara ve x ${r(vp.x1)}–${r(vp.x2)}, y ${r(vp.y1)}–${r(vp.y2)}. Se corrige SOLO con definir_camara: zoom ${fix.zoom} con el centro actual (${cx}, ${cy})${fix.centro ? `, o centro (${fix.centro.x}, ${fix.centro.y}) con el zoom actual` : ""}. JAMÁS moviendo ni escalando la capa.`,
+        `ENCUADRE AL BORDE: «${c.nombre}» queda en ${r(peor.t)}ms ${lados.join(" y ")} del cuadro; la zona segura deja ${r(margenPx)} px libres por lado (el 5 % del cuadro: ${describirMargenSeguro(vp)}). Caja x ${r(caja.x1)}–${r(caja.x2)}, y ${r(caja.y1)}–${r(caja.y2)}; la cámara ve x ${r(vp.x1)}–${r(vp.x2)}, y ${r(vp.y1)}–${r(vp.y2)}. Se corrige SOLO con definir_camara: ${arreglo}. JAMÁS moviendo ni escalando la capa.`,
       );
     }
   }

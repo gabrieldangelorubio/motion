@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { auditarDireccion, bloqueDeAuditoria, cajaAproximada, cajaVisibleEn, ternaRGB } from "@/lib/motion/auditoria-puro";
+import { auditarDireccion, bloqueDeAuditoria, cajaAproximada, cajaVisibleEn, colorVisibleDePantalla, esFondoDeSeccion, ternaRGB } from "@/lib/motion/auditoria-puro";
 import { crearComposicion, describir } from "@/lib/motion/herramientas-puro";
 import { ejecutarHerramienta } from "@/lib/motion/agente-herramientas";
-import type { Composicion } from "@/lib/motion/modelo";
+import type { CapaForma, Composicion } from "@/lib/motion/modelo";
 
 type Entrada = { preset: string; en: number; duracion: number; easing?: string; escalonado?: number };
 
@@ -370,8 +370,10 @@ test("la corrección de ENCUADRE AL BORDE no propone zoom por un eje exento", ()
   comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "t", preset: "subir", en: 200, duracion: 600 }).comp;
   const h = auditarDireccion(comp).find((x) => x.startsWith("ENCUADRE AL BORDE")) ?? "";
   // solo el eje y manda: zoom = 1080·0.9 / (2·(995−600)) = 1.23 (x está exento: la
-  // página llena el cuadro) y el centro se corrige solo en y (30.5 px hasta la zona)
-  assert.match(h, /zoom 1\.23 con el centro actual \(720, 600\), o centro \(720, 630\.5\) con el zoom actual/);
+  // página llena el cuadro) y el centro se corrige solo en y (30.5 px hasta la zona).
+  // Pero bajar a 1.23 abriría el cuadro más que la página blanca sobre fondo oscuro
+  // (bandas): la auditoría recomienda el centro y explica el piso
+  assert.match(h, /centro \(720, 630\.5\) con el zoom actual \(bajar el zoom a 1\.23 mostraría el fondo de la pieza como bandas: el piso es 1\.33\)/);
 });
 
 test("vacío invisible mira el color EFECTIVO: una sección oscura sobre una página clara vuelve visible el vacío claro", () => {
@@ -404,4 +406,59 @@ test("un FONDO de sección no cuenta para los márgenes: la auditoría no pide b
   comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "t", preset: "subir", en: 200, duracion: 600 }).comp;
   assert.deepEqual(auditarDireccion(comp).filter((x) => x.startsWith("ENCUADRE AL BORDE") || x.startsWith("ENCUADRE CORTA")), []);
   assert.match(describir(comp), /FONDO de sección \(1440×5954\): NO es contenido/);
+});
+
+test("fondos, revisión: una tarjeta ancha con entrada NO es fondo; opacidad 0 no decide el color; dos pantallas lado a lado no son bandas", () => {
+  // tarjeta 1440×200 que entra deslizando y queda cortada por la cámara → sigue siendo ENCUADRE CORTA
+  let comp = crearComposicion({ nombre: "tarjeta" });
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "p", forma: "rect", x: 720, y: 2000, ancho: 1440, alto: 4000, color: comp.fondo }).comp;
+  comp = { ...comp, capas: comp.capas.map((c) => (c.id === "p" ? { ...c, grupo: "p" } : c)) };
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "tarjeta", forma: "rect", x: 720, y: 1300, ancho: 1440, alto: 200, color: "#ff0000" }).comp;
+  comp = { ...comp, capas: comp.capas.map((c) => (c.id === "tarjeta" ? { ...c, grupo: "p" } : c)) };
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "t", texto: "Hola", x: 720, y: 900, tamano: 60 }).comp;
+  // zoom 1.2: el cuadro (1600×900, y 450–1350) corta la tarjeta por abajo (1200–1400)
+  comp = ejecutarHerramienta(comp, "definir_camara", { base: { x: 720, y: 900, zoom: 1.2 } }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "tarjeta", preset: "subir", en: 0, duracion: 600 }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "t", preset: "subir", en: 200, duracion: 600 }).comp;
+  assert.ok(!esFondoDeSeccion(comp.capas.find((c) => c.id === "tarjeta")!, comp));
+  assert.match(auditarDireccion(comp).find((x) => x.startsWith("ENCUADRE CORTA")) ?? "", /«tarjeta»/);
+
+  // un overlay negro con opacidad 0 no cambia el color visible de la página
+  let ov = crearComposicion({ nombre: "op" });
+  ov = { ...ov, fondo: "#fdfcfc" };
+  ov = ejecutarHerramienta(ov, "agregar_capa_forma", { id: "p", forma: "rect", x: 720, y: 2000, ancho: 1440, alto: 4000, color: "#fdfcfc" }).comp;
+  ov = ejecutarHerramienta(ov, "agregar_capa_forma", { id: "negro", forma: "rect", x: 720, y: 2000, ancho: 1440, alto: 4000, color: "#000000" }).comp;
+  ov = { ...ov, capas: ov.capas.map((c) => (c.id === "p" ? { ...c, grupo: "p" } : c.id === "negro" ? { ...c, opacidad: 0 } : c)) };
+  const placa = ov.capas.find((c) => c.id === "p") as CapaForma;
+  assert.equal(colorVisibleDePantalla(ov, placa, { x1: 0, y1: 0, x2: 1440, y2: 800 }), "#fdfcfc");
+
+  // dos pantallas lado a lado (A/B): abrir la cámara sobre las dos no son bandas
+  let ab = crearComposicion({ nombre: "ab" });
+  for (const [id, x] of [["a", 400], ["b", 1300]] as const) {
+    ab = ejecutarHerramienta(ab, "agregar_capa_forma", { id, forma: "rect", x, y: 400, ancho: 800, alto: 800, color: "#ffffff" }).comp;
+  }
+  ab = { ...ab, capas: ab.capas.map((c) => (c.id === "a" || c.id === "b" ? { ...c, grupo: c.id } : c)) };
+  const abierta = ejecutarHerramienta(ab, "definir_camara", { base: { x: 400, y: 400, zoom: 1.9 } }).comp;
+  assert.deepEqual(auditarDireccion(abierta).filter((x) => x.includes("BANDAS")), []);
+});
+
+test("AL BORDE no pide un zoom que meta bandas: propone el centro y explica el piso", () => {
+  // pantalla 1200×1000 sobre fondo de otro color; el logo arriba pegado al borde con zoom 1.3
+  let comp = crearComposicion({ nombre: "aspecto" });
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "p", forma: "rect", x: 600, y: 500, ancho: 1200, alto: 1000, color: "#ffffff" }).comp;
+  comp = { ...comp, capas: comp.capas.map((c) => (c.id === "p" ? { ...c, grupo: "p" } : c)) };
+  // un bloque de 300 de alto (y 190–490): a zoom 1.9 el cuadro (y 216–784) le corta 26 px arriba
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "logo", forma: "rect", x: 600, y: 340, ancho: 300, alto: 300, color: "#ff0000" }).comp;
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "pie", forma: "rect", x: 600, y: 600, ancho: 300, alto: 60, color: "#ff0000" }).comp;
+  comp = ejecutarHerramienta(comp, "definir_camara", { base: { x: 600, y: 500, zoom: 1.6 } }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "logo", preset: "subir", en: 0, duracion: 600 }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "pie", preset: "subir", en: 100, duracion: 600 }).comp;
+  // a 1.9 el bloque queda CORTADO arriba: bajar el zoom a 1.57 lo metería con el centro
+  // actual, pero por debajo de 1.6 (1920/1200) el fondo asoma como bandas → la auditoría
+  // propone el centro y explica el piso, no dos cosas contradictorias
+  // (entra a 1.6 bien adentro y el push-in del hold lo lleva a 1.9: el peor instante es la parada)
+  const cerca = ejecutarHerramienta(comp, "definir_camara", { x: [{ t: 0, v: 600 }], y: [{ t: 0, v: 500 }], zoom: [{ t: 0, v: 1.6 }, { t: 3000, v: 1.9 }] }).comp;
+  const h = auditarDireccion(cerca).find((x) => x.startsWith("ENCUADRE AL BORDE")) ?? "";
+  assert.match(h, /«logo».*CORTADA 26 px por el borde SUPERIOR/);
+  assert.match(h, /centro \(600, 4\d\d(\.\d)?\) con el zoom actual \(bajar el zoom a 1\.57 mostraría el fondo de la pieza como bandas: el piso es 1\.6\)/);
 });

@@ -41,3 +41,4 @@
  GET /motion 200 in 83ms (next.js: 3ms, application-code: 80ms)
  GET /api/motion/agente 200 in 5ms (next.js: 1692µs, application-code: 3ms)
  POST /api/motion/composicion 200 in 2.3s (next.js: 1952µs, application-code: 2.3s)
+✓ Compiled in 105ms
