@@ -93,6 +93,12 @@ export const LECCIONES: Leccion[] = [
     leccion:
       "MÁRGENES SEGUROS, como en TV: nada del contenido queda a menos del 5 % del cuadro de cada borde (zona de acción, regla dura: la auditoría marca ENCUADRE AL BORDE con el zoom o el centro que lo arreglan), y cada encuadre se planea con el 10 % (zona de título): el contenido de la escena ocupa como mucho el 80 % del cuadro, así el push-in del hold sigue adentro. Lo que toca el borde se corta en pantalla. Siempre un poquito más safe: ante la duda, abrí el zoom.",
   },
+  {
+    cuando: "2026-09-03",
+    pieza: "logbook (Gemini 3.8 y Fable: los dos abrieron la cámara para «meter el fondo en los márgenes» y aparecieron bandas claras a los costados)",
+    leccion:
+      "LOS FONDOS NO SON CONTENIDO: la placa, un fondo de sección (el estado lo marca «FONDO de sección»), un glow o una textura no cuentan para los márgenes seguros ni para la caja del contenido. Al revés: un fondo tiene que LLENAR el cuadro y desbordarlo. Antes de abrir la cámara más que la pantalla, poné el fondo de la pieza del color de la sección (ajustar_composicion {fondo}); si no, zoom ≥ ancho_render/ancho_pantalla.",
+  },
 ];
 
 /** El bloque que entra en el SISTEMA del director, para todos los modelos y

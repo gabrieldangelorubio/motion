@@ -1,0 +1,34 @@
+
+> motion-modulo@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.9 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.0.2.2:3000
+✓ Ready in 320ms
+- Experiments (use with caution):
+  · serverActions
+
+ GET /motion 200 in 485ms (next.js: 182ms, application-code: 303ms)
+ GET /motion 200 in 84ms (next.js: 6ms, application-code: 79ms)
+ GET /api/motion/agente 200 in 156ms (next.js: 144ms, application-code: 12ms)
+ POST /api/motion/composicion 200 in 490ms (next.js: 32ms, application-code: 458ms)
+ GET /motion 200 in 91ms (next.js: 4ms, application-code: 87ms)
+ GET /api/motion/agente 200 in 6ms (next.js: 2ms, application-code: 4ms)
+ POST /api/motion/composicion 200 in 2.5s (next.js: 3ms, application-code: 2.5s)
+✓ Compiled in 378ms
+✓ Compiled in 130ms
+✓ Compiled in 61ms
+ GET /motion 200 in 114ms (next.js: 6ms, application-code: 108ms)
+ GET /api/motion/agente 200 in 13ms (next.js: 4ms, application-code: 9ms)
+ POST /api/motion/composicion 200 in 2.4s (next.js: 2ms, application-code: 2.4s)
+✓ Compiled in 74ms
+✓ Compiled in 50ms
+✓ Compiled in 75ms
+✓ Compiled in 65ms
+✓ Compiled in 50ms
+✓ Compiled in 63ms
+✓ Compiled in 57ms
+✓ Compiled in 50ms
+✓ Compiled in 36ms
+✓ Compiled in 46ms

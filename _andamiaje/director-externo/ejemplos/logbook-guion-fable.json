@@ -8,9 +8,10 @@
     {
       "herramienta": "ajustar_composicion",
       "input": {
-        "duracion": 28000
+        "duracion": 28000,
+        "fondo": "#1e1c1a"
       },
-      "nota": "7 escenas: hero, plan, avisos, reacción, bola de nieve, caída, nubes"
+      "nota": "7 escenas: hero, plan, avisos, reacción, bola de nieve, caída, nubes · fondo de la pieza #1e1c1a, el de las secciones oscuras: cuando la cámara abre más allá de la página (hero 1.22, reacción 1.22) no aparecen bandas claras; las nubes del cierre se ven a 1.33, sin vacío."
     },
     {
       "herramienta": "definir_camara",

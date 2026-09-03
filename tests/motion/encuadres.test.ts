@@ -92,7 +92,13 @@ test("encuadrarEnPantalla corrige lo que Flash escribió a ojo: x 960 → 720 y 
   // y 2840 a zoom 1.4 veía hasta 3226: ya cabe (3229) → se queda
   assert.equal(corregida.camara?.pistas.y?.[3].v, 2840);
   assert.deepEqual(corregida.camara?.pistas.zoom?.map((k) => k.v), [1.35, 1.35, 1.25, 1.4], "el zoom no se toca");
-  assert.deepEqual(auditarDireccion(corregida).filter((h) => h.startsWith("ENCUADRE DESCENTRADO")), []);
+  // lo que queda es solo lo que el zoom decide (a 1.25 el cuadro es más ancho
+  // que la landing y el fondo se ve como BANDAS): el encuadre automático no
+  // toca el zoom, eso lo corrige el director
+  const restantes = auditarDireccion(corregida).filter((h) => h.startsWith("ENCUADRE DESCENTRADO"));
+  assert.deepEqual(restantes.filter((h) => !h.includes("BANDAS")), []);
+  assert.equal(restantes.length, 1);
+  assert.match(restantes[0], /BANDAS de 48 px a cada costado/);
   // sin cámara o sin placas, no hace nada
   assert.equal(encuadrarEnPantalla(landing()).ajustes, 0);
 });

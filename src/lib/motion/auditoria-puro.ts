@@ -92,6 +92,20 @@ function esFondo(capa: Capa, comp: Composicion): boolean {
   return capa.tipo === "forma" && capa.ancho >= comp.ancho * 0.95 && capa.alto >= comp.alto * 0.95;
 }
 
+/** Un FONDO de sección: una forma o imagen que cubre su pantalla a lo
+    ancho (la sección oscura de logbook, un hero de color, una textura).
+    No es contenido: no cuenta para los márgenes seguros ni para la caja
+    del contenido, y al revés, tiene que LLENAR el cuadro (Gabriel, viendo a
+    Gemini 3.8 abrir la cámara «para meter el BG en los márgenes»: bandas
+    del fondo de la pieza a los costados). */
+export function esFondoDeSeccion(capa: Capa, comp: Composicion): boolean {
+  if (capa.tipo !== "forma" && capa.tipo !== "media") return false;
+  if (esPlaca(capa)) return false;
+  const pantalla = comp.capas.find((c) => c.id === capa.grupo && esPlaca(c));
+  const anchoRef = pantalla && pantalla.tipo === "forma" ? pantalla.ancho : comp.ancho;
+  return capa.ancho >= anchoRef * 0.98 && capa.alto >= 200;
+}
+
 function tieneCoreografiaPropia(capa: Capa): boolean {
   return Object.values(capa.pistas ?? {}).some((kfs) => kfs && kfs.length >= 3);
 }
@@ -179,11 +193,31 @@ const mismoColor = (a: string | undefined, b: string | undefined) => {
   return !!ta && !!tb && ta[0] === tb[0] && ta[1] === tb[1] && ta[2] === tb[2];
 };
 
-/** Si la pantalla es del MISMO color que el fondo de la pieza, el vacío
-    fuera de ella no se ve (logbook: página y fondo #1e1c1a): la cámara puede
-    abrir más allá de la página sin mostrar nada raro. */
-export function vacioInvisible(comp: Composicion, p: CapaForma | null): boolean {
-  return !!p && mismoColor(p.color, comp.fondo);
+/** El color que se VE de una pantalla en una región: el de la forma más
+    al frente que cubre entera la parte visible de la página (una sección
+    oscura sobre una página clara: logbook, div#dark-intro de 1440×5954
+    sobre la placa #fdfcfc), o el de la placa si nada la cubre. */
+export function colorVisibleDePantalla(comp: Composicion, p: CapaForma, ve: Caja): string {
+  const px1 = p.x - p.ancho / 2, px2 = p.x + p.ancho / 2, py1 = p.y - p.alto / 2, py2 = p.y + p.alto / 2;
+  const rx1 = Math.max(ve.x1, px1), rx2 = Math.min(ve.x2, px2), ry1 = Math.max(ve.y1, py1), ry2 = Math.min(ve.y2, py2);
+  let color = p.color;
+  for (const c of comp.capas) {
+    if (c.tipo !== "forma" || c.oculta || esPlaca(c) || !c.color) continue;
+    const cx1 = c.x - c.ancho / 2, cx2 = c.x + c.ancho / 2, cy1 = c.y - c.alto / 2, cy2 = c.y + c.alto / 2;
+    if (cx1 <= rx1 + 1 && cx2 >= rx2 - 1 && cy1 <= ry1 + 1 && cy2 >= ry2 - 1) color = c.color; // la última es la de más adelante
+  }
+  return color;
+}
+
+/** Si lo que se ve de la pantalla es del MISMO color que el fondo de la
+    pieza, el vacío fuera de ella no se ve: la cámara puede abrir más allá
+    de la página sin mostrar bandas. Se mira el color EFECTIVO en el cuadro
+    (visto: la placa de logbook es clara como el fondo, pero el hero es una
+    sección oscura y abrir a 1.25 mostraba 48 px de banda clara por lado). */
+export function vacioInvisible(comp: Composicion, p: CapaForma | null, ve?: Caja): boolean {
+  if (!p) return false;
+  const color = ve ? colorVisibleDePantalla(comp, p, ve) : p.color;
+  return mismoColor(color, comp.fondo);
 }
 
 /** ¿Se le puede exigir el margen seguro en este eje? Sí, salvo que la
@@ -236,18 +270,27 @@ export function encuadresDescentrados(comp: Composicion): string[] {
     const tolY = Math.max(8, vh * 0.02);
     // pantalla del color del fondo: abrir más allá de ella no muestra vacío
     // (y hace falta para respetar los márgenes seguros); solo se exige centrada
-    const invisible = vacioInvisible(comp, p);
+    const invisible = vacioInvisible(comp, p, ve);
     if (p.ancho >= vw) {
       if (!invisible && ve.x1 < px1 - tolX) problemas.push(`muestra ${r(px1 - ve.x1)} px de vacío a la IZQUIERDA de la pantalla`);
       if (!invisible && ve.x2 > px2 + tolX) problemas.push(`muestra ${r(ve.x2 - px2)} px de vacío a la DERECHA de la pantalla`);
-    } else if (Math.abs((ve.x1 + ve.x2) / 2 - p.x) > tolX) {
-      problemas.push(`la pantalla queda descentrada en x (centro de cámara ${r((ve.x1 + ve.x2) / 2)}, centro de la pantalla ${r(p.x)})`);
+    } else {
+      if (Math.abs((ve.x1 + ve.x2) / 2 - p.x) > tolX) problemas.push(`la pantalla queda descentrada en x (centro de cámara ${r((ve.x1 + ve.x2) / 2)}, centro de la pantalla ${r(p.x)})`);
+      // el cuadro es más ancho que la pantalla y el fondo de la pieza se ve
+      // como BANDAS a los costados (un teléfono sobre fondo, < 60 %, es a
+      // propósito; una landing apenas más angosta que el cuadro, no)
+      if (!invisible && p.ancho > vw * 0.6 && vw - p.ancho > tolX * 2) {
+        problemas.push(`el cuadro (${r(vw)}) es más ancho que la pantalla (${r(p.ancho)}): el fondo de la pieza ${comp.fondo} se ve como BANDAS de ${r((vw - p.ancho) / 2)} px a cada costado sobre una sección ${colorVisibleDePantalla(comp, p, ve)} — los FONDOS tienen que llenar el cuadro, nunca quedar dentro de los márgenes: zoom ≥ ${Math.round((comp.ancho / p.ancho) * 100) / 100}, o el fondo de la pieza del color de la sección (ajustar_composicion {fondo})`);
+      }
     }
     if (p.alto >= vh) {
       if (!invisible && ve.y1 < py1 - tolY) problemas.push(`muestra ${r(py1 - ve.y1)} px de vacío ARRIBA de la pantalla`);
       if (!invisible && ve.y2 > py2 + tolY) problemas.push(`muestra ${r(ve.y2 - py2)} px de vacío ABAJO de la pantalla`);
-    } else if (Math.abs((ve.y1 + ve.y2) / 2 - p.y) > tolY) {
-      problemas.push(`la pantalla queda descentrada en y (centro de cámara ${r((ve.y1 + ve.y2) / 2)}, centro de la pantalla ${r(p.y)})`);
+    } else {
+      if (Math.abs((ve.y1 + ve.y2) / 2 - p.y) > tolY) problemas.push(`la pantalla queda descentrada en y (centro de cámara ${r((ve.y1 + ve.y2) / 2)}, centro de la pantalla ${r(p.y)})`);
+      if (!invisible && p.alto > vh * 0.6 && vh - p.alto > tolY * 2) {
+        problemas.push(`el cuadro (${r(vh)}) es más alto que la pantalla (${r(p.alto)}): el fondo de la pieza se ve como BANDAS arriba y abajo — zoom ≥ ${Math.round((comp.alto / p.alto) * 100) / 100} o el fondo de la pieza del color de la sección`);
+      }
     }
     if (problemas.length === 0) continue;
     const clave = problemas.join("|");
@@ -363,7 +406,7 @@ export function auditarDireccion(comp: Composicion): string[] {
     // un FONDO (glow, haz de luz, textura: más grande que el cuadro en algún
     // eje) no exige encuadre — visto: bajar el zoom «para que entre» el glow
     // descentraba toda la pieza
-    const esFondo = caja.x2 - caja.x1 > (ve.x2 - ve.x1) * 0.9 || caja.y2 - caja.y1 > (ve.y2 - ve.y1) * 0.9;
+    const esFondo = esFondoDeSeccion(c, comp) || caja.x2 - caja.x1 > (ve.x2 - ve.x1) * 0.9 || caja.y2 - caja.y1 > (ve.y2 - ve.y1) * 0.9;
     if (esFondo) continue;
     // un corte en el mismo borde donde la pieza ya SANGRA fuera de su
     // pantalla (haces de luz desde x = 0, rayos desde y = 0) no es un corte:

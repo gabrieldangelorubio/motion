@@ -15,6 +15,7 @@ import type { Camara, CanalCamara, Capa, Composicion, Keyframe, NombrePropiedad,
 import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
 import { nombresPresets } from "@/lib/motion/presets-puro";
 import { esPlaca } from "@/lib/motion/estilo-puro";
+import { esFondoDeSeccion } from "@/lib/motion/auditoria-puro";
 import { describirEncuadres } from "@/lib/motion/encuadres-puro";
 import { padreDe } from "@/lib/motion/arbol-capas-puro";
 
@@ -550,6 +551,7 @@ export function describir(comp: Composicion): string {
       partes.push(`PLACA de pantalla (su id es el pantallaId): caja ${Math.round(capa.ancho)}×${Math.round(capa.alto)} de (${x1}, ${y1}) a (${x1 + Math.round(capa.ancho)}, ${y1 + Math.round(capa.alto)}), centro (${Math.round(capa.x)}, ${Math.round(capa.y)})`);
     }
     else if (capa.grupo) partes.push(`pantalla ${capa.grupo}`);
+    if ((capa.tipo === "forma" || capa.tipo === "media") && esFondoDeSeccion(capa, comp)) partes.push(`FONDO de sección (${Math.round(capa.ancho)}×${Math.round(capa.alto)}): NO es contenido — no cuenta para los márgenes seguros ni para la caja del contenido; tiene que LLENAR el cuadro entero`);
     if (capa.tipo === "texto" && capa.division !== "ninguna") partes.push(`división ${capa.division}`);
     if (capa.tipo === "texto" && capa.deformaciones?.length) {
       partes.push(

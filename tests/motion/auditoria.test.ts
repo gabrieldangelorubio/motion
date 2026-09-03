@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { auditarDireccion, bloqueDeAuditoria, cajaAproximada, cajaVisibleEn, ternaRGB } from "@/lib/motion/auditoria-puro";
-import { crearComposicion } from "@/lib/motion/herramientas-puro";
+import { crearComposicion, describir } from "@/lib/motion/herramientas-puro";
 import { ejecutarHerramienta } from "@/lib/motion/agente-herramientas";
 import type { Composicion } from "@/lib/motion/modelo";
 
@@ -372,4 +372,36 @@ test("la corrección de ENCUADRE AL BORDE no propone zoom por un eje exento", ()
   // solo el eje y manda: zoom = 1080·0.9 / (2·(995−600)) = 1.23 (x está exento: la
   // página llena el cuadro) y el centro se corrige solo en y (30.5 px hasta la zona)
   assert.match(h, /zoom 1\.23 con el centro actual \(720, 600\), o centro \(720, 630\.5\) con el zoom actual/);
+});
+
+test("vacío invisible mira el color EFECTIVO: una sección oscura sobre una página clara vuelve visible el vacío claro", () => {
+  let comp = crearComposicion({ nombre: "seccion" });
+  comp = { ...comp, fondo: "#fdfcfc" };
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "p", forma: "rect", x: 720, y: 3376, ancho: 1440, alto: 6752, color: "#fdfcfc" }).comp;
+  // el hero oscuro cubre la página de y 0 a 5954 (la herramienta recorta el alto a 2160: se fija a mano)
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "dark", forma: "rect", x: 720, y: 2977, ancho: 1440, alto: 5954, color: "#1e1c1a" }).comp;
+  comp = { ...comp, capas: comp.capas.map((c) => (c.id === "p" && c.tipo === "forma" ? { ...c, grupo: "p", y: 3376, alto: 6752 } : c.id === "dark" && c.tipo === "forma" ? { ...c, y: 2977, alto: 5954 } : c)) };
+  const abierta = ejecutarHerramienta(comp, "definir_camara", { base: { x: 720, y: 415, zoom: 1.25 } }).comp;
+  assert.match(auditarDireccion(abierta).find((x) => x.startsWith("ENCUADRE DESCENTRADO")) ?? "", /BANDAS de 48 px a cada costado sobre una sección #1e1c1a.*zoom ≥ 1\.33, o el fondo de la pieza del color de la sección/);
+  // con el fondo de la pieza oscuro, las bandas desaparecen
+  const oscura = { ...abierta, fondo: "#1e1c1a" };
+  assert.deepEqual(auditarDireccion(oscura).filter((x) => x.startsWith("ENCUADRE DESCENTRADO")), []);
+  // y en las nubes (fuera de la sección oscura) el vacío vuelve a verse
+  const nubes = ejecutarHerramienta(oscura, "definir_camara", { base: { x: 720, y: 6300, zoom: 1.25 } }).comp;
+  assert.match(auditarDireccion(nubes).find((x) => x.startsWith("ENCUADRE DESCENTRADO")) ?? "", /BANDAS/);
+});
+
+test("un FONDO de sección no cuenta para los márgenes: la auditoría no pide bajar el zoom para meterlo adentro", () => {
+  let comp = crearComposicion({ nombre: "bg" });
+  comp = { ...comp, fondo: "#1e1c1a" };
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "p", forma: "rect", x: 720, y: 3376, ancho: 1440, alto: 6752, color: "#fdfcfc" }).comp;
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "dark", forma: "rect", x: 720, y: 2977, ancho: 1440, alto: 5954, color: "#1e1c1a" }).comp;
+  comp = { ...comp, capas: comp.capas.map((c) => (c.id === "p" && c.tipo === "forma" ? { ...c, grupo: "p", y: 3376, alto: 6752 } : c.id === "dark" && c.tipo === "forma" ? { ...c, grupo: "p", y: 2977, alto: 5954 } : c)) };
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "t", texto: "Hola", x: 720, y: 500, tamano: 60 }).comp;
+  // zoom 1.2: el cuadro (1600) deja el fondo de sección a 80 px = 5 % de los bordes
+  comp = ejecutarHerramienta(comp, "definir_camara", { base: { x: 720, y: 500, zoom: 1.2 } }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "dark", preset: "aparecer", en: 0, duracion: 300 }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "t", preset: "subir", en: 200, duracion: 600 }).comp;
+  assert.deepEqual(auditarDireccion(comp).filter((x) => x.startsWith("ENCUADRE AL BORDE") || x.startsWith("ENCUADRE CORTA")), []);
+  assert.match(describir(comp), /FONDO de sección \(1440×5954\): NO es contenido/);
 });
