@@ -227,18 +227,20 @@ export function Capas({
   // orden de z. Click en la cabecera de una carpeta selecciona todo lo que
   // tiene adentro (para mover/animar en bloque); las capas siguen sueltas
   // en el modelo. Una carpeta con la selección adentro se abre sola.
-  const [subAbiertos, setSubAbiertos] = useState<Set<string>>(new Set());
-  const alternarCarpeta = (id: string) =>
-    setSubAbiertos((prev) => {
-      const nuevo = new Set(prev);
-      if (nuevo.has(id)) nuevo.delete(id);
-      else nuevo.add(id);
+  // el gesto manual MANDA: una carpeta que contiene la selección se abre
+  // sola, pero si la plegás a mano queda plegada (antes no se podía)
+  const [plegadoManual, setPlegadoManual] = useState<Map<string, boolean>>(new Map());
+  const alternarCarpeta = (id: string, abiertoAhora: boolean) =>
+    setPlegadoManual((prev) => {
+      const nuevo = new Map(prev);
+      nuevo.set(id, !abiertoAhora);
       return nuevo;
     });
   const pintarNodo = (nodo: NodoArbol, cont: string, nivel: number): React.ReactNode => {
     if (nodo.tipo === "capa") return fila(nodo.capa, cont, true, nivel);
     const ids = idsDelArbol(nodo);
-    const abierto = subAbiertos.has(nodo.id) || ids.includes(seleccionId ?? "");
+    const manual = plegadoManual.get(nodo.id);
+    const abierto = manual !== undefined ? manual : ids.includes(seleccionId ?? "");
     const alguna = ids.some((id) => id === seleccionId || seleccionIds.includes(id));
     const sangria = 16 + Math.min(nivel, 6) * 10;
     return (
@@ -267,7 +269,7 @@ export function Capas({
               tam={22}
               activo={abierto}
               etiqueta={abierto ? t("Plegar «{nombre}»", { nombre: nodo.nombre }) : t("Desplegar «{nombre}»", { nombre: nodo.nombre })}
-              onClick={() => alternarCarpeta(nodo.id)}
+              onClick={() => alternarCarpeta(nodo.id, abierto)}
             >
               <Icono nombre="chevronAbajo" width={11} height={11} className={abierto ? "" : "-rotate-90"} />
             </BotonIcono>
