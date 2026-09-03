@@ -505,3 +505,15 @@ test("configPensamientoClaude: el slider manda (low/medium/xhigh); sin slider, s
   assert.deepEqual(configPensamientoClaude(undefined, "rapido"), {});
   assert.deepEqual(configPensamientoClaude(undefined, undefined), {});
 });
+
+test("un typo en el nombre de la herramienta se corrige solo y el resultado lo dice (Kimi: «definar_camara»)", async () => {
+  const { herramientaMasCercana } = await import("@/lib/motion/agente-herramientas");
+  assert.equal(herramientaMasCercana("definar_camara", ["definir_camara", "definir_entrada"]), "definir_camara");
+  assert.equal(herramientaMasCercana("Definir Camara", ["definir_camara"]), "definir_camara");
+  assert.equal(herramientaMasCercana("hacer_magia", ["definir_camara", "editar_capa"]), null);
+  const comp = conTitulo();
+  const res = ejecutarHerramienta(comp, "definar_entrada", { capaId: "titulo", preset: "subir" });
+  assert.ok(!res.esError, res.resultado);
+  assert.match(res.resultado, /«definar_entrada» no existe: apliqué «definir_entrada»/);
+  assert.equal(res.comp.capas[0].entrada?.preset, "subir");
+});

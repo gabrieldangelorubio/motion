@@ -108,6 +108,31 @@ function segmentoDe(comp: Composicion, input: Record<string, unknown>, clase: "e
 }
 
 /** Ejecuta un tool_use del agente. Devuelve la composición nueva (o la misma si falló). */
+/** Distancia de edición (Levenshtein) acotada: alcanza para typos de una o
+    dos letras sin confundir herramientas distintas. */
+export function herramientaMasCercana(nombre: string, conocidas: string[]): string | null {
+  const distancia = (a: string, b: string): number => {
+    const fila: number[] = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+      let previa = fila[0];
+      fila[0] = i;
+      for (let j = 1; j <= b.length; j++) {
+        const temp = fila[j];
+        fila[j] = Math.min(fila[j] + 1, fila[j - 1] + 1, previa + (a[i - 1] === b[j - 1] ? 0 : 1));
+        previa = temp;
+      }
+    }
+    return fila[b.length];
+  };
+  const limpio = nombre.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  let mejor: { n: string; d: number } | null = null;
+  for (const c of conocidas) {
+    const d = distancia(limpio, c);
+    if (d <= 2 && (!mejor || d < mejor.d)) mejor = { n: c, d };
+  }
+  return mejor?.n ?? null;
+}
+
 /** Una capa «del diseño» es una placa o una capa que vive en una pantalla
     (grupo = id de una placa): lo que importó el usuario. El director las
     anima y las edita, pero no las borra para recrearlas. */
@@ -129,6 +154,18 @@ export function ejecutarHerramienta(
   const input = (typeof entrada === "object" && entrada !== null ? entrada : {}) as Record<string, unknown>;
   const capaDe = (id: unknown) => comp.capas.find((c) => c.id === id);
   const marca = ahora || Math.max(0, ...comp.capas.map((c) => c.v ?? 0)) + 1;
+
+  // Un TYPO en el nombre («definar_camara») le costó a Kimi una ronda entera
+  // (17 min) por un paso que era correcto. Si el nombre no existe pero está a
+  // una o dos letras de uno que sí, se aplica ese y el resultado lo dice.
+  const conocidas: string[] = DEFINICIONES_HERRAMIENTAS.map((d) => d.name as string);
+  if (!conocidas.includes(nombre)) {
+    const cerca = herramientaMasCercana(nombre, conocidas);
+    if (cerca) {
+      const r = ejecutarHerramienta(comp, cerca, entrada, ahora);
+      return { ...r, resultado: `(la herramienta «${nombre}» no existe: apliqué «${cerca}»)\n${r.resultado}` };
+    }
+  }
 
   // el VIDEO DE REFERENCIA no se opera: cualquier herramienta que lo apunte
   // se rechaza con guía — es el fondo del preview, no una pieza de la pieza

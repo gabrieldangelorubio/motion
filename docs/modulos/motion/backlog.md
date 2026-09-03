@@ -25,6 +25,16 @@
   todo lo de adentro. El estado del director dice «dentro de «padre»».
   3 tests nuevos.
 
+### [HECHO] Comparativa Fable vs Kimi K3 en logbook → conocimiento común (2026-09-03)
+- **Qué:** Gabriel prefirió el guion de Fable («Kimi estático, una cosa
+  detrás de otra; el tuyo navega»). Nota `research/comparativa-logbook-fable-vs-kimi.md`
+  con las siete diferencias medidas (cámara viva con push-in y tilt, zoom
+  por caja de contenido, solapes con la llegada de la cámara, duraciones
+  por rol, entradas con dirección, nada sin entrada, títulos por palabra).
+  Pasan a `GUION_REFERENCIA` (segunda referencia) y a `MODO_GUION`.
+- **Typo de herramienta:** «definar_camara» le costó a Kimi una ronda de
+  17 min. `ejecutarHerramienta` corrige nombres a distancia ≤ 2 y lo dice.
+
 ### [HECHO] Guion de Fable para logbook.so (comparativa con Kimi K3) (2026-09-03)
 - **Brief de Gabriel:** «video profesional de SaaS, muy premium, con muchas
   animaciones secundarias; la cámara sigue la historia paso a paso; todo

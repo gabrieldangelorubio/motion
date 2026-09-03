@@ -95,3 +95,11 @@ test("aplicarGuionExterno: parsea, ejecuta, encuadra automáticamente y audita �
   assert.deepEqual(res.auditoria.filter((h) => h.startsWith("ENCUADRE")), []);
   assert.match((aplicarGuionExterno(comp, "esto no es json") as { error: string }).error, /no trae JSON/);
 });
+
+test("la segunda referencia (logbook) enseña la cámara viva y el zoom por contenido", () => {
+  assert.match(GUION_REFERENCIA, /SEGUNDA REFERENCIA/);
+  assert.match(GUION_REFERENCIA, /PUSH-IN lento/);
+  assert.match(GUION_REFERENCIA, /zoom_max = alto_render \/ \(alto_contenido × 1\.05\)/);
+  assert.match(GUION_REFERENCIA, /NINGUNA CAPA DEL DISEÑO SE QUEDA SIN ENTRADA/);
+  assert.match(MODO_GUION, /CAJA DEL CONTENIDO/);
+});
