@@ -75,7 +75,7 @@ export function Desplegable({
         <div
           role="listbox"
           className={`absolute top-full z-[70] mt-1 max-h-56 overflow-y-auto rounded-card border border-(--menu-border) bg-(--menu-solido-bg) p-1 shadow-(--menu-shadow) ${
-            compacto ? "right-0 min-w-[200px]" : "left-0 right-0"
+            compacto ? "left-0 min-w-[200px]" : "left-0 right-0"
           }`}
         >
           {opciones.map((o) => (

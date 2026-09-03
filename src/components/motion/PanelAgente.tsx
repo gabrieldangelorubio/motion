@@ -487,33 +487,6 @@ export function PanelAgente({
             Σ {formatearCosto(gasto)}
           </span>
         )}
-        <span
-          className="mr-2 flex w-[76px] shrink-0 items-center gap-1.5"
-          title={t("Pensamiento del modelo: bajo, medio o alto (cuánto razona antes de dirigir; la revisión visual no lo usa)")}
-        >
-          <span className="w-[30px] shrink-0 text-right font-mono text-[10px] text-foreground/50" aria-hidden>
-            {t(pensamiento)}
-          </span>
-          <Deslizador
-            valor={PENSAMIENTOS.indexOf(pensamiento)}
-            min={0}
-            max={2}
-            paso={1}
-            etiqueta={t("Pensamiento del modelo")}
-            onCambio={(v) => setPensamiento(PENSAMIENTOS[Math.round(v)] ?? "alto")}
-          />
-        </span>
-        {modelos.length > 0 && (
-          <span className="mr-1.5 shrink-0" data-testid="modelo-director">
-            <Desplegable
-              compacto
-              etiqueta={t("Modelo que dirige (según las claves cargadas en el servidor)")}
-              valor={modelo}
-              opciones={modelos.map((m) => ({ valor: m.id, nombre: m.nombre }))}
-              onCambio={setModelo}
-            />
-          </span>
-        )}
         {renderizarFrames && (
           <span className="mr-1 shrink-0">
             <BotonIcono
@@ -540,6 +513,40 @@ export function PanelAgente({
             {t("copiar log")}
           </button>
         )}
+      </div>
+      {/* fila 2: QUÉ modelo dirige y CUÁNTO piensa — en su propia fila, la
+          cabecera no entra con título + slider + desplegable + ojo */}
+      <div className="flex items-center justify-between gap-2 border-b border-(--glass-border) px-3 py-1.5">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0 font-mono text-[10px] uppercase tracking-wide text-foreground/45">{t("modelo")}</span>
+          {modelos.length > 0 && (
+            <span className="min-w-0" data-testid="modelo-director">
+              <Desplegable
+                compacto
+                etiqueta={t("Modelo que dirige (según las claves cargadas en el servidor)")}
+                valor={modelo}
+                opciones={modelos.map((m) => ({ valor: m.id, nombre: m.nombre }))}
+                onCambio={setModelo}
+              />
+            </span>
+          )}
+        </span>
+        <span
+          className="flex w-[104px] shrink-0 items-center gap-1.5"
+          title={t("Pensamiento del modelo: bajo, medio o alto (cuánto razona antes de dirigir; la revisión visual no lo usa)")}
+        >
+          <span className="w-[30px] shrink-0 text-right font-mono text-[10px] text-foreground/50" aria-hidden>
+            {t(pensamiento)}
+          </span>
+          <Deslizador
+            valor={PENSAMIENTOS.indexOf(pensamiento)}
+            min={0}
+            max={2}
+            paso={1}
+            etiqueta={t("Pensamiento del modelo")}
+            onCambio={(v) => setPensamiento(PENSAMIENTOS[Math.round(v)] ?? "alto")}
+          />
+        </span>
       </div>
       <div ref={listaRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         {mensajes.length === 0 && (
