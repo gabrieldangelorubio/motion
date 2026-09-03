@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 21;
+var VERSION_PLUGIN = 22;
 
 function aHex(color) {
   var c = function (v) {
@@ -398,7 +398,15 @@ async function rasterizar(nodo, marco, aviso, nodoExport, sinClon) {
         " (un padre lo recorta): se importó completo");
     }
   }
-  return salidaRaster(nodo, marco, aviso, bytes, c);
+  var salidaR = salidaRaster(nodo, marco, aviso, bytes, c);
+  if (sinClon && (tieneOpacidadPropia(nodo) || tieneMezclaPropia(nodo))) {
+    // el PNG ya trae la opacidad/mezcla del nodo (no se pudo neutralizar):
+    // no se vuelven a aplicar en el motor
+    salidaR.opacidad = undefined;
+    salidaR.mezcla = undefined;
+    salidaR.aviso = conAviso(salidaR, "opacidad/mezcla horneadas en el raster (no se pudo clonar)");
+  }
+  return salidaR;
 }
 
 function salidaRaster(nodo, marco, aviso, bytes, c) {
@@ -502,7 +510,11 @@ function tramosDe(nodo, base) {
 // forzaba el salto y se pisaba con el texto de abajo. Con la API de rangos
 // no hay que estimar nada.
 function contenidoConCortes(nodo) {
-  if (typeof nodo.getRangeBounds !== "function") return { contenido: null, lineas: null };
+  // en el sandbox de use_figma (Figma MCP) el solo hecho de LEER la propiedad
+  // lanza «no such property»: se sondea adentro de un try
+  var tieneRangos = false;
+  try { tieneRangos = typeof nodo.getRangeBounds === "function"; } catch (e0) { tieneRangos = false; }
+  if (!tieneRangos) return { contenido: null, lineas: null };
   var chars = nodo.characters;
   var salida = "";
   var topeLinea = null;
@@ -547,6 +559,31 @@ function contenidoConCortes(nodo) {
 // (intersección de todos los padres que recortan, en px del frame) baja
 // por la recursión: lo que queda ENTERO afuera no se importa (aviso
 // suelto), lo que sobresale viaja con `recorte` y el motor lo recorta.
+// v22: sin getRangeBounds (el sandbox de use_figma no lo expone), los
+// cortes de línea reales salen del SVG del texto SIN contornear: Figma
+// emite un <tspan> por línea renderizada (con los wraps automáticos).
+function decodificarXml(t) {
+  return t
+    .replace(/&#(\d+);/g, function (m, n) { return String.fromCharCode(Number(n)); })
+    .replace(/&#x([0-9a-f]+);/gi, function (m, h) { return String.fromCharCode(parseInt(h, 16)); })
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+}
+async function contenidoPorSvg(nodo) {
+  var svg;
+  try {
+    svg = await nodo.exportAsync({ format: "SVG_STRING", svgOutlineText: false, svgIdAttribute: false });
+  } catch (e) {
+    return { contenido: null, lineas: null };
+  }
+  var re = /<tspan[^>]*>([\s\S]*?)<\/tspan>/g;
+  var lineas = [];
+  var m;
+  while ((m = re.exec(svg)) !== null) {
+    lineas.push(decodificarXml(m[1]).replace(/[\r\n]+$/, "").replace(/[ \t]+$/, ""));
+  }
+  if (lineas.length === 0) return { contenido: null, lineas: null };
+  return { contenido: lineas.length > 1 ? lineas.join("\n") : null, lineas: lineas.length };
+}
 var AVISOS_SUELTOS = [];
 
 // v18: DIAGNÓSTICO. Una línea por nodo visitado —también los ocultos— con
@@ -677,6 +714,7 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
     // primero los cortes de línea REALES (getRangeBounds); si no hay API,
     // queda la estimación por geometría de siempre
     var rangos = contenidoConCortes(nodo);
+    if (rangos.lineas === null) rangos = await contenidoPorSvg(nodo);
     var cortesReales = rangos.contenido;
     var contenido = cortesReales || nodo.characters;
     var avisoCaso = null;
