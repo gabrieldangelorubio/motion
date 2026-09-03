@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { estadoEn } from "@/lib/motion/evaluar-puro";
 import {
+  crearComposicion,
   agregarKeyframeCamara,
   borrarGrupo,
   fijarValorCamara,
