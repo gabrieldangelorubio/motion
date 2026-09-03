@@ -601,6 +601,27 @@ plan y la caída tiltean del título a los avatares/barras (la página se ve
 entera a lo ancho porque sus tarjetas laterales sangran) y la reacción
 abre a 1.22 → 1.28; auditoría en cero.
 
+**Import por MCP y bandeja de entrada** (Gabriel, 2026-09-03: «¿por qué no
+usamos el MCP directamente para no estar trayendo un JSON todo el
+tiempo?»). `figma-plugin/empaquetar-mcp.mjs` empaqueta el exportador para
+el parámetro `code` de `use_figma` (Figma MCP): sin comentarios ni UI,
+entrada por id de nodo, fases `--sin-rasters` (estructura con
+`imagen.pendiente` + `figmaId`) y `--rasters id,…` (lotes `{figmaId:
+base64}`), y `_andamiaje/director-externo/fusionar-rasters.mjs` arma el
+export completo. El plugin v22 sobrevive al sandbox de solo lectura del
+MCP: el sondeo de `getRangeBounds` va en un try y, sin él, los cortes de
+línea reales salen del SVG del texto sin contornear (un `tspan` por línea);
+cuando no se puede clonar, la opacidad/mezcla quedan horneadas en el PNG y
+no se vuelven a aplicar. Del lado del módulo, `POST /api/motion/bandeja`
+recibe el JSON (o un sobre `{nombre, origen, json}`), lo valida como export
+del plugin y lo guarda en un buzón en memoria con topes (8 entradas, 120 M
+caracteres; `bandeja-puro.ts`, testeado); el panel «Importar de Figma» lo
+lista como «Bandeja de entrada» y lo trae con un clic por el MISMO camino
+que el pegado. `dejar-en-bandeja.mjs` lo hace desde la terminal. Medido
+sobre logbook (ver research «Spike D3»): funciona de punta a punta salvo el
+tamaño de la respuesta del tool (se trunca: de ahí las fases) y el cupo de
+llamadas del asiento View, que cortó el spike.
+
 ## Qué NO hace (con motivo)
 
 - **El plugin de Figma no corrió en Figma real todavía** (acá no hay

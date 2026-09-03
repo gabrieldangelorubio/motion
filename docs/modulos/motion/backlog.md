@@ -647,7 +647,15 @@
 - **Pendiente D3/D4:** import vía `use_figma` y write-back (ver research).
 
 ### [P1] DISEÑO D3/D4: Figma MCP (anotado 2026-09-01)
-- **Estado:** investigado, tandas D1-D4 diseñadas — ver
+- **Estado (2026-09-03):** spike D3 HECHO con resultados en
+  `research-diseno-conectado.md` («Spike D3»): el exportador corre en
+  `use_figma` (plugin v22, cortes de línea vía SVG, modo solo lectura),
+  la bandeja de entrada del módulo recibe el JSON sin pegar. Bloqueado por
+  el cupo de llamadas del asiento View: falta (a) medir el tamaño máximo de
+  respuesta y dimensionar los lotes de rasters, (b) probar `fetch` desde el
+  sandbox → bandeja directa, (c) el módulo como cliente MCP con OAuth del
+  usuario (hoy el puente es Claude Code).
+- **Estado anterior:** investigado, tandas D1-D4 diseñadas — ver
   `research/research-diseno-conectado.md`. Pedido de Gabriel: modificar el
   diseño por prompt, derivar pantallas/escenas con el mismo estilo,
   evaluar Claude Design y Figma MCP.

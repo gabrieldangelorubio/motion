@@ -149,3 +149,45 @@ developers.figma.com/docs/rest-api/{rate-limits,changelog}; forum.figma.com
 support.claude.com/en/articles/14604416; anthropic.com/news/claude-design-anthropic-labs;
 claude.com/product/design; claude.com/plugins/figma; jitter.video/changelog;
 rivemasterclass.com/blog/figma-motion-vs-rive.
+
+
+## Spike D3 — use_figma con el exportador (2026-09-03, logbook 39:20515)
+
+Hecho con el conector Figma de claude.ai (cuenta de Gabriel, asiento View en
+plan Professional). Resultados medidos, no supuestos:
+
+- **El exportador corre entero dentro de `use_figma`.** Empaquetado por
+  `figma-plugin/empaquetar-mcp.mjs` (sin comentarios ni UI, 36 KB de los
+  50 000 caracteres que acepta el tool; entrada por id de nodo con cambio a
+  la página del frame). Devolvió el IR con `plugin: 22`, 89 nodos, mismas
+  cajas que el JSON pegado.
+- **El sandbox es de SOLO LECTURA para ese asiento**: `clone`, `appendChild`,
+  `set opacity` lanzan «Can't call … in read-only mode». Los caminos «como se
+  ve» y «por clon» caen al export directo del nodo (v22 marca «opacidad/
+  mezcla horneadas en el raster»). El relleno de imagen de un frame con hijos
+  se rasteriza ENTERO (no se puede separar sin clon).
+- **No expone `getRangeBounds`** (leer la propiedad lanza). Reemplazo que
+  funciona: `exportAsync({format: "SVG_STRING", svgOutlineText: false})`
+  emite un `<tspan>` por línea RENDERIZADA → los cortes reales se recuperan
+  (v22 `contenidoPorSvg`, fallback también para el plugin). Sí funcionan:
+  `exportAsync` PNG/SVG, `getStyledTextSegments`, `getRangeFontSize`,
+  `getRangeLineHeight`, `absoluteRenderBounds`, `fillGeometry`,
+  `base64Encode`. No: `JSON_REST_V1`.
+- **La respuesta del tool se TRUNCA** (12,6 MB → 20 KB visibles, sin archivo
+  persistido). De ahí las dos fases: `--sin-rasters` (estructura con
+  `imagen.pendiente` + `figmaId`; 89 nodos ≈ decenas de KB) y `--rasters
+  id,id,…` (script chico que devuelve `{figmaId: base64}` por lotes), y
+  `fusionar-rasters.mjs` arma el export completo. Falta medir el tamaño
+  máximo de respuesta que sobrevive (probablemente ~60 KB–1 MB) para
+  dimensionar los lotes.
+- **Tope de llamadas**: el asiento View tiene un cupo mensual de tool calls
+  del MCP; se agotó a la séptima llamada del spike («You've reached the
+  Figma MCP tool call limit for your View seat on the Professional plan»).
+  Para trabajar en serio hace falta asiento Dev o Full en ese plan.
+- **El último tramo ya no depende de Figma**: `POST /api/motion/bandeja`
+  recibe el JSON (o un sobre `{nombre, origen, json}`), el panel «Importar de
+  Figma» lo lista como «Bandeja de entrada» y lo trae con un clic por el
+  mismo camino que el pegado. CLI: `_andamiaje/director-externo/dejar-en-bandeja.mjs`.
+  Sin probar todavía: si el sandbox tiene `fetch` (mandaría el JSON directo
+  del script a la bandeja sin pasar por la respuesta del tool); la llamada
+  que lo sondeaba fue la que chocó con el tope.

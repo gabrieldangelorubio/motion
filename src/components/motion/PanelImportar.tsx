@@ -10,8 +10,9 @@
    nunca degradación en silencio.
 ----------------------------------------------------------------------------- */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ImportFigma, ResultadoImport } from "@/lib/motion/figma-puro";
+import { describirPeso, type EntradaBandeja } from "@/lib/motion/bandeja-puro";
 import { normalizarFigma, offsetsDeLote, pantallasDeImport, avisoDePluginViejo } from "@/lib/motion/figma-puro";
 import { t } from "@/lib/i18n/stub";
 import { Etiqueta } from "@/components/ui/Etiqueta";
@@ -31,8 +32,51 @@ export function PanelImportar({
   const [json, setJson] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [previa, setPrevia] = useState<PantallaImportada[] | null>(null);
+  // BANDEJA DE ENTRADA: lo que dejaron por /api/motion/bandeja (el agente
+  // que corrió use_figma, un script): se lista al abrir y se refresca cada
+  // 5 s mientras el panel está abierto; traer una entrada la pasa por el
+  // MISMO analizar() que el pegado
+  const [bandeja, setBandeja] = useState<EntradaBandeja[]>([]);
+  const [trayendo, setTrayendo] = useState<string | null>(null);
+  useEffect(() => {
+    if (!abierto) return;
+    let vivo = true;
+    const leer = async () => {
+      try {
+        const r = await fetch("/api/motion/bandeja", { cache: "no-store" });
+        const d = (await r.json()) as { ok?: boolean; entradas?: EntradaBandeja[] };
+        if (vivo && d.ok && Array.isArray(d.entradas)) setBandeja(d.entradas);
+      } catch {
+        /* sin servidor: la bandeja queda vacía */
+      }
+    };
+    void leer();
+    const reloj = setInterval(() => void leer(), 5000);
+    return () => {
+      vivo = false;
+      clearInterval(reloj);
+    };
+  }, [abierto]);
 
   if (!abierto) return null;
+
+  const traerDeBandeja = async (entrada: EntradaBandeja) => {
+    setTrayendo(entrada.id);
+    try {
+      const r = await fetch(`/api/motion/bandeja?id=${encodeURIComponent(entrada.id)}`, { cache: "no-store" });
+      if (!r.ok) {
+        setError(t("Esa entrada ya no está en la bandeja"));
+        setBandeja((lista) => lista.filter((e) => e.id !== entrada.id));
+        return;
+      }
+      analizar(await r.text());
+      setBandeja((lista) => lista.filter((e) => e.id !== entrada.id));
+    } catch {
+      setError(t("No se pudo traer la entrada de la bandeja"));
+    } finally {
+      setTrayendo(null);
+    }
+  };
 
   const analizar = (texto: string) => {
     setJson(texto);
@@ -74,6 +118,29 @@ export function PanelImportar({
     >
       <div className="w-full max-w-xl rounded-card border border-(--menu-border) bg-(--menu-solido-bg) p-5 shadow-(--menu-shadow)">
         <div className="mb-3 text-[15px] font-semibold text-foreground">{t("Importar pantalla de Figma")}</div>
+        {bandeja.length > 0 && (
+          <div className="mb-3" data-testid="bandeja-entrada">
+            <Etiqueta className="mb-1">{t("Bandeja de entrada")}</Etiqueta>
+            <ul className="max-h-28 overflow-y-auto rounded-control shadow-hueco">
+              {bandeja.map((e) => (
+                <li key={e.id} className="flex items-center justify-between gap-3 px-2 py-1.5 text-xs text-foreground">
+                  <span className="truncate">
+                    «{e.nombre}» · {describirPeso(e.caracteres)}
+                    {e.origen ? ` · ${e.origen}` : ""}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={trayendo !== null}
+                    onClick={() => void traerDeBandeja(e)}
+                    className="boton shrink-0 rounded-control px-2 py-1 text-[12px] shadow-control hover:bg-ink/[0.06] disabled:opacity-40"
+                  >
+                    {trayendo === e.id ? t("Trayendo…") : t("Traer")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <Etiqueta className="mb-1">{t("JSON del plugin")}</Etiqueta>
         <textarea
           autoFocus

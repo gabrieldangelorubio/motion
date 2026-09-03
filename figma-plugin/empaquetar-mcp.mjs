@@ -17,8 +17,29 @@ import { fileURLToPath } from "node:url";
 
 const [nodeId, ...flags] = process.argv.slice(2);
 if (!nodeId) {
-  console.error("uso: empaquetar-mcp.mjs <nodeId p.ej. 39:20515> [--sin-rasters]");
+  console.error("uso: empaquetar-mcp.mjs <nodeId p.ej. 39:20515> [--sin-rasters] | --rasters <id,id,…>");
   process.exit(2);
+}
+// FASE 2: un script chico (no el exportador) que devuelve los PNG 2× de una
+// lista de nodos como { figmaId: base64 }. Se pide por lotes: la respuesta
+// de use_figma tiene tope, el exportador entero no entra en cada llamada.
+if (nodeId === "--rasters") {
+  const ids = (flags[0] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (ids.length === 0) {
+    console.error("--rasters necesita ids separados por coma");
+    process.exit(2);
+  }
+  process.stdout.write(`const ids = ${JSON.stringify(ids)};
+const salida = {};
+for (const id of ids) {
+  const n = await figma.getNodeByIdAsync(id);
+  if (!n) { salida[id] = null; continue; }
+  const bytes = await n.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: 2 } });
+  salida[id] = figma.base64Encode(bytes);
+}
+return salida;
+`);
+  process.exit(0);
 }
 const sinRasters = flags.includes("--sin-rasters");
 const fuente = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "code.js"), "utf8");
@@ -41,11 +62,12 @@ if (/figma\.(ui|showUI|notify|closePlugin)/.test(cuerpo)) throw new Error("qued�
 if (sinRasters) {
   cuerpo = cuerpo.replace(
     'imagen: { dataUri: "data:image/png;base64," + figma.base64Encode(bytes) },',
-    'imagen: { pendiente: true, bytes: bytes ? bytes.length : 0 },',
+    'imagen: { pendiente: true, figmaId: nodo.id },',
   );
   cuerpo = cuerpo.replace(/await ([^\n]*?)\.exportAsync\(/g, "await __exportar($1, ");
   cuerpo =
-    "var __SIN_RASTERS = true;\nasync function __exportar(n, o) { return new Uint8Array(0); }\n" + cuerpo;
+    // los PNG se saltean (vuelven vacíos); el SVG de los textos sigue saliendo (cortes de línea)
+    "var __SIN_RASTERS = true;\nasync function __exportar(n, o) { return o && o.format === \"PNG\" ? new Uint8Array(0) : n.exportAsync(o); }\n" + cuerpo;
 }
 
 const entrada = `
