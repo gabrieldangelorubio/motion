@@ -635,9 +635,16 @@ Nada más: cero librerías de animación, canvas o UI.
   (`thinkingBudget: -1` — razona lo que el paso pida en vez del default
   conservador de Flash); si un modelo rechaza el thinkingConfig se apaga y
   se reintenta sin él.
+- **`OPENROUTER_API_KEY`** (SECRETA, opcional) — la clave de OpenRouter:
+  tercer proveedor del director (Kimi K3 de Moonshot y cualquier modelo
+  con id «proveedor/modelo»). Formato OpenAI (chat completions con
+  tools), mismo prompt-escuela y mismas herramientas. El slider de
+  pensamiento viaja como `reasoning.effort`; si el modelo lo rechaza se
+  reintenta sin él. Se usa con `MOTION_AGENTE_MODELO=moonshotai/kimi-k3`.
 - `MOTION_AGENTE_MODELO` (opcional) — modelo del agente y a la vez el
-  selector de proveedor: `claude-*` → Anthropic, `gemini-*` → Gemini.
-  Default: `gemini-3.6-flash` si hay GEMINI_API_KEY, si no
+  selector de proveedor: `claude-*` → Anthropic, `gemini-*` → Gemini,
+  con barra (`moonshotai/kimi-k3`) → OpenRouter.
+  Default: `gemini-3.8-flash` si hay GEMINI_API_KEY, si no
   `claude-opus-5`.
 - `MOTION_REFERENCIA_MODELO` (opcional) — el ANALISTA de referencias
   (default `gemini-3.6-flash`): cuando adjuntás un VIDEO al chat del

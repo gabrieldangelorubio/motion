@@ -34,6 +34,8 @@ export const PRECIOS_USD_POR_MILLON: Record<string, Precio> = {
   "gemini-3.8-flash": { entrada: 0.75, salida: 3.75, cacheLectura: 0.075 },
   "gemini-3.6-flash": { entrada: 0.75, salida: 3.75, cacheLectura: 0.15 },
   "gemini-2.5-flash": { entrada: 0.3, salida: 2.5 },
+  // OpenRouter (2026-09-03): Kimi K3 de Moonshot
+  "moonshotai/kimi-k3": { entrada: 2.55, salida: 12.75 },
 };
 
 /** El precio del modelo, por prefijo MÁS LARGO que matchee (los ids reales

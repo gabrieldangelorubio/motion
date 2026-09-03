@@ -23,6 +23,7 @@ import {
   ejecutarHerramienta,
 } from "@/lib/motion/agente-herramientas";
 import { generarGemini, loopGemini, type DefHerramienta } from "@/lib/motion/agente-gemini";
+import { esModeloOpenRouter, generarOpenRouter, loopOpenRouter } from "@/lib/motion/agente-openrouter";
 import { aplicarGuion } from "@/lib/motion/guion-puro";
 import { auditarDireccion } from "@/lib/motion/auditoria-puro";
 import { encuadrarEnPantalla } from "@/lib/motion/encuadres-puro";
@@ -194,6 +195,19 @@ async function llamarGuionista(opts: {
   texto: string;
   imagenes?: ImagenRevision[];
 }): Promise<{ ok: true; texto: string; uso: UsoTokens; modelo: string } | { ok: false; error: string }> {
+  if (esModeloOpenRouter(opts.modelo)) {
+    if (!process.env.OPENROUTER_API_KEY) return { ok: false, error: "Falta OPENROUTER_API_KEY en el entorno: el modelo elegido va por OpenRouter (ver ENTREGA.md)" };
+    return generarOpenRouter({
+      apiKey: process.env.OPENROUTER_API_KEY,
+      modelo: opts.modelo,
+      sistema: opts.sistema,
+      historial: opts.historial,
+      primerUsuario: opts.texto,
+      imagenes: opts.imagenes,
+      json: true,
+      pensamiento: opts.pensamiento,
+    });
+  }
   if (opts.modelo.startsWith("gemini")) {
     if (!process.env.GEMINI_API_KEY) return { ok: false, error: "Falta GEMINI_API_KEY en el entorno (ver ENTREGA.md)" };
     return generarGemini({
@@ -377,6 +391,32 @@ export async function dirigirComposicion(
   // ya dirigida se retoca con el loop iterativo de herramientas.
   if (elegirModo(comp, historial) === "guion" && process.env.MOTION_DIRECTOR_MODO !== "iterativo") {
     return dirigirPorGuion({ comp, modelo, historial, primerUsuario, imagenes, nivel, pensamiento, onEvento });
+  }
+
+  // ——— proveedor OPENROUTER (Kimi y cía: formato OpenAI, mismo prompt) ———
+  if (esModeloOpenRouter(modelo)) {
+    if (!process.env.OPENROUTER_API_KEY) {
+      return { ok: false, error: "Falta OPENROUTER_API_KEY en el entorno: el modelo elegido va por OpenRouter (ver ENTREGA.md)" };
+    }
+    const res = await loopOpenRouter({
+      apiKey: process.env.OPENROUTER_API_KEY,
+      modelo,
+      sistema: SISTEMA,
+      historial,
+      primerUsuario,
+      imagenes,
+      herramientas: DEFINICIONES_HERRAMIENTAS as unknown as DefHerramienta[],
+      maxIteraciones: MAX_ITERACIONES,
+      ejecutar: (nombre, input) => {
+        const r = ejecutarHerramienta(comp, nombre, input);
+        comp = r.comp;
+        if (r.resumen) ops.push(r.resumen);
+        return { resultado: r.resultado, esError: r.esError, resumen: r.resumen };
+      },
+      onEvento,
+      pensamiento,
+    });
+    return res.ok ? { ok: true, respuesta: res.respuesta, composicion: comp, ops, uso: res.uso, modelo } : res;
   }
 
   // ——— proveedor GEMINI (mismo prompt, mismas herramientas, otro loop) ———

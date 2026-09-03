@@ -13,6 +13,18 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Tercer proveedor del director: OpenRouter (Kimi K3) (2026-09-03)
+- **Qué:** Gabriel quiere comparar Kimi K3 dirigiendo. `agente-openrouter.ts`:
+  formato OpenAI (chat completions con tools/tool_calls), mismo SISTEMA y
+  mismas herramientas; `loopOpenRouter` (iterativo) y `generarOpenRouter`
+  (guionista, `response_format` json). El slider viaja como
+  `reasoning.effort`; un 400 que nombre reasoning o response_format se
+  reintenta sin eso. `reasoning_details` se devuelve tal cual entre turnos
+  (los pensadores lo necesitan). Selector: la barra del id
+  (`moonshotai/kimi-k3`) + `OPENROUTER_API_KEY`. Precio de K3 cargado
+  (2.55 / 12.75). 4 tests con fetch falso.
+- **Sin verificar en vivo:** acá no hay clave. Primera corrida de Gabriel.
+
 ### [HECHO] RECORTE DEL PADRE: el «clip content» de Figma llega al motor (plugin v17, 2026-09-03)
 - **Qué pasó:** con el JSON v15 de diagram.com a la vista: los `div.figma-box`
   son RECTS nativos que empiezan 34 px a la izquierda de su tarjeta (Figma
