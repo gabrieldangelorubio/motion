@@ -67,6 +67,8 @@ test("director en dos fases: el guionista devuelve el guion, el código lo aplic
     assert.deepEqual(gen.thinkingConfig, { thinkingLevel: "medium" });
     const sistema = (pedidos[0].body.systemInstruction as { parts: { text: string }[] }).parts[0].text;
     assert.ok(sistema.includes("# MODO GUION") && sistema.includes("# GUION DE REFERENCIA") && sistema.includes("REGLA DE ORO"));
+    // las lecciones guardadas llegan a TODOS los modelos al guionar
+    assert.ok(sistema.includes("# LECCIONES APRENDIDAS") && sistema.includes("LA CÁMARA NUNCA ESTÁ MUERTA"));
     // el segundo turno pide solo pasos y lleva el ✗
     const contents = pedidos[1].body.contents as { role: string; parts: { text?: string }[] }[];
     const ultimo = contents[contents.length - 1].parts.map((p) => p.text ?? "").join("");

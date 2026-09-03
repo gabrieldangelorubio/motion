@@ -24,6 +24,7 @@ import {
 } from "@/lib/motion/agente-herramientas";
 import { generarGemini, loopGemini, type DefHerramienta } from "@/lib/motion/agente-gemini";
 import { esModeloOpenRouter, generarOpenRouter, loopOpenRouter } from "@/lib/motion/agente-openrouter";
+import { bloqueDeLecciones } from "@/lib/motion/conocimiento-director-puro";
 import { aplicarGuion } from "@/lib/motion/guion-puro";
 import { auditarDireccion } from "@/lib/motion/auditoria-puro";
 import { encuadrarEnPantalla } from "@/lib/motion/encuadres-puro";
@@ -128,7 +129,9 @@ ${catalogoParaPrompt()}
 1. Mirá el estado: la composición COMPLETA ya viene en el primer mensaje, con el id de cada capa — las herramientas piden ese id EXACTO (jamás lo adivines desde el nombre). NO gastes un paso en ver_composicion de entrada: solo si perdiste el hilo tras muchas ediciones.
 2. Ejecutá las herramientas necesarias — ops incrementales, nunca rehacer todo. Si una herramienta devuelve ERROR o AVISOS, corregite en el paso siguiente.
 3. Si el pedido es ambiguo en alcance grande (borrar varias capas, rehacer todo), preguntá antes de ejecutar. Para dirección creativa normal, decidí vos: sos el director.
-4. Terminá SIEMPRE con un resumen corto en castellano de qué hiciste y por qué (2-4 líneas, sin listar cada op). Si no ejecutaste nada, explicá qué falta.`;
+4. Terminá SIEMPRE con un resumen corto en castellano de qué hiciste y por qué (2-4 líneas, sin listar cada op). Si no ejecutaste nada, explicá qué falta.
+
+${bloqueDeLecciones()}`;
 
 export type TurnoAgente = { rol: "usuario" | "agente"; texto: string };
 

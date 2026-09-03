@@ -25,6 +25,18 @@
   todo lo de adentro. El estado del director dice «dentro de «padre»».
   3 tests nuevos.
 
+### [HECHO] Conocimiento del director en un solo lugar, para todos los modelos y los dos modos (2026-09-03)
+- **Qué:** Gabriel: «que el conocimiento que vamos guardando quede para
+  todos los agentes al momento de guionar». `conocimiento-director-puro.ts`:
+  `LECCIONES[{cuando, pieza, leccion}]` (hoy 10: encuadre de lemlist,
+  cargar, raster no se divide / jamás quitar capa del diseño, cámara viva,
+  zoom por caja de contenido, solapes, duraciones por rol, entradas con
+  dirección, nada sin entrada, nombres exactos) y `bloqueDeLecciones()`,
+  que entra al final del SISTEMA. Como SISTEMA es lo que reciben Claude,
+  Gemini y OpenRouter en el loop iterativo y `sistemaGuionista(SISTEMA)`
+  en modo guion, todos lo ven. Test que lo fija por proveedor.
+- **Cómo se suma una lección:** una entrada más en LECCIONES.
+
 ### [HECHO] Comparativa Fable vs Kimi K3 en logbook → conocimiento común (2026-09-03)
 - **Qué:** Gabriel prefirió el guion de Fable («Kimi estático, una cosa
   detrás de otra; el tuyo navega»). Nota `research/comparativa-logbook-fable-vs-kimi.md`

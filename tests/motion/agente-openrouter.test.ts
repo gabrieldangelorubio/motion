@@ -165,6 +165,7 @@ test("dirigirComposicion manda a OpenRouter cuando MOTION_AGENTE_MODELO lleva ba
     assert.equal(pedidos[0].url, URL_OPENROUTER);
     assert.deepEqual(pedidos[0].body.reasoning, { effort: "low" });
     assert.match(String((pedidos[0].body.messages as { content: string }[])[0].content), /REGLA DE ORO/);
+    assert.match(String((pedidos[0].body.messages as { content: string }[])[0].content), /LECCIONES APRENDIDAS/);
   } finally {
     globalThis.fetch = fetchOriginal;
     process.env = envOriginal;
