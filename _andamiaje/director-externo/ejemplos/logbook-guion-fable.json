@@ -43,11 +43,11 @@
      },
      {
       "t": 4200,
-      "v": 1582
+      "v": 1580
      },
      {
       "t": 8600,
-      "v": 1582,
+      "v": 1580,
       "easing": "entradaSalidaCubic"
      },
      {
@@ -113,12 +113,12 @@
      },
      {
       "t": 4200,
-      "v": 1.24,
+      "v": 1.2,
       "easing": "entradaSalidaSine"
      },
      {
       "t": 8600,
-      "v": 1.28,
+      "v": 1.24,
       "easing": "salidaSine"
      },
      {
