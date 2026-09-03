@@ -17,7 +17,7 @@ import {
 } from "@/lib/motion/herramientas-puro";
 import { sumarAlLienzo, type ResultadoImport } from "@/lib/motion/figma-puro";
 import { ejecutarHerramienta } from "@/lib/motion/agente-herramientas";
-import type { Composicion } from "@/lib/motion/modelo";
+import type { CapaForma, Composicion } from "@/lib/motion/modelo";
 
 const base = (): Composicion => ({
   version: 1,
@@ -397,4 +397,20 @@ test("pose-sync: los canales de una pose viajan con UN progreso y UN easing comp
   const s1 = camaraEn(sueltos, 1000);
   assert.ok(Math.abs(s1.x - 500) < 0.001, "x va por su propio tramo");
   assert.ok(Math.abs(s1.zoom - Math.sqrt(2)) < 0.001, "zoom va por el suyo");
+});
+
+test("moverCapas: el recorte del padre viaja con la placa y se queda quieto si se mueve la capa sola", () => {
+  const comp: Composicion = {
+    ...crearComposicion({ nombre: "r" }),
+    capas: [
+      { id: "placa", nombre: "p", tipo: "forma", forma: "rectangulo", ancho: 1440, alto: 900, color: "#000", x: 720, y: 450, grupo: "placa" },
+      { id: "caja", nombre: "c", tipo: "forma", forma: "rectangulo", ancho: 70, alto: 70, color: "#f00", x: 1039, y: 732, grupo: "placa", recorte: { x: 1038, y: 539, ancho: 282, alto: 400 } },
+    ],
+  };
+  // arrastre de la pantalla entera: placa + capas, todas con +2000/+100
+  const movida = moverCapas(comp, [{ id: "placa", x: 2720, y: 550 }, { id: "caja", x: 3039, y: 832 }]);
+  assert.deepEqual((movida.capas[1] as CapaForma).recorte, { x: 3038, y: 639, ancho: 282, alto: 400 });
+  // la capa sola dentro de su tarjeta: el recorte no se mueve
+  const sola = moverCapas(comp, [{ id: "caja", x: 1100, y: 740 }]);
+  assert.deepEqual((sola.capas[1] as CapaForma).recorte, { x: 1038, y: 539, ancho: 282, alto: 400 });
 });

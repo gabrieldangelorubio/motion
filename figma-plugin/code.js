@@ -462,7 +462,18 @@ function fueraDe(c, r) {
   return c.x + c.ancho < r.x || c.x > r.x + r.ancho || c.y + c.alto < r.y || c.y > r.y + r.alto;
 }
 
-function dentroDe(c, r) {
+// la caja que se PINTA: una capa rotada (vector/trazo con rotacion aparte)
+// lleva su caja sin rotar, y girada ocupa más — el AABB de la rotación
+function cajaPintada(n) {
+  if (!n.rotacion) return n;
+  var a = (n.rotacion * Math.PI) / 180;
+  var w = Math.abs(n.ancho * Math.cos(a)) + Math.abs(n.alto * Math.sin(a));
+  var h = Math.abs(n.ancho * Math.sin(a)) + Math.abs(n.alto * Math.cos(a));
+  return { x: n.x + n.ancho / 2 - w / 2, y: n.y + n.alto / 2 - h / 2, ancho: w, alto: h };
+}
+
+function dentroDe(n, r) {
+  var c = cajaPintada(n);
   return c.x >= r.x - 0.5 && c.y >= r.y - 0.5 && c.x + c.ancho <= r.x + r.ancho + 0.5 && c.y + c.alto <= r.y + r.alto + 0.5;
 }
 

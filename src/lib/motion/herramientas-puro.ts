@@ -194,11 +194,24 @@ export function moverCapas(
   posiciones: { id: string; x: number; y: number }[],
 ): Composicion {
   const porId = new Map(posiciones.map((p) => [p.id, p]));
+  // el recorte del padre (clip content de Figma) es del LIENZO: viaja con
+  // la pantalla cuando se arrastra la placa entera, y se queda quieto
+  // cuando se mueve una capa sola dentro de su tarjeta
+  const deltaDePlaca = (c: Capa): { dx: number; dy: number } | null => {
+    if (!c.recorte || !c.grupo) return null;
+    const placa = comp.capas.find((p) => p.id === c.grupo && esPlaca(p));
+    const destino = placa ? porId.get(placa.id) : undefined;
+    return placa && destino ? { dx: destino.x - placa.x, dy: destino.y - placa.y } : null;
+  };
   return {
     ...comp,
     capas: comp.capas.map((c) => {
       const p = porId.get(c.id);
-      return p ? { ...c, x: p.x, y: p.y } : c;
+      if (!p) return c;
+      const d = deltaDePlaca(c);
+      return d && c.recorte && (d.dx || d.dy)
+        ? { ...c, x: p.x, y: p.y, recorte: { ...c.recorte, x: c.recorte.x + d.dx, y: c.recorte.y + d.dy } }
+        : { ...c, x: p.x, y: p.y };
     }),
   };
 }
