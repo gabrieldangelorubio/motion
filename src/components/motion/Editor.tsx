@@ -48,6 +48,7 @@ import { esPlaca } from "@/lib/motion/estilo-puro";
 // el archivo local (el undo la puede traer de vuelta, como las fuentes)
 import { cargarVideoGuardado, recordarVideo } from "@/lib/motion/video-guardado";
 import { pintar, type Contexto2D } from "@/lib/motion/pintar";
+import { dibujarMargenesSeguros } from "@/lib/motion/margenes-puro";
 import type { ImagenRevision } from "@/lib/motion/revision-puro";
 import { aplicarSensacion, descripcionSensacion, type Sensacion } from "@/lib/motion/sensacion-puro";
 import { Deslizador } from "@/components/ui/Deslizador";
@@ -271,6 +272,25 @@ export function Editor({
   useEffect(() => {
     vistaRef.current = vista;
   }, [vista]);
+  // MÁRGENES SEGUROS (Gabriel: «que haya un toggle para verlos»): las guías
+  // de acción (5 %) y título (10 %) sobre el cuadro, en las tres vistas.
+  // Preferencia del usuario, no de la pieza: vive en localStorage.
+  const [margenes, setMargenes] = useState(() => {
+    try {
+      return typeof localStorage !== "undefined" && localStorage.getItem("motion-margenes") === "1";
+    } catch {
+      return false; // sin storage: arranca apagado
+    }
+  });
+  const margenesRef = useRef(margenes);
+  useEffect(() => {
+    margenesRef.current = margenes;
+    try {
+      localStorage.setItem("motion-margenes", margenes ? "1" : "0");
+    } catch {
+      /* sin storage */
+    }
+  }, [margenes]);
   // calidad del preview (Half/Quarter de AE): borrador para armar rápido,
   // nítido para revisar. El export SIEMPRE sale a resolución completa.
   const [calidad, setCalidad] = useState<"baja" | "media" | "alta">("media");
@@ -1421,6 +1441,9 @@ export function Editor({
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.setTransform(escala, 0, 0, escala, 0, 0);
       pintar(estadoVivo(comp, tiempo), ctx as unknown as Contexto2D, media, escala);
+      // las guías de márgenes seguros van dibujadas: el director las VE en el
+      // frame y el mensaje de revisión le dice qué son
+      dibujarMargenesSeguros(ctx, { x: 0, y: 0, ancho: comp.ancho, alto: comp.alto }, escala);
       const dataUrl = canvas.toDataURL("image/jpeg", 0.72);
       return { mime: "image/jpeg", datosBase64: dataUrl.slice(dataUrl.indexOf(",") + 1) };
     });
@@ -1969,6 +1992,7 @@ export function Editor({
             obtenerCalidad={() => calidadRef.current}
             obtenerTiempo={() => tiempoRef.current}
             obtenerVista={() => vistaRef.current}
+            obtenerMargenes={() => margenesRef.current}
             onTeclaCamara={setHerramientaCamara}
             onSeleccionar={seleccionar}
             onAlternarSeleccion={alternarSeleccion}
@@ -2158,6 +2182,11 @@ export function Editor({
                   { valor: "ambas", nombre: t("Ambas") },
                 ]}
               />
+            </ConPista>
+            <ConPista pista={t("Márgenes seguros: la guía exterior es la zona de acción (5 % por lado), la interior la de título (10 %). Lo que queda afuera se corta en pantalla")}>
+              <BotonIcono tam={28} etiqueta={t("Márgenes seguros")} activo={margenes} onClick={() => setMargenes((v) => !v)}>
+                <Icono nombre="encuadrar" width={14} height={14} />
+              </BotonIcono>
             </ConPista>
             {/* la VERSIÓN corriendo (SHA corto del commit, next.config):
                 «¿estoy en la build correcta?» se responde acá */}

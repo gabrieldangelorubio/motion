@@ -18,6 +18,7 @@
 import type { Camara, CapaForma, Composicion, EasingSpec, Encuadre, Keyframe, TemblorCamara } from "@/lib/motion/modelo";
 import { esPlaca } from "@/lib/motion/estilo-puro";
 import { cajaVisibleEn } from "@/lib/motion/auditoria-puro";
+import { describirMargenSeguro } from "@/lib/motion/margenes-puro";
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
@@ -44,7 +45,7 @@ export function describirEncuadres(comp: Composicion): string[] {
     `  ENCUADRES MARCADOS por el usuario (${lista.length} escenas, EN ORDEN — la cámara los recorre con recorrer_encuadres; no inventes otros encuadres):`,
     ...lista.map(
       (e, i) =>
-        `    ${i + 1}. «${e.nombre}» (id ${e.id}): centro (${Math.round(e.x)}, ${Math.round(e.y)}) zoom ${e.zoom} → ve ${Math.round(comp.ancho / e.zoom)}×${Math.round(comp.alto / e.zoom)} px del lienzo, x ${Math.round(e.x - comp.ancho / e.zoom / 2)}–${Math.round(e.x + comp.ancho / e.zoom / 2)}, y ${Math.round(e.y - comp.alto / e.zoom / 2)}–${Math.round(e.y + comp.alto / e.zoom / 2)}`,
+        `    ${i + 1}. «${e.nombre}» (id ${e.id}): centro (${Math.round(e.x)}, ${Math.round(e.y)}) zoom ${e.zoom} → ve ${Math.round(comp.ancho / e.zoom)}×${Math.round(comp.alto / e.zoom)} px del lienzo, x ${Math.round(e.x - comp.ancho / e.zoom / 2)}–${Math.round(e.x + comp.ancho / e.zoom / 2)}, y ${Math.round(e.y - comp.alto / e.zoom / 2)}–${Math.round(e.y + comp.alto / e.zoom / 2)}; ${describirMargenSeguro({ x1: e.x - comp.ancho / e.zoom / 2, y1: e.y - comp.alto / e.zoom / 2, x2: e.x + comp.ancho / e.zoom / 2, y2: e.y + comp.alto / e.zoom / 2 })}`,
     ),
   ];
 }

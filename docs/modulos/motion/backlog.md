@@ -1346,3 +1346,12 @@
   prueba las recordadas antes de abrirse. Falta la parte diosa: subir al
   catálogo con licencia declarada para que viaje entre máquinas.
 - **Dónde:** `lib/motion/fuentes-guardadas.ts`, `consultas.ts`
+
+### [P2] Márgenes seguros: exportar las guías a AE y regla por formato
+- **Estado:** abierto (2026-09-03) — el editor, la auditoría y los prompts
+  ya trabajan con acción 5 % / título 10 % (`margenes-puro.ts`).
+- **Qué:** llevar las guías como capas guía al export de AE; permitir
+  márgenes por formato (9:16 y 4:5 suelen pedir más arriba/abajo por las
+  UI de las plataformas); y un botón «acomodar a márgenes» que aplique la
+  corrección que hoy la auditoría solo sugiere (zoom o centro).
+- **Dónde:** `margenes-puro.ts`, `auditoria-puro.ts`, `exportar-ae-puro.ts`

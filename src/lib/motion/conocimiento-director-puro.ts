@@ -50,7 +50,7 @@ export const LECCIONES: Leccion[] = [
     cuando: "2026-09-03",
     pieza: "logbook (tres ENCUADRE CORTA en la versión de Kimi)",
     leccion:
-      "El zoom de cada escena sale de la CAJA DEL CONTENIDO (tope del título → borde inferior del elemento más bajo, chips y tarjetas laterales incluidos): zoom = min(ancho_render/ancho_pantalla, alto_render/(alto_contenido × 1.05)), centro y = medio de esa caja. Con 840 px de contenido en 1080 el zoom baja a 1.20 aunque la página pida 1.33.",
+      "El zoom de cada escena sale de la CAJA DEL CONTENIDO (tope del título → borde inferior del elemento más bajo, chips y tarjetas laterales incluidos): zoom = min(ancho_render × 0.8 / ancho_contenido, alto_render × 0.8 / alto_contenido), centro = el de esa caja. Con 840 px de contenido en 1080 el zoom baja a ~1.03 aunque la página pida 1.33.",
   },
   {
     cuando: "2026-09-03",
@@ -86,6 +86,12 @@ export const LECCIONES: Leccion[] = [
     pieza: "logbook (cuatro pasos fallidos de Fable, una ronda perdida de Kimi)",
     leccion:
       "Los nombres de presets y herramientas son EXACTOS y son los del catálogo del estado: «elevarDesenfocado» no existe (es subirDesenfocado), «definar_camara» no existe (es definir_camara). Un nombre inventado es un paso perdido.",
+  },
+  {
+    cuando: "2026-09-03",
+    pieza: "logbook (Gabriel, con frames del render: chips tocando el borde, barras caídas sangrando por los dos lados)",
+    leccion:
+      "MÁRGENES SEGUROS, como en TV: nada del contenido queda a menos del 5 % del cuadro de cada borde (zona de acción, regla dura: la auditoría marca ENCUADRE AL BORDE con el zoom o el centro que lo arreglan), y cada encuadre se planea con el 10 % (zona de título): el contenido de la escena ocupa como mucho el 80 % del cuadro, así el push-in del hold sigue adentro. Lo que toca el borde se corta en pantalla. Siempre un poquito más safe: ante la duda, abrí el zoom.",
   },
 ];
 

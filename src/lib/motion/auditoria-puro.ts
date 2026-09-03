@@ -15,6 +15,7 @@
 import type { Capa, CapaForma, CapaTexto, Composicion, Keyframe, Segmento } from "@/lib/motion/modelo";
 import { PRESETS } from "@/lib/motion/presets-puro";
 import { esPlaca } from "@/lib/motion/estilo-puro";
+import { MARGEN_SEGURO, correccionSegura, describirMargenSeguro, desbordeSeguro, totalDesborde, type Caja, type Desborde } from "@/lib/motion/margenes-puro";
 
 /** Presets que, dominando una pieza, la vuelven plantilla: el fade, la escala
     y el pop genérico. Están bien COMO condimento, nunca como plato. */
@@ -157,6 +158,29 @@ function pantallaDe(comp: Composicion, ve: { x1: number; y1: number; x2: number;
   return mejor?.p ?? null;
 }
 
+const colorPlano = (c: string | undefined) => (c ?? "").replace(/\s+/g, "").toLowerCase();
+
+/** Si la pantalla es del MISMO color que el fondo de la pieza, el vacío
+    fuera de ella no se ve (logbook: página y fondo #1e1c1a): la cámara puede
+    abrir más allá de la página sin mostrar nada raro. */
+export function vacioInvisible(comp: Composicion, p: CapaForma | null): boolean {
+  return !!p && colorPlano(p.color) === colorPlano(comp.fondo);
+}
+
+/** ¿Se le puede exigir el margen seguro en este eje? Sí, salvo que la
+    pantalla ya llene el cuadro en ese eje: ahí lo que queda cerca del borde
+    está a la distancia que el DISEÑO le dio al borde de la página (una
+    tarjeta a 43 px del borde de una landing de 1440 vista entera), y abrir
+    más la cámara no es decisión de encuadre sino de mostrar vacío o el
+    recorte de lo que sangra. El margen seguro gobierna a la cámara cuando
+    la cámara elige: al acercarse a una sección. */
+function ejeExigible(p: CapaForma | null, ve: Caja, eje: "x" | "y"): boolean {
+  if (!p) return true;
+  const cuadro = eje === "x" ? ve.x2 - ve.x1 : ve.y2 - ve.y1;
+  const pantalla = eje === "x" ? p.ancho : p.alto;
+  return cuadro < pantalla * 0.98;
+}
+
 /** Instantes que valen la pena mirar de la cámara: t = 0 y cada keyframe
     de x/y/zoom (ahí están los encuadres en los que se detiene). */
 function instantesDeCamara(comp: Composicion): number[] {
@@ -191,14 +215,21 @@ export function encuadresDescentrados(comp: Composicion): string[] {
     const problemas: string[] = [];
     const tolX = Math.max(8, vw * 0.02);
     const tolY = Math.max(8, vh * 0.02);
+    // pantalla del color del fondo: abrir más allá de ella no muestra vacío
+    // (y hace falta para respetar los márgenes seguros); solo se exige centrada
+    const invisible = vacioInvisible(comp, p);
     if (p.ancho >= vw) {
-      if (ve.x1 < px1 - tolX) problemas.push(`muestra ${r(px1 - ve.x1)} px de vacío a la IZQUIERDA de la pantalla`);
+      if (invisible) {
+        /* nada que exigir en x */
+      } else if (ve.x1 < px1 - tolX) problemas.push(`muestra ${r(px1 - ve.x1)} px de vacío a la IZQUIERDA de la pantalla`);
       if (ve.x2 > px2 + tolX) problemas.push(`muestra ${r(ve.x2 - px2)} px de vacío a la DERECHA de la pantalla`);
     } else if (Math.abs((ve.x1 + ve.x2) / 2 - p.x) > tolX) {
       problemas.push(`la pantalla queda descentrada en x (centro de cámara ${r((ve.x1 + ve.x2) / 2)}, centro de la pantalla ${r(p.x)})`);
     }
     if (p.alto >= vh) {
-      if (ve.y1 < py1 - tolY) problemas.push(`muestra ${r(py1 - ve.y1)} px de vacío ARRIBA de la pantalla`);
+      if (invisible) {
+        /* nada que exigir en y */
+      } else if (ve.y1 < py1 - tolY) problemas.push(`muestra ${r(py1 - ve.y1)} px de vacío ARRIBA de la pantalla`);
       if (ve.y2 > py2 + tolY) problemas.push(`muestra ${r(ve.y2 - py2)} px de vacío ABAJO de la pantalla`);
     } else if (Math.abs((ve.y1 + ve.y2) / 2 - p.y) > tolY) {
       problemas.push(`la pantalla queda descentrada en y (centro de cámara ${r((ve.y1 + ve.y2) / 2)}, centro de la pantalla ${r(p.y)})`);
@@ -307,6 +338,8 @@ export function auditarDireccion(comp: Composicion): string[] {
   // 9b. Encuadre que corta: al terminar su entrada, la capa tiene que estar
   // ENTERA dentro de lo que ve la cámara (visto: el logo del hero a medias)
   const cortadas: string[] = [];
+  const alBorde: string[] = [];
+  const recortesALaVista: string[] = [];
   for (const c of conEntrada) {
     const seg = c.entrada as Segmento;
     const t = seg.en + seg.duracion;
@@ -337,9 +370,93 @@ export function auditarDireccion(comp: Composicion): string[] {
       cortadas.push(
         `ENCUADRE CORTA: «${c.nombre}» termina de entrar en ${t}ms y la cámara la corta (caja x ${r(caja.x1)}–${r(caja.x2)}, y ${r(caja.y1)}–${r(caja.y2)}; la cámara ve x ${r(ve.x1)}–${r(ve.x2)}, y ${r(ve.y1)}–${r(ve.y2)}). Se corrige SOLO con definir_camara (centro o zoom de ese encuadre): JAMÁS moviendo ni escalando la capa.`,
       );
+      continue;
+    }
+    if (fuera) continue;
+    // 9b'. MARGEN SEGURO: entera adentro pero pegada al borde (visto: chips
+    // de logbook tocando el cuadro, barras caídas al ras de los lados). Se
+    // mira al terminar la entrada y en cada parada de cámara mientras la
+    // capa sigue en escena (el push-in de un hold también acerca al borde);
+    // vale el instante peor. En el eje en que la pantalla ya llena el
+    // cuadro y bajar el zoom mostraría vacío, el margen es el de la página.
+    const hasta = c.salida?.en ?? comp.duracion;
+    const instantes = [t, ...instantesDeCamara(comp).filter((k) => k > t && k <= hasta)];
+    let peor: { t: number; ve: Caja; d: Desborde; total: number } | null = null;
+    for (const ti of instantes) {
+      const vei = ti === t ? cajaVisibleEn(comp, t) : cajaVisibleEn(comp, ti);
+      // la capa sigue EN EL PLANO si (casi) toda su caja cae en el cuadro; si
+      // la cámara ya se fue a otra escena (o está viajando) no es este
+      // encuadre. Un push-in que la deja cortada de a poco sí cuenta: en la
+      // parada de cámara la caja sigue casi entera y el desborde es mayor.
+      const areaCaja = Math.max(1, (caja.x2 - caja.x1) * (caja.y2 - caja.y1));
+      const solape = Math.max(0, Math.min(caja.x2, vei.x2) - Math.max(caja.x1, vei.x1)) * Math.max(0, Math.min(caja.y2, vei.y2) - Math.max(caja.y1, vei.y1));
+      if (solape / areaCaja < 0.9) continue;
+      const d = desbordeSeguro(caja, vei, MARGEN_SEGURO.accion);
+      if (sangra.izq) d.izq = 0;
+      if (sangra.der) d.der = 0;
+      if (sangra.arr) d.arr = 0;
+      if (sangra.aba) d.aba = 0;
+      if (!ejeExigible(p, vei, "x")) d.izq = d.der = 0;
+      if (!ejeExigible(p, vei, "y")) d.arr = d.aba = 0;
+      const total = totalDesborde(d);
+      if (total > 1 && (!peor || total > peor.total)) peor = { t: ti, ve: vei, d, total };
+    }
+    // 9b''. RECORTE A LA VISTA: una capa que sangra por el borde de su
+    // pantalla (la página la recorta: barras más anchas que el cuadro de
+    // Figma) se ve cortada EN SECO si la cámara muestra ese borde. Visto en
+    // logbook: las barras caídas «sangrando por los dos lados» a zoom 1.25,
+    // con la página de 1440 entera dentro del cuadro de 1536.
+    if (p && (sangra.izq || sangra.der || sangra.arr || sangra.aba)) {
+      const px1 = p.x - p.ancho / 2, px2 = p.x + p.ancho / 2, py1 = p.y - p.alto / 2, py2 = p.y + p.alto / 2;
+      let peorRecorte: { t: number; ve: Caja; lados: string[]; exceso: number } | null = null;
+      for (const ti of instantes) {
+        const vei = cajaVisibleEn(comp, ti);
+        const solape = Math.max(0, Math.min(caja.x2, vei.x2) - Math.max(caja.x1, vei.x1)) * Math.max(0, Math.min(caja.y2, vei.y2) - Math.max(caja.y1, vei.y1));
+        if (solape <= 0) continue;
+        const lados: string[] = [];
+        let exceso = 0;
+        const mirar = (cond: boolean, px: number, nombre: string) => {
+          if (!cond || px <= 2) return;
+          lados.push(`${nombre} (${r(px)} px de pantalla a la vista)`);
+          exceso += px;
+        };
+        mirar(sangra.izq, px1 - vei.x1, "IZQUIERDO");
+        mirar(sangra.der, vei.x2 - px2, "DERECHO");
+        mirar(sangra.arr, py1 - vei.y1, "SUPERIOR");
+        mirar(sangra.aba, vei.y2 - py2, "INFERIOR");
+        if (lados.length && (!peorRecorte || exceso > peorRecorte.exceso)) peorRecorte = { t: ti, ve: vei, lados, exceso };
+      }
+      if (peorRecorte) {
+        const { ve: vr } = peorRecorte;
+        const zoomX = comp.ancho / p.ancho;
+        const zoomY = comp.alto / p.alto;
+        const necesita = (sangra.izq || sangra.der ? [zoomX] : []).concat(sangra.arr || sangra.aba ? [zoomY] : []);
+        recortesALaVista.push(
+          `ENCUADRE MUESTRA EL RECORTE: «${c.nombre}» sangra por el borde ${peorRecorte.lados.join(" y ")} de la pantalla «${p.nombre}» (la página la recorta ahí) y en ${r(peorRecorte.t)}ms la cámara muestra ese borde: la capa se ve cortada en seco (caja x ${r(caja.x1)}–${r(caja.x2)}, y ${r(caja.y1)}–${r(caja.y2)}; la cámara ve x ${r(vr.x1)}–${r(vr.x2)}, y ${r(vr.y1)}–${r(vr.y2)}). Se corrige SOLO con definir_camara: zoom ≥ ${Math.round(Math.max(...necesita) * 100) / 100} (el cuadro no más grande que la pantalla en ese eje) o el centro corrido hasta que ese borde quede fuera del cuadro; si el título de la escena no entra, partí la escena en dos encuadres (tilt). JAMÁS moviendo ni escalando la capa.`,
+        );
+      }
+    }
+    if (peor) {
+      const { ve: vp, d } = peor;
+      const margenPx = (vp.x2 - vp.x1) * MARGEN_SEGURO.accion;
+      const lados: string[] = [];
+      const lado = (dist: number, nombre: string) => (dist < -1 ? `CORTADA ${r(-dist)} px por el borde ${nombre}` : `a ${r(Math.max(0, dist))} px del borde ${nombre}`);
+      if (d.izq) lados.push(lado(caja.x1 - vp.x1, "IZQUIERDO"));
+      if (d.der) lados.push(lado(vp.x2 - caja.x2, "DERECHO"));
+      if (d.arr) lados.push(lado(caja.y1 - vp.y1, "SUPERIOR"));
+      if (d.aba) lados.push(lado(vp.y2 - caja.y2, "INFERIOR"));
+      const zoom = comp.ancho / (vp.x2 - vp.x1);
+      const fix = correccionSegura(caja, vp, zoom, MARGEN_SEGURO.accion);
+      const cx = r((vp.x1 + vp.x2) / 2);
+      const cy = r((vp.y1 + vp.y2) / 2);
+      alBorde.push(
+        `ENCUADRE AL BORDE: «${c.nombre}» queda en ${r(peor.t)}ms ${lados.join(" y ")} del cuadro; la zona segura deja ${r(margenPx)} px libres por lado (el 5 % del cuadro: ${describirMargenSeguro(vp)}). Caja x ${r(caja.x1)}–${r(caja.x2)}, y ${r(caja.y1)}–${r(caja.y2)}; la cámara ve x ${r(vp.x1)}–${r(vp.x2)}, y ${r(vp.y1)}–${r(vp.y2)}. Se corrige SOLO con definir_camara: zoom ${fix.zoom} con el centro actual (${cx}, ${cy})${fix.centro ? `, o centro (${fix.centro.x}, ${fix.centro.y}) con el zoom actual` : ""}. JAMÁS moviendo ni escalando la capa.`,
+      );
     }
   }
   hallazgos.push(...cortadas.slice(0, 4));
+  hallazgos.push(...alBorde.slice(0, 4));
+  hallazgos.push(...recortesALaVista.slice(0, 3));
 
   // 9c. Encuadre descentrado o con vacío: en cada keyframe de cámara, lo
   // que se ve tiene que estar centrado en la pantalla y sin aire fuera de

@@ -25,6 +25,8 @@ test("marcar y quitar escenas: ids e índices en orden, valores redondeados, la 
   const lineas = describirEncuadres(comp);
   assert.equal(lineas.length, 3);
   assert.match(lineas[1], /1\. «Escena 1» \(id esc-1\): centro \(720, 330\) zoom 1\.7 → ve 1129×635 px del lienzo, x 155–1285/);
+  // y la zona segura de cada encuadre (5 % del cuadro por lado)
+  assert.match(lineas[1], /zona segura x 212–1228, y 44–616/);
   assert.ok(describir(comp).includes("ENCUADRES MARCADOS por el usuario (2 escenas"));
   assert.deepEqual(describirEncuadres(landing()), []);
 });

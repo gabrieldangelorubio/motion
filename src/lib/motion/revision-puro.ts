@@ -50,8 +50,10 @@ export function mensajeDeRevision(tiempos: number[], auditoria: string[] = []): 
   const bloque = bloqueDeAuditoria(auditoria);
   return `REVISIÓN VISUAL AUTOMÁTICA (no es un pedido nuevo del usuario: es tu control de calidad antes de entregar). Adjunto ${tiempos.length} frames del RENDER REAL de lo que quedó, en t = ${tiempos.map((t) => `${t}ms`).join(", ")} (en ese orden).
 
+Los frames traen dibujadas las guías de MÁRGENES SEGUROS (dos rectángulos blancos concéntricos: el exterior es la zona de acción, 5 % por lado; el interior la de título, 10 %; las marcas cortas son el centro). No son parte de la pieza. NADA del contenido puede quedar fuera del rectángulo exterior: lo que lo toca se corta en pantalla.
+
 Miralos como director:
-- ¿Algo desborda el encuadre o pisa un borde?
+- ¿Algo desborda el encuadre, queda fuera de la zona de acción o pisa un borde?
 - ¿Textos encimados, ilegibles o tapados por otra capa?
 - ¿Capas que deberían animarse y se ven IGUALES en todos los frames (quietas, o que aparecen de golpe sin animación)?
 - ¿Algo del pedido original que falta?

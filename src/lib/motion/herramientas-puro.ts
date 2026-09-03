@@ -506,7 +506,7 @@ export function describir(comp: Composicion): string {
   const lineas = [
     `«${comp.nombre}» — RENDER ${comp.ancho}×${comp.alto} @ ${comp.fps}fps${
       comp.fpsAnimacion ? ` (animación cuantizada a ${comp.fpsAnimacion}fps, look stop-motion)` : ""
-    }, ${(comp.duracion / 1000).toFixed(2)}s, ${comp.capas.length} capas. La cámara ve ${comp.ancho}/zoom × ${comp.alto}/zoom px del lienzo centrada en (x, y): para encuadrar una región de W px de ancho, zoom = ${comp.ancho}/W y el centro es el de ESA región (la caja de cada pantalla está abajo) — nunca el del render (${comp.ancho / 2}, ${comp.alto / 2}) salvo que la pantalla esté ahí.`,
+    }, ${(comp.duracion / 1000).toFixed(2)}s, ${comp.capas.length} capas. La cámara ve ${comp.ancho}/zoom × ${comp.alto}/zoom px del lienzo centrada en (x, y): para encuadrar una región de W px de ancho, zoom = ${comp.ancho}/W y el centro es el de ESA región (la caja de cada pantalla está abajo) — nunca el del render (${comp.ancho / 2}, ${comp.alto / 2}) salvo que la pantalla esté ahí. MÁRGENES SEGUROS: nada del contenido queda a menos del 5 % del cuadro de cada borde (${Math.round(comp.ancho * 0.05)}×${Math.round(comp.alto * 0.05)} px de render; a zoom z, ${Math.round(comp.ancho * 0.05)}/z × ${Math.round(comp.alto * 0.05)}/z px del lienzo) — se planea con el 10 %: el contenido de cada escena ocupa como mucho el 80 % del cuadro.`,
   ];
   if (comp.camara) {
     // los keyframes van CON valores y easings: el asistente los reanima

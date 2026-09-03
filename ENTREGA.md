@@ -573,6 +573,34 @@ fuente — compatible con la división por caracteres/palabras/líneas y sus
 escalonados. Editar el CONTENIDO del texto descarta los tramos (quedarían
 indexados a otros caracteres): degradar, no romper.
 
+**Márgenes seguros** (Gabriel, 2026-09-03, con frames del render donde los
+chips tocaban el borde y las barras caídas sangraban por los dos lados:
+«nunca se puede poner algo fuera de los safe margins, se va a cortar»).
+Como en TV, dos zonas concéntricas sobre el cuadro (`margenes-puro.ts`):
+ACCIÓN, 5 % por lado, la que ningún contenido cruza; TÍTULO, 10 %, donde se
+planea. En el editor, un toggle junto a Mundo/Cámara/Ambas dibuja las
+guías (dos rectángulos blancos con halo y las marcas de centro) sobre el
+encuadre en las tres vistas —viajan con la cámara y escalan con su zoom— y
+la preferencia queda en localStorage. El director las tiene de tres
+maneras: (1) la auditoría mide **ENCUADRE AL BORDE** (una capa entera en
+cuadro pero a menos del 5 % del borde, al terminar su entrada y en cada
+parada de cámara mientras siga en plano —el push-in de un hold también
+acerca al borde— con el zoom y el centro exactos que la arreglan) y
+**ENCUADRE MUESTRA EL RECORTE** (una capa que sangra por el borde de su
+pantalla se ve cortada en seco si la cámara muestra ese borde: zoom ≥
+ancho_render/ancho_pantalla o tilt); en el eje en que la pantalla ya
+llena el cuadro el margen es el de la página (decisión del diseño), y una
+pantalla del color del fondo puede abrir la cámara más allá de la página
+sin que la auditoría lo cuente como vacío; (2) el SISTEMA, el MODO GUION y
+una lección compartida llevan la fórmula nueva —zoom = min(ancho_render ×
+0.8 / ancho_contenido, alto_render × 0.8 / alto_contenido)— en lugar del
+×1.05 que dejaba todo al ras; (3) los frames de la revisión visual van con
+las guías dibujadas y el mensaje le dice qué son. El guion de logbook de
+referencia se corrigió con la auditoría nueva: el hero abre a 1.22, el
+plan y la caída tiltean del título a los avatares/barras (la página se ve
+entera a lo ancho porque sus tarjetas laterales sangran) y la reacción
+abre a 1.22 → 1.28; auditoría en cero.
+
 ## Qué NO hace (con motivo)
 
 - **El plugin de Figma no corrió en Figma real todavía** (acá no hay

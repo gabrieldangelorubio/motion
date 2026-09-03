@@ -1,1785 +1,1826 @@
 {
- "guion": [
-  "LECTURA. logbook.so, una historia en 7 cuadros sobre fondo oscuro (1440×6752): hero con el título «Once upon a project» y tres avatares con su rol; «It all began with a full process» con un Gantt de barras de colores y dos tarjetas a los lados; «The first delays sneaked in» con cuatro avisos como notificaciones; «The team reacted quickly» con un segundo Gantt; «But things snowballed» con una pila de avisos girada; «The project fell behind» con las barras caídas fuera del Gantt; y las nubes del cierre.",
-  "GUION (brief: SaaS súper premium, muchas animaciones secundarias, la cámara sigue la historia paso a paso, todo suave con ease). 28 s, 7 escenas. La cámara hace hold en cada cuadro con un push-in lento y viaja 1 s entre cuadros con entradaSalidaCubic, flotando apenas. (1) 0–3,6 s HERO (la cámara hace un tilt lento hacia el garabato): logo y Beta, título desde el fondo enderezándose, avatares con pop y sus chips, respiración de avatares, garabato que invita a bajar. (2) 3,6–9 s EL PLAN: título palabra por palabra, la tarjeta sube, las tarjetas laterales llegan girando, las barras CARGAN de izquierda a derecha en cascada, avatares con pop. (3) 9–13,5 s LOS AVISOS: título, cuatro notificaciones que entran alternando de lado con un asentamiento de escala. (4) 13,5–18 s LA REACCIÓN: título, segundo Gantt, barras que cargan más rápido. (5) 18–21,5 s BOLA DE NIEVE: título y la pila entra en remolino, y sigue meciéndose. (6) 21,5–25,5 s LA CAÍDA: título línea a línea, tarjeta vacía, barras que CAEN una tras otra. (7) 25,5–28 s NUBES: suben despacio y cierran.",
-  "CARÁCTER. Expo y quint en protagonistas, cubic y sine en secundarios, back.out en los pops. Ninguna capa entra sola: cada título trae su tarjeta, cada tarjeta sus barras, cada barra su borde. La cámara nunca corta: hold, viaje, hold. VIDA AMBIENTE: durante cada hold, avatares, tarjetas laterales y notificaciones siguen moviéndose apenas (±4–8 px, ±1°, ciclos de 2–3 s en sine): nada entra y se congela."
- ],
- "pasos": [
-  {
-   "herramienta": "ajustar_composicion",
-   "input": {
-    "duracion": 28000
-   },
-   "nota": "7 escenas: hero, plan, avisos, reacción, bola de nieve, caída, nubes"
-  },
-  {
-   "herramienta": "definir_camara",
-   "input": {
-    "base": {
-     "x": 720,
-     "y": 425,
-     "zoom": 1.33
+  "guion": [
+    "LECTURA. logbook.so, una historia en 7 cuadros sobre fondo oscuro (1440×6752): hero con el título «Once upon a project» y tres avatares con su rol; «It all began with a full process» con un Gantt de barras de colores y dos tarjetas a los lados; «The first delays sneaked in» con cuatro avisos como notificaciones; «The team reacted quickly» con un segundo Gantt; «But things snowballed» con una pila de avisos girada; «The project fell behind» con las barras caídas fuera del Gantt; y las nubes del cierre.",
+    "GUION (brief: SaaS súper premium, muchas animaciones secundarias, la cámara sigue la historia paso a paso, todo suave con ease). 28 s, 7 escenas. La cámara hace hold en cada cuadro con un push-in lento y viaja 1 s entre cuadros con entradaSalidaCubic, flotando apenas. (1) 0–3,6 s HERO (la cámara hace un tilt lento hacia el garabato): logo y Beta, título desde el fondo enderezándose, avatares con pop y sus chips, respiración de avatares, garabato que invita a bajar. (2) 3,6–9 s EL PLAN: título palabra por palabra, la tarjeta sube, las tarjetas laterales llegan girando, las barras CARGAN de izquierda a derecha en cascada, avatares con pop. (3) 9–13,5 s LOS AVISOS: título, cuatro notificaciones que entran alternando de lado con un asentamiento de escala. (4) 13,5–18 s LA REACCIÓN: título, segundo Gantt, barras que cargan más rápido. (5) 18–21,5 s BOLA DE NIEVE: título y la pila entra en remolino, y sigue meciéndose. (6) 21,5–25,5 s LA CAÍDA: título línea a línea, tarjeta vacía, barras que CAEN una tras otra. (7) 25,5–28 s NUBES: suben despacio y cierran.",
+    "CARÁCTER. Expo y quint en protagonistas, cubic y sine en secundarios, back.out en los pops. Ninguna capa entra sola: cada título trae su tarjeta, cada tarjeta sus barras, cada barra su borde. La cámara nunca corta: hold, viaje, hold. VIDA AMBIENTE: durante cada hold, avatares, tarjetas laterales y notificaciones siguen moviéndose apenas (±4–8 px, ±1°, ciclos de 2–3 s en sine): nada entra y se congela."
+  ],
+  "pasos": [
+    {
+      "herramienta": "ajustar_composicion",
+      "input": {
+        "duracion": 28000
+      },
+      "nota": "7 escenas: hero, plan, avisos, reacción, bola de nieve, caída, nubes"
     },
-    "x": [
-     {
-      "t": 0,
-      "v": 720
-     }
-    ],
-    "y": [
-     {
-      "t": 0,
-      "v": 425
-     },
-     {
-      "t": 1800,
-      "v": 425,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 2700,
-      "v": 595,
-      "easing": "entradaSalidaCubic"
-     },
-     {
-      "t": 4200,
-      "v": 1580
-     },
-     {
-      "t": 8600,
-      "v": 1580,
-      "easing": "entradaSalidaCubic"
-     },
-     {
-      "t": 9600,
-      "v": 2450
-     },
-     {
-      "t": 13000,
-      "v": 2450,
-      "easing": "entradaSalidaCubic"
-     },
-     {
-      "t": 14000,
-      "v": 3400
-     },
-     {
-      "t": 17600,
-      "v": 3400,
-      "easing": "entradaSalidaCubic"
-     },
-     {
-      "t": 18500,
-      "v": 4480
-     },
-     {
-      "t": 21000,
-      "v": 4480,
-      "easing": "entradaSalidaCubic"
-     },
-     {
-      "t": 22000,
-      "v": 5520
-     },
-     {
-      "t": 25000,
-      "v": 5520,
-      "easing": "entradaSalidaCubic"
-     },
-     {
-      "t": 26000,
-      "v": 6300
-     },
-     {
-      "t": 28000,
-      "v": 6300
-     }
-    ],
-    "zoom": [
-     {
-      "t": 0,
-      "v": 1.33,
-      "easing": "salidaSine"
-     },
-     {
-      "t": 1800,
-      "v": 1.36,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 2700,
-      "v": 1.33,
-      "easing": "salidaSine"
-     },
-     {
-      "t": 4200,
-      "v": 1.2,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 8600,
-      "v": 1.24,
-      "easing": "salidaSine"
-     },
-     {
-      "t": 9600,
-      "v": 1.33,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 13000,
-      "v": 1.42,
-      "easing": "salidaSine"
-     },
-     {
-      "t": 14000,
-      "v": 1.33,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 17600,
-      "v": 1.4,
-      "easing": "salidaSine"
-     },
-     {
-      "t": 18500,
-      "v": 1.33,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 21000,
-      "v": 1.45,
-      "easing": "salidaSine"
-     },
-     {
-      "t": 22000,
-      "v": 1.25,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 25000,
-      "v": 1.32,
-      "easing": "salidaSine"
-     },
-     {
-      "t": 26000,
-      "v": 1.33,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 28000,
-      "v": 1.36
-     }
-    ],
-    "temblor": {
-     "preset": "flotar",
-     "intensidad": 0.35,
-     "velocidad": 0.6
+    {
+      "herramienta": "definir_camara",
+      "input": {
+        "base": {
+          "x": 720,
+          "y": 425,
+          "zoom": 1.33
+        },
+        "x": [
+          {
+            "t": 0,
+            "v": 720
+          }
+        ],
+        "y": [
+          {
+            "t": 0,
+            "v": 415
+          },
+          {
+            "t": 1800,
+            "v": 415,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 2700,
+            "v": 650,
+            "easing": "entradaSalidaCubic"
+          },
+          {
+            "t": 4200,
+            "v": 1500
+          },
+          {
+            "t": 4700,
+            "v": 1500,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 5600,
+            "v": 1650,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 8600,
+            "v": 1650,
+            "easing": "entradaSalidaCubic"
+          },
+          {
+            "t": 9600,
+            "v": 2480
+          },
+          {
+            "t": 13000,
+            "v": 2480,
+            "easing": "entradaSalidaCubic"
+          },
+          {
+            "t": 14000,
+            "v": 3382
+          },
+          {
+            "t": 17600,
+            "v": 3382,
+            "easing": "entradaSalidaCubic"
+          },
+          {
+            "t": 18500,
+            "v": 4480
+          },
+          {
+            "t": 21000,
+            "v": 4480,
+            "easing": "entradaSalidaCubic"
+          },
+          {
+            "t": 22000,
+            "v": 5360
+          },
+          {
+            "t": 22600,
+            "v": 5360,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 23300,
+            "v": 5560,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 25000,
+            "v": 5560,
+            "easing": "entradaSalidaCubic"
+          },
+          {
+            "t": 26000,
+            "v": 6300
+          },
+          {
+            "t": 28000,
+            "v": 6300
+          }
+        ],
+        "zoom": [
+          {
+            "t": 0,
+            "v": 1.22,
+            "easing": "salidaSine"
+          },
+          {
+            "t": 1800,
+            "v": 1.25,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 2700,
+            "v": 1.33,
+            "easing": "salidaSine"
+          },
+          {
+            "t": 4200,
+            "v": 1.334,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 4700,
+            "v": 1.334,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 5600,
+            "v": 1.334,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 8600,
+            "v": 1.355,
+            "easing": "salidaSine"
+          },
+          {
+            "t": 9600,
+            "v": 1.33,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 13000,
+            "v": 1.4,
+            "easing": "salidaSine"
+          },
+          {
+            "t": 14000,
+            "v": 1.22,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 17600,
+            "v": 1.28,
+            "easing": "salidaSine"
+          },
+          {
+            "t": 18500,
+            "v": 1.33,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 21000,
+            "v": 1.45,
+            "easing": "salidaSine"
+          },
+          {
+            "t": 22000,
+            "v": 1.334,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 22600,
+            "v": 1.334,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 23300,
+            "v": 1.334,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 25000,
+            "v": 1.355,
+            "easing": "salidaSine"
+          },
+          {
+            "t": 26000,
+            "v": 1.33,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 28000,
+            "v": 1.36
+          }
+        ],
+        "temblor": {
+          "preset": "flotar",
+          "intensidad": 0.35,
+          "velocidad": 0.6
+        }
+      },
+      "nota": "la cámara cuenta la historia: hero con tilt lento hacia el garabato, hold en cada cuadro con push-in (sine), viaje de 1 s con entradaSalidaCubic, flotar apenas Márgenes seguros: el hero abre a 1.22 → 1.25 (la página es del color del fondo: abrir no muestra vacío) para que el logo y los avatares queden a más del 5 % del borde, y el tilt baja hasta y 650 para descubrir el garabato entero; en el plan y en la caída la página se ve entera a lo ancho (zoom 1.334, las tarjetas laterales sangran por el borde de la página y abrir más mostraría el recorte) y como el contenido es más alto que el cuadro, la cámara TILTEA del título a los avatares/barras caídas mientras entran, con un push-in corto (1.334 → 1.355) que no deja nada a menos del 5 % del borde; en la reacción (nada sangra, página del color del fondo) abre a 1.22 → 1.28 con el contenido en el 80 % del cuadro."
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-1-div-dark-intro-fondo",
+        "preset": "aparecer",
+        "en": 0,
+        "duracion": 1,
+        "easing": "lineal"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-83-stofbi02figgd5dmcexdwnox8j8-png",
+        "preset": "pop",
+        "en": 150,
+        "duracion": 500,
+        "easing": "salidaBack"
+      },
+      "nota": "el logo"
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-84-heading-1-logbook",
+        "preset": "revelar",
+        "en": 250,
+        "duracion": 500,
+        "easing": "salidaQuint"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-85-div-framer-1vhwqso-fondo",
+        "preset": "escalar",
+        "en": 450,
+        "duracion": 450,
+        "easing": "salidaBack"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-86-heading-1-beta",
+        "preset": "aparecer",
+        "en": 600,
+        "duracion": 300,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-87-link",
+        "preset": "subirDesenfocado",
+        "en": 350,
+        "duracion": 800,
+        "easing": "salidaExpo",
+        "params": {
+          "distancia": 30
+        }
+      },
+      "nota": "Skip intro, discreto"
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-72-xnzimkm5xszfjujq6ug1i1n9cok-png",
+        "preset": "acercarDesenfocado",
+        "en": 400,
+        "duracion": 1100,
+        "easing": "salidaExpo"
+      },
+      "nota": "el título es un raster: llega desde el fondo y asienta"
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-72-xnzimkm5xszfjujq6ug1i1n9cok-png",
+        "propiedad": "rotacion",
+        "keyframes": [
+          {
+            "t": 400,
+            "v": -2,
+            "easing": "salidaExpo"
+          },
+          {
+            "t": 1500,
+            "v": 0
+          }
+        ]
+      },
+      "nota": "secundaria: endereza al llegar"
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-73-crpkfrtxzwlnlzfcbxhrwnqz8e-png",
+        "preset": "pop",
+        "en": 1000,
+        "duracion": 650,
+        "easing": "back.out(1.6)"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-74-bjq2btshtfmqcqb7auoaftbyzvc-png",
+        "preset": "subir",
+        "en": 1300,
+        "duracion": 550,
+        "easing": "salidaBack",
+        "params": {
+          "distancia": 18
+        }
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-75-hbxcczbkwzztwvhkbwi5wtfuski-png",
+        "preset": "pop",
+        "en": 1150,
+        "duracion": 650,
+        "easing": "back.out(1.6)"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-76-nrmdkolbgdodehrprcjskqepbpg-png",
+        "preset": "subir",
+        "en": 1450,
+        "duracion": 550,
+        "easing": "salidaBack",
+        "params": {
+          "distancia": 18
+        }
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-77-of8j4lb11uyazi808nja7ez2no-png",
+        "preset": "pop",
+        "en": 1300,
+        "duracion": 650,
+        "easing": "back.out(1.6)"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-78-gfom3jpixquhk7mrwxhmwzwfos-png",
+        "preset": "subir",
+        "en": 1600,
+        "duracion": 550,
+        "easing": "salidaBack",
+        "params": {
+          "distancia": 18
+        }
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-73-crpkfrtxzwlnlzfcbxhrwnqz8e-png",
+        "propiedad": "escala",
+        "keyframes": [
+          {
+            "t": 1700,
+            "v": 1,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 2500,
+            "v": 1.03,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 3400,
+            "v": 1
+          }
+        ]
+      },
+      "nota": "secundaria: los avatares respiran"
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-75-hbxcczbkwzztwvhkbwi5wtfuski-png",
+        "propiedad": "escala",
+        "keyframes": [
+          {
+            "t": 1700,
+            "v": 1,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 2500,
+            "v": 1.03,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 3400,
+            "v": 1
+          }
+        ]
+      },
+      "nota": "secundaria: los avatares respiran"
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-77-of8j4lb11uyazi808nja7ez2no-png",
+        "propiedad": "escala",
+        "keyframes": [
+          {
+            "t": 1700,
+            "v": 1,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 2500,
+            "v": 1.03,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 3400,
+            "v": 1
+          }
+        ]
+      },
+      "nota": "secundaria: los avatares respiran"
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-79-vector",
+        "preset": "desenfocarEntrada",
+        "en": 1900,
+        "duracion": 900,
+        "easing": "salidaSine"
+      },
+      "nota": "el garabato que invita a bajar"
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-79-vector",
+        "propiedad": "y",
+        "keyframes": [
+          {
+            "t": 2600,
+            "v": 933,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 3200,
+            "v": 947,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 3800,
+            "v": 933
+          }
+        ]
+      },
+      "nota": "el garabato invita a bajar: un bounce lento"
+    },
+    {
+      "herramienta": "editar_capa",
+      "input": {
+        "capaId": "fig-2-it-all-began-with-a-full",
+        "division": "palabras"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-2-it-all-began-with-a-full",
+        "preset": "subirDesenfocado",
+        "en": 3700,
+        "duracion": 900,
+        "easing": "salidaExpo",
+        "escalonado": 80
+      },
+      "nota": "título palabra por palabra"
+    },
+    {
+      "herramienta": "editar_capa",
+      "input": {
+        "capaId": "fig-3-process-that-took-days-to-get-in",
+        "division": "palabras"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-3-process-that-took-days-to-get-in",
+        "preset": "subirDesenfocado",
+        "en": 4150,
+        "duracion": 900,
+        "easing": "salidaExpo",
+        "escalonado": 60
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-6-div-framer-709qp6-fondo",
+        "preset": "aparecer",
+        "en": 5000,
+        "duracion": 300,
+        "easing": "lineal"
+      },
+      "nota": "entra cuando la cámara ya tiltea hacia el Gantt (márgenes seguros)"
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-7-clip-path-group",
+        "preset": "subirDesenfocado",
+        "en": 5000,
+        "duracion": 500,
+        "easing": "salidaExpo",
+        "params": {
+          "distancia": 60
+        }
+      },
+      "nota": "la tarjeta del Gantt sube y asienta"
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-4-div-framer-1gjac07",
+        "preset": "deslizarDerecha",
+        "en": 4700,
+        "duracion": 1000,
+        "easing": "salidaExpo",
+        "params": {
+          "distancia": 90
+        }
+      },
+      "nota": "la tarjeta de tareas, desde la izquierda"
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-5-div-framer-ef4xmd",
+        "preset": "deslizarIzquierda",
+        "en": 4850,
+        "duracion": 1000,
+        "easing": "salidaExpo",
+        "params": {
+          "distancia": 90
+        }
+      },
+      "nota": "el Project Brief, desde la derecha"
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-4-div-framer-1gjac07",
+        "propiedad": "rotacion",
+        "keyframes": [
+          {
+            "t": 4700,
+            "v": -4,
+            "easing": "salidaExpo"
+          },
+          {
+            "t": 5700,
+            "v": 0
+          }
+        ]
+      },
+      "nota": "secundaria: llega con giro"
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-5-div-framer-ef4xmd",
+        "propiedad": "rotacion",
+        "keyframes": [
+          {
+            "t": 4850,
+            "v": 4,
+            "easing": "salidaExpo"
+          },
+          {
+            "t": 5850,
+            "v": 0
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-8-div-framer-9dxupg-fondo",
+        "preset": "cargar",
+        "en": 5000,
+        "duracion": 900,
+        "easing": "salidaQuart"
+      },
+      "nota": "las barras del plan CARGAN de izquierda a derecha, en cascada"
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-9-pseudo",
+        "preset": "aparecer",
+        "en": 5700,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-12-div-framer-1krzsuh-fondo",
+        "preset": "cargar",
+        "en": 5160,
+        "duracion": 900,
+        "easing": "salidaQuart"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-13-pseudo",
+        "preset": "aparecer",
+        "en": 5860,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-14-div-framer-10xbjz-fondo",
+        "preset": "cargar",
+        "en": 5320,
+        "duracion": 900,
+        "easing": "salidaQuart"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-15-pseudo",
+        "preset": "aparecer",
+        "en": 6020,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-16-div-framer-tpklzv-fondo",
+        "preset": "cargar",
+        "en": 5480,
+        "duracion": 900,
+        "easing": "salidaQuart"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-17-pseudo",
+        "preset": "aparecer",
+        "en": 6180,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-18-div-framer-16yn9qv-fondo",
+        "preset": "cargar",
+        "en": 5640,
+        "duracion": 900,
+        "easing": "salidaQuart"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-19-pseudo",
+        "preset": "aparecer",
+        "en": 6340,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-20-div-framer-v75s51-fondo",
+        "preset": "cargar",
+        "en": 5800,
+        "duracion": 900,
+        "easing": "salidaQuart"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-21-pseudo",
+        "preset": "aparecer",
+        "en": 6500,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-22-div-framer-1xw6cyz-fondo",
+        "preset": "cargar",
+        "en": 5960,
+        "duracion": 900,
+        "easing": "salidaQuart"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-23-pseudo",
+        "preset": "aparecer",
+        "en": 6660,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-24-div-framer-tvvbz3-fondo",
+        "preset": "cargar",
+        "en": 6120,
+        "duracion": 900,
+        "easing": "salidaQuart"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-25-pseudo",
+        "preset": "aparecer",
+        "en": 6820,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-11-rpzaphjp586snuq6odciybkaou-png",
+        "preset": "pop",
+        "en": 5600,
+        "duracion": 600,
+        "easing": "back.out(1.5)"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-10-i4i2niurh5x8malgqlqsgmvcsu-png",
+        "preset": "pop",
+        "en": 5800,
+        "duracion": 600,
+        "easing": "back.out(1.5)"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-26-qwuezwq7opkirgz9zqt2k94e-png",
+        "preset": "pop",
+        "en": 6100,
+        "duracion": 600,
+        "easing": "back.out(1.5)"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-27-ixen6mk9zyoimbdpqzc8tzeksg-png",
+        "preset": "pop",
+        "en": 6300,
+        "duracion": 600,
+        "easing": "back.out(1.5)"
+      }
+    },
+    {
+      "herramienta": "editar_capa",
+      "input": {
+        "capaId": "fig-28-the-first-delays-sneaked-in-chao",
+        "division": "palabras"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-28-the-first-delays-sneaked-in-chao",
+        "preset": "subirDesenfocado",
+        "en": 9300,
+        "duracion": 900,
+        "easing": "salidaExpo",
+        "escalonado": 70
+      },
+      "nota": "título palabra por palabra"
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-64-div-framer-tn3aei-fondo",
+        "preset": "aparecer",
+        "en": 10000,
+        "duracion": 10,
+        "easing": "lineal"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-65-lbmmk0dmwux7w4ukyp56jzditwy-png",
+        "preset": "deslizarIzquierda",
+        "en": 10000,
+        "duracion": 850,
+        "easing": "salidaExpo",
+        "params": {
+          "distancia": 140
+        }
+      },
+      "nota": "cada aviso entra alternando de lado, como notificaciones que se acumulan"
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-65-lbmmk0dmwux7w4ukyp56jzditwy-png",
+        "propiedad": "escala",
+        "keyframes": [
+          {
+            "t": 10000,
+            "v": 0.96,
+            "easing": "salidaBack"
+          },
+          {
+            "t": 10700,
+            "v": 1
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-66-div-framer-afi26y-fondo",
+        "preset": "aparecer",
+        "en": 10420,
+        "duracion": 10,
+        "easing": "lineal"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-67-igbzuaikqqkcfgaz0a1dojdwvzw-png",
+        "preset": "deslizarDerecha",
+        "en": 10420,
+        "duracion": 850,
+        "easing": "salidaExpo",
+        "params": {
+          "distancia": 140
+        }
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-67-igbzuaikqqkcfgaz0a1dojdwvzw-png",
+        "propiedad": "escala",
+        "keyframes": [
+          {
+            "t": 10420,
+            "v": 0.96,
+            "easing": "salidaBack"
+          },
+          {
+            "t": 11120,
+            "v": 1
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-68-div-framer-yt9br8-fondo",
+        "preset": "aparecer",
+        "en": 10840,
+        "duracion": 10,
+        "easing": "lineal"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-69-wngfbmmes7gjfajfjxrjesx85k-png",
+        "preset": "deslizarIzquierda",
+        "en": 10840,
+        "duracion": 850,
+        "easing": "salidaExpo",
+        "params": {
+          "distancia": 140
+        }
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-69-wngfbmmes7gjfajfjxrjesx85k-png",
+        "propiedad": "escala",
+        "keyframes": [
+          {
+            "t": 10840,
+            "v": 0.96,
+            "easing": "salidaBack"
+          },
+          {
+            "t": 11540,
+            "v": 1
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-70-div-framer-c8eb1q-fondo",
+        "preset": "aparecer",
+        "en": 11260,
+        "duracion": 10,
+        "easing": "lineal"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-71-qlq0tgrtqui5ghtfwysrzsl19e-png",
+        "preset": "deslizarDerecha",
+        "en": 11260,
+        "duracion": 850,
+        "easing": "salidaExpo",
+        "params": {
+          "distancia": 140
+        }
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-71-qlq0tgrtqui5ghtfwysrzsl19e-png",
+        "propiedad": "escala",
+        "keyframes": [
+          {
+            "t": 11260,
+            "v": 0.96,
+            "easing": "salidaBack"
+          },
+          {
+            "t": 11960,
+            "v": 1
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "editar_capa",
+      "input": {
+        "capaId": "fig-29-the-team-reacted-quickly-the-pla",
+        "division": "palabras"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-29-the-team-reacted-quickly-the-pla",
+        "preset": "subirDesenfocado",
+        "en": 13700,
+        "duracion": 900,
+        "easing": "salidaExpo",
+        "escalonado": 70
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-30-clip-path-group",
+        "preset": "subirDesenfocado",
+        "en": 14200,
+        "duracion": 1000,
+        "easing": "salidaExpo",
+        "params": {
+          "distancia": 60
+        }
+      },
+      "nota": "el segundo Gantt"
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-45-div-framer-1mmpmwh-fondo",
+        "preset": "cargar",
+        "en": 14700,
+        "duracion": 800,
+        "easing": "salidaQuart"
+      },
+      "nota": "el plan nuevo carga más rápido: el equipo reaccionó"
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-46-pseudo",
+        "preset": "aparecer",
+        "en": 15300,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-43-div-framer-10yhy11-fondo",
+        "preset": "cargar",
+        "en": 14830,
+        "duracion": 800,
+        "easing": "salidaQuart"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-44-pseudo",
+        "preset": "aparecer",
+        "en": 15430,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-31-div-framer-s2by1x-fondo",
+        "preset": "cargar",
+        "en": 14960,
+        "duracion": 800,
+        "easing": "salidaQuart"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-32-pseudo",
+        "preset": "aparecer",
+        "en": 15560,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-33-div-framer-yrlchm-fondo",
+        "preset": "cargar",
+        "en": 15090,
+        "duracion": 800,
+        "easing": "salidaQuart"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-34-pseudo",
+        "preset": "aparecer",
+        "en": 15690,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-35-div-framer-790b-fondo",
+        "preset": "cargar",
+        "en": 15220,
+        "duracion": 800,
+        "easing": "salidaQuart"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-36-pseudo",
+        "preset": "aparecer",
+        "en": 15820,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-37-div-framer-1jee5ym-fondo",
+        "preset": "cargar",
+        "en": 15350,
+        "duracion": 800,
+        "easing": "salidaQuart"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-38-pseudo",
+        "preset": "aparecer",
+        "en": 15950,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-39-div-framer-1sx53am-fondo",
+        "preset": "cargar",
+        "en": 15480,
+        "duracion": 800,
+        "easing": "salidaQuart"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-40-pseudo",
+        "preset": "aparecer",
+        "en": 16080,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-41-div-framer-1igtb3s-fondo",
+        "preset": "cargar",
+        "en": 15610,
+        "duracion": 800,
+        "easing": "salidaQuart"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-42-pseudo",
+        "preset": "aparecer",
+        "en": 16210,
+        "duracion": 250,
+        "easing": "salidaSine"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-48-es7hixvi9ingyrcv71zkur8ozcu-png",
+        "preset": "pop",
+        "en": 15500,
+        "duracion": 600,
+        "easing": "back.out(1.5)"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-47-i4i2niurh5x8malgqlqsgmvcsu-png",
+        "preset": "pop",
+        "en": 15700,
+        "duracion": 600,
+        "easing": "back.out(1.5)"
+      }
+    },
+    {
+      "herramienta": "editar_capa",
+      "input": {
+        "capaId": "fig-49-but-things-snowballed-and-just-g",
+        "division": "palabras"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-49-but-things-snowballed-and-just-g",
+        "preset": "subirDesenfocado",
+        "en": 18200,
+        "duracion": 900,
+        "easing": "salidaExpo",
+        "escalonado": 70
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-50-xfggfavhnuw6aiwusilyz9stms-png",
+        "preset": "remolino",
+        "en": 18900,
+        "duracion": 1400,
+        "easing": "salidaExpo"
+      },
+      "nota": "la pila de avisos llega girando: la bola de nieve"
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-50-xfggfavhnuw6aiwusilyz9stms-png",
+        "propiedad": "rotacion",
+        "keyframes": [
+          {
+            "t": 20300,
+            "v": 0,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 21500,
+            "v": 2,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 22500,
+            "v": 0
+          }
+        ]
+      },
+      "nota": "secundaria: sigue meciéndose apenas"
+    },
+    {
+      "herramienta": "editar_capa",
+      "input": {
+        "capaId": "fig-51-the-project-fell-behind-until-ne",
+        "division": "lineas"
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-51-the-project-fell-behind-until-ne",
+        "preset": "revelar",
+        "en": 21700,
+        "duracion": 800,
+        "easing": "salidaQuint",
+        "escalonado": 260
+      },
+      "nota": "línea a línea, más grave"
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-54-div-framer-1jxrdmo-fondo",
+        "preset": "subirDesenfocado",
+        "en": 22200,
+        "duracion": 1000,
+        "easing": "salidaExpo",
+        "params": {
+          "distancia": 60
+        }
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-55-clip-path-group",
+        "preset": "subirDesenfocado",
+        "en": 22200,
+        "duracion": 1000,
+        "easing": "salidaExpo",
+        "params": {
+          "distancia": 60
+        }
+      },
+      "nota": "la tarjeta vacía"
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-52-div-framer-15i5kob",
+        "preset": "deslizarDerecha",
+        "en": 22500,
+        "duracion": 1000,
+        "easing": "salidaExpo",
+        "params": {
+          "distancia": 80
+        }
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-53-div-framer-s0luui",
+        "preset": "deslizarIzquierda",
+        "en": 22600,
+        "duracion": 1000,
+        "easing": "salidaExpo",
+        "params": {
+          "distancia": 80
+        }
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-63-div-framer-1dxpx4w",
+        "preset": "caer",
+        "en": 22800,
+        "duracion": 900,
+        "easing": "salidaCubic",
+        "params": {
+          "distancia": 140
+        }
+      },
+      "nota": "las barras CAEN, una tras otra, y quedan desparramadas"
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-56-div-framer-1tthdvf",
+        "preset": "caer",
+        "en": 22940,
+        "duracion": 900,
+        "easing": "salidaCubic",
+        "params": {
+          "distancia": 140
+        }
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-62-div-framer-qftxua",
+        "preset": "caer",
+        "en": 23080,
+        "duracion": 900,
+        "easing": "salidaCubic",
+        "params": {
+          "distancia": 140
+        }
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-57-div-framer-nd6er7",
+        "preset": "caer",
+        "en": 23220,
+        "duracion": 900,
+        "easing": "salidaCubic",
+        "params": {
+          "distancia": 140
+        }
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-59-div-framer-14uglua",
+        "preset": "caer",
+        "en": 23360,
+        "duracion": 900,
+        "easing": "salidaCubic",
+        "params": {
+          "distancia": 140
+        }
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-58-div-framer-1751jrh",
+        "preset": "caer",
+        "en": 23500,
+        "duracion": 900,
+        "easing": "salidaCubic",
+        "params": {
+          "distancia": 140
+        }
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-60-div-framer-161yiz",
+        "preset": "caer",
+        "en": 23640,
+        "duracion": 900,
+        "easing": "salidaCubic",
+        "params": {
+          "distancia": 140
+        }
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-61-div-framer-1t4kjer",
+        "preset": "caer",
+        "en": 23780,
+        "duracion": 900,
+        "easing": "salidaCubic",
+        "params": {
+          "distancia": 140
+        }
+      }
+    },
+    {
+      "herramienta": "definir_entrada",
+      "input": {
+        "capaId": "fig-82-clip-path-group",
+        "preset": "subir",
+        "en": 25600,
+        "duracion": 1600,
+        "easing": "salidaSine",
+        "params": {
+          "distancia": 120
+        }
+      },
+      "nota": "las nubes suben despacio y cierran"
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-11-rpzaphjp586snuq6odciybkaou-png",
+        "propiedad": "y",
+        "keyframes": [
+          {
+            "t": 6200,
+            "v": 1573,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 7200,
+            "v": 1567,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 8200,
+            "v": 1579,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 8600,
+            "v": 1573
+          }
+        ]
+      },
+      "nota": "vida ambiente: el avatar sigue flotando durante el hold"
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-10-i4i2niurh5x8malgqlqsgmvcsu-png",
+        "propiedad": "y",
+        "keyframes": [
+          {
+            "t": 6400,
+            "v": 1494,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 7500,
+            "v": 1500,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 8600,
+            "v": 1494
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-26-qwuezwq7opkirgz9zqt2k94e-png",
+        "propiedad": "y",
+        "keyframes": [
+          {
+            "t": 6700,
+            "v": 1931,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 7600,
+            "v": 1926,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 8500,
+            "v": 1936,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 8600,
+            "v": 1931
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-27-ixen6mk9zyoimbdpqzc8tzeksg-png",
+        "propiedad": "y",
+        "keyframes": [
+          {
+            "t": 6900,
+            "v": 1909,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 7900,
+            "v": 1914,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 8600,
+            "v": 1909
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-4-div-framer-1gjac07",
+        "propiedad": "rotacion",
+        "keyframes": [
+          {
+            "t": 5700,
+            "v": 0,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 7200,
+            "v": -1.2,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 8600,
+            "v": 0
+          }
+        ]
+      },
+      "nota": "las tarjetas laterales respiran ±1°"
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-5-div-framer-ef4xmd",
+        "propiedad": "rotacion",
+        "keyframes": [
+          {
+            "t": 5850,
+            "v": 0,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 7350,
+            "v": 1.2,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 8600,
+            "v": 0
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-65-lbmmk0dmwux7w4ukyp56jzditwy-png",
+        "propiedad": "y",
+        "keyframes": [
+          {
+            "t": 10850,
+            "v": 2357,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 11800,
+            "v": 2353,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 12750,
+            "v": 2361,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 13000,
+            "v": 2357
+          }
+        ]
+      },
+      "nota": "las notificaciones siguen vivas, fases alternadas"
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-67-igbzuaikqqkcfgaz0a1dojdwvzw-png",
+        "propiedad": "y",
+        "keyframes": [
+          {
+            "t": 11270,
+            "v": 2486,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 12220,
+            "v": 2490,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 13000,
+            "v": 2486
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-69-wngfbmmes7gjfajfjxrjesx85k-png",
+        "propiedad": "y",
+        "keyframes": [
+          {
+            "t": 11690,
+            "v": 2614,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 12640,
+            "v": 2610,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 13000,
+            "v": 2614
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-71-qlq0tgrtqui5ghtfwysrzsl19e-png",
+        "propiedad": "y",
+        "keyframes": [
+          {
+            "t": 12110,
+            "v": 2743,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 13000,
+            "v": 2743
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-48-es7hixvi9ingyrcv71zkur8ozcu-png",
+        "propiedad": "y",
+        "keyframes": [
+          {
+            "t": 16100,
+            "v": 3348,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 17100,
+            "v": 3342,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 17600,
+            "v": 3348
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-47-i4i2niurh5x8malgqlqsgmvcsu-png",
+        "propiedad": "y",
+        "keyframes": [
+          {
+            "t": 16300,
+            "v": 3431,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 17400,
+            "v": 3437,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 17600,
+            "v": 3431
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-50-xfggfavhnuw6aiwusilyz9stms-png",
+        "propiedad": "y",
+        "keyframes": [
+          {
+            "t": 20300,
+            "v": 4530,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 21000,
+            "v": 4530
+          }
+        ]
+      },
+      "nota": "la pila flota mientras se mece"
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-52-div-framer-15i5kob",
+        "propiedad": "rotacion",
+        "keyframes": [
+          {
+            "t": 23500,
+            "v": 0,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 25000,
+            "v": 0
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-53-div-framer-s0luui",
+        "propiedad": "rotacion",
+        "keyframes": [
+          {
+            "t": 23600,
+            "v": 0,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 25000,
+            "v": 0
+          }
+        ]
+      }
+    },
+    {
+      "herramienta": "definir_pista",
+      "input": {
+        "capaId": "fig-82-clip-path-group",
+        "propiedad": "x",
+        "keyframes": [
+          {
+            "t": 27200,
+            "v": 720,
+            "easing": "entradaSalidaSine"
+          },
+          {
+            "t": 28000,
+            "v": 720
+          }
+        ]
+      },
+      "nota": "las nubes derivan hasta el final"
     }
-   },
-   "nota": "la cámara cuenta la historia: hero con tilt lento hacia el garabato, hold en cada cuadro con push-in (sine), viaje de 1 s con entradaSalidaCubic, flotar apenas"
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-1-div-dark-intro-fondo",
-    "preset": "aparecer",
-    "en": 0,
-    "duracion": 1,
-    "easing": "lineal"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-83-stofbi02figgd5dmcexdwnox8j8-png",
-    "preset": "pop",
-    "en": 150,
-    "duracion": 500,
-    "easing": "salidaBack"
-   },
-   "nota": "el logo"
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-84-heading-1-logbook",
-    "preset": "revelar",
-    "en": 250,
-    "duracion": 500,
-    "easing": "salidaQuint"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-85-div-framer-1vhwqso-fondo",
-    "preset": "escalar",
-    "en": 450,
-    "duracion": 450,
-    "easing": "salidaBack"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-86-heading-1-beta",
-    "preset": "aparecer",
-    "en": 600,
-    "duracion": 300,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-87-link",
-    "preset": "subirDesenfocado",
-    "en": 350,
-    "duracion": 800,
-    "easing": "salidaExpo",
-    "params": {
-     "distancia": 30
-    }
-   },
-   "nota": "Skip intro, discreto"
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-72-xnzimkm5xszfjujq6ug1i1n9cok-png",
-    "preset": "acercarDesenfocado",
-    "en": 400,
-    "duracion": 1100,
-    "easing": "salidaExpo"
-   },
-   "nota": "el título es un raster: llega desde el fondo y asienta"
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-72-xnzimkm5xszfjujq6ug1i1n9cok-png",
-    "propiedad": "rotacion",
-    "keyframes": [
-     {
-      "t": 400,
-      "v": -2,
-      "easing": "salidaExpo"
-     },
-     {
-      "t": 1500,
-      "v": 0
-     }
-    ]
-   },
-   "nota": "secundaria: endereza al llegar"
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-73-crpkfrtxzwlnlzfcbxhrwnqz8e-png",
-    "preset": "pop",
-    "en": 1000,
-    "duracion": 650,
-    "easing": "back.out(1.6)"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-74-bjq2btshtfmqcqb7auoaftbyzvc-png",
-    "preset": "subir",
-    "en": 1300,
-    "duracion": 550,
-    "easing": "salidaBack",
-    "params": {
-     "distancia": 18
-    }
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-75-hbxcczbkwzztwvhkbwi5wtfuski-png",
-    "preset": "pop",
-    "en": 1150,
-    "duracion": 650,
-    "easing": "back.out(1.6)"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-76-nrmdkolbgdodehrprcjskqepbpg-png",
-    "preset": "subir",
-    "en": 1450,
-    "duracion": 550,
-    "easing": "salidaBack",
-    "params": {
-     "distancia": 18
-    }
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-77-of8j4lb11uyazi808nja7ez2no-png",
-    "preset": "pop",
-    "en": 1300,
-    "duracion": 650,
-    "easing": "back.out(1.6)"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-78-gfom3jpixquhk7mrwxhmwzwfos-png",
-    "preset": "subir",
-    "en": 1600,
-    "duracion": 550,
-    "easing": "salidaBack",
-    "params": {
-     "distancia": 18
-    }
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-73-crpkfrtxzwlnlzfcbxhrwnqz8e-png",
-    "propiedad": "escala",
-    "keyframes": [
-     {
-      "t": 1700,
-      "v": 1,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 2500,
-      "v": 1.03,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 3400,
-      "v": 1
-     }
-    ]
-   },
-   "nota": "secundaria: los avatares respiran"
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-75-hbxcczbkwzztwvhkbwi5wtfuski-png",
-    "propiedad": "escala",
-    "keyframes": [
-     {
-      "t": 1700,
-      "v": 1,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 2500,
-      "v": 1.03,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 3400,
-      "v": 1
-     }
-    ]
-   },
-   "nota": "secundaria: los avatares respiran"
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-77-of8j4lb11uyazi808nja7ez2no-png",
-    "propiedad": "escala",
-    "keyframes": [
-     {
-      "t": 1700,
-      "v": 1,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 2500,
-      "v": 1.03,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 3400,
-      "v": 1
-     }
-    ]
-   },
-   "nota": "secundaria: los avatares respiran"
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-79-vector",
-    "preset": "desenfocarEntrada",
-    "en": 1900,
-    "duracion": 900,
-    "easing": "salidaSine"
-   },
-   "nota": "el garabato que invita a bajar"
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-79-vector",
-    "propiedad": "y",
-    "keyframes": [
-     {
-      "t": 2600,
-      "v": 933,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 3200,
-      "v": 947,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 3800,
-      "v": 933
-     }
-    ]
-   },
-   "nota": "el garabato invita a bajar: un bounce lento"
-  },
-  {
-   "herramienta": "editar_capa",
-   "input": {
-    "capaId": "fig-2-it-all-began-with-a-full",
-    "division": "palabras"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-2-it-all-began-with-a-full",
-    "preset": "subirDesenfocado",
-    "en": 3700,
-    "duracion": 900,
-    "easing": "salidaExpo",
-    "escalonado": 80
-   },
-   "nota": "título palabra por palabra"
-  },
-  {
-   "herramienta": "editar_capa",
-   "input": {
-    "capaId": "fig-3-process-that-took-days-to-get-in",
-    "division": "palabras"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-3-process-that-took-days-to-get-in",
-    "preset": "subirDesenfocado",
-    "en": 4150,
-    "duracion": 900,
-    "easing": "salidaExpo",
-    "escalonado": 60
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-6-div-framer-709qp6-fondo",
-    "preset": "aparecer",
-    "en": 4300,
-    "duracion": 10,
-    "easing": "lineal"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-7-clip-path-group",
-    "preset": "subirDesenfocado",
-    "en": 4300,
-    "duracion": 1100,
-    "easing": "salidaExpo",
-    "params": {
-     "distancia": 60
-    }
-   },
-   "nota": "la tarjeta del Gantt sube y asienta"
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-4-div-framer-1gjac07",
-    "preset": "deslizarDerecha",
-    "en": 4700,
-    "duracion": 1000,
-    "easing": "salidaExpo",
-    "params": {
-     "distancia": 90
-    }
-   },
-   "nota": "la tarjeta de tareas, desde la izquierda"
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-5-div-framer-ef4xmd",
-    "preset": "deslizarIzquierda",
-    "en": 4850,
-    "duracion": 1000,
-    "easing": "salidaExpo",
-    "params": {
-     "distancia": 90
-    }
-   },
-   "nota": "el Project Brief, desde la derecha"
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-4-div-framer-1gjac07",
-    "propiedad": "rotacion",
-    "keyframes": [
-     {
-      "t": 4700,
-      "v": -4,
-      "easing": "salidaExpo"
-     },
-     {
-      "t": 5700,
-      "v": 0
-     }
-    ]
-   },
-   "nota": "secundaria: llega con giro"
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-5-div-framer-ef4xmd",
-    "propiedad": "rotacion",
-    "keyframes": [
-     {
-      "t": 4850,
-      "v": 4,
-      "easing": "salidaExpo"
-     },
-     {
-      "t": 5850,
-      "v": 0
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-8-div-framer-9dxupg-fondo",
-    "preset": "cargar",
-    "en": 5000,
-    "duracion": 900,
-    "easing": "salidaQuart"
-   },
-   "nota": "las barras del plan CARGAN de izquierda a derecha, en cascada"
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-9-pseudo",
-    "preset": "aparecer",
-    "en": 5700,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-12-div-framer-1krzsuh-fondo",
-    "preset": "cargar",
-    "en": 5160,
-    "duracion": 900,
-    "easing": "salidaQuart"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-13-pseudo",
-    "preset": "aparecer",
-    "en": 5860,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-14-div-framer-10xbjz-fondo",
-    "preset": "cargar",
-    "en": 5320,
-    "duracion": 900,
-    "easing": "salidaQuart"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-15-pseudo",
-    "preset": "aparecer",
-    "en": 6020,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-16-div-framer-tpklzv-fondo",
-    "preset": "cargar",
-    "en": 5480,
-    "duracion": 900,
-    "easing": "salidaQuart"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-17-pseudo",
-    "preset": "aparecer",
-    "en": 6180,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-18-div-framer-16yn9qv-fondo",
-    "preset": "cargar",
-    "en": 5640,
-    "duracion": 900,
-    "easing": "salidaQuart"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-19-pseudo",
-    "preset": "aparecer",
-    "en": 6340,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-20-div-framer-v75s51-fondo",
-    "preset": "cargar",
-    "en": 5800,
-    "duracion": 900,
-    "easing": "salidaQuart"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-21-pseudo",
-    "preset": "aparecer",
-    "en": 6500,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-22-div-framer-1xw6cyz-fondo",
-    "preset": "cargar",
-    "en": 5960,
-    "duracion": 900,
-    "easing": "salidaQuart"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-23-pseudo",
-    "preset": "aparecer",
-    "en": 6660,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-24-div-framer-tvvbz3-fondo",
-    "preset": "cargar",
-    "en": 6120,
-    "duracion": 900,
-    "easing": "salidaQuart"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-25-pseudo",
-    "preset": "aparecer",
-    "en": 6820,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-11-rpzaphjp586snuq6odciybkaou-png",
-    "preset": "pop",
-    "en": 5600,
-    "duracion": 600,
-    "easing": "back.out(1.5)"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-10-i4i2niurh5x8malgqlqsgmvcsu-png",
-    "preset": "pop",
-    "en": 5800,
-    "duracion": 600,
-    "easing": "back.out(1.5)"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-26-qwuezwq7opkirgz9zqt2k94e-png",
-    "preset": "pop",
-    "en": 6100,
-    "duracion": 600,
-    "easing": "back.out(1.5)"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-27-ixen6mk9zyoimbdpqzc8tzeksg-png",
-    "preset": "pop",
-    "en": 6300,
-    "duracion": 600,
-    "easing": "back.out(1.5)"
-   }
-  },
-  {
-   "herramienta": "editar_capa",
-   "input": {
-    "capaId": "fig-28-the-first-delays-sneaked-in-chao",
-    "division": "palabras"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-28-the-first-delays-sneaked-in-chao",
-    "preset": "subirDesenfocado",
-    "en": 9300,
-    "duracion": 900,
-    "easing": "salidaExpo",
-    "escalonado": 70
-   },
-   "nota": "título palabra por palabra"
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-64-div-framer-tn3aei-fondo",
-    "preset": "aparecer",
-    "en": 10000,
-    "duracion": 10,
-    "easing": "lineal"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-65-lbmmk0dmwux7w4ukyp56jzditwy-png",
-    "preset": "deslizarIzquierda",
-    "en": 10000,
-    "duracion": 850,
-    "easing": "salidaExpo",
-    "params": {
-     "distancia": 140
-    }
-   },
-   "nota": "cada aviso entra alternando de lado, como notificaciones que se acumulan"
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-65-lbmmk0dmwux7w4ukyp56jzditwy-png",
-    "propiedad": "escala",
-    "keyframes": [
-     {
-      "t": 10000,
-      "v": 0.96,
-      "easing": "salidaBack"
-     },
-     {
-      "t": 10700,
-      "v": 1
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-66-div-framer-afi26y-fondo",
-    "preset": "aparecer",
-    "en": 10420,
-    "duracion": 10,
-    "easing": "lineal"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-67-igbzuaikqqkcfgaz0a1dojdwvzw-png",
-    "preset": "deslizarDerecha",
-    "en": 10420,
-    "duracion": 850,
-    "easing": "salidaExpo",
-    "params": {
-     "distancia": 140
-    }
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-67-igbzuaikqqkcfgaz0a1dojdwvzw-png",
-    "propiedad": "escala",
-    "keyframes": [
-     {
-      "t": 10420,
-      "v": 0.96,
-      "easing": "salidaBack"
-     },
-     {
-      "t": 11120,
-      "v": 1
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-68-div-framer-yt9br8-fondo",
-    "preset": "aparecer",
-    "en": 10840,
-    "duracion": 10,
-    "easing": "lineal"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-69-wngfbmmes7gjfajfjxrjesx85k-png",
-    "preset": "deslizarIzquierda",
-    "en": 10840,
-    "duracion": 850,
-    "easing": "salidaExpo",
-    "params": {
-     "distancia": 140
-    }
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-69-wngfbmmes7gjfajfjxrjesx85k-png",
-    "propiedad": "escala",
-    "keyframes": [
-     {
-      "t": 10840,
-      "v": 0.96,
-      "easing": "salidaBack"
-     },
-     {
-      "t": 11540,
-      "v": 1
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-70-div-framer-c8eb1q-fondo",
-    "preset": "aparecer",
-    "en": 11260,
-    "duracion": 10,
-    "easing": "lineal"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-71-qlq0tgrtqui5ghtfwysrzsl19e-png",
-    "preset": "deslizarDerecha",
-    "en": 11260,
-    "duracion": 850,
-    "easing": "salidaExpo",
-    "params": {
-     "distancia": 140
-    }
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-71-qlq0tgrtqui5ghtfwysrzsl19e-png",
-    "propiedad": "escala",
-    "keyframes": [
-     {
-      "t": 11260,
-      "v": 0.96,
-      "easing": "salidaBack"
-     },
-     {
-      "t": 11960,
-      "v": 1
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "editar_capa",
-   "input": {
-    "capaId": "fig-29-the-team-reacted-quickly-the-pla",
-    "division": "palabras"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-29-the-team-reacted-quickly-the-pla",
-    "preset": "subirDesenfocado",
-    "en": 13700,
-    "duracion": 900,
-    "easing": "salidaExpo",
-    "escalonado": 70
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-30-clip-path-group",
-    "preset": "subirDesenfocado",
-    "en": 14200,
-    "duracion": 1000,
-    "easing": "salidaExpo",
-    "params": {
-     "distancia": 60
-    }
-   },
-   "nota": "el segundo Gantt"
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-45-div-framer-1mmpmwh-fondo",
-    "preset": "cargar",
-    "en": 14700,
-    "duracion": 800,
-    "easing": "salidaQuart"
-   },
-   "nota": "el plan nuevo carga más rápido: el equipo reaccionó"
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-46-pseudo",
-    "preset": "aparecer",
-    "en": 15300,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-43-div-framer-10yhy11-fondo",
-    "preset": "cargar",
-    "en": 14830,
-    "duracion": 800,
-    "easing": "salidaQuart"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-44-pseudo",
-    "preset": "aparecer",
-    "en": 15430,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-31-div-framer-s2by1x-fondo",
-    "preset": "cargar",
-    "en": 14960,
-    "duracion": 800,
-    "easing": "salidaQuart"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-32-pseudo",
-    "preset": "aparecer",
-    "en": 15560,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-33-div-framer-yrlchm-fondo",
-    "preset": "cargar",
-    "en": 15090,
-    "duracion": 800,
-    "easing": "salidaQuart"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-34-pseudo",
-    "preset": "aparecer",
-    "en": 15690,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-35-div-framer-790b-fondo",
-    "preset": "cargar",
-    "en": 15220,
-    "duracion": 800,
-    "easing": "salidaQuart"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-36-pseudo",
-    "preset": "aparecer",
-    "en": 15820,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-37-div-framer-1jee5ym-fondo",
-    "preset": "cargar",
-    "en": 15350,
-    "duracion": 800,
-    "easing": "salidaQuart"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-38-pseudo",
-    "preset": "aparecer",
-    "en": 15950,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-39-div-framer-1sx53am-fondo",
-    "preset": "cargar",
-    "en": 15480,
-    "duracion": 800,
-    "easing": "salidaQuart"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-40-pseudo",
-    "preset": "aparecer",
-    "en": 16080,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-41-div-framer-1igtb3s-fondo",
-    "preset": "cargar",
-    "en": 15610,
-    "duracion": 800,
-    "easing": "salidaQuart"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-42-pseudo",
-    "preset": "aparecer",
-    "en": 16210,
-    "duracion": 250,
-    "easing": "salidaSine"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-48-es7hixvi9ingyrcv71zkur8ozcu-png",
-    "preset": "pop",
-    "en": 15500,
-    "duracion": 600,
-    "easing": "back.out(1.5)"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-47-i4i2niurh5x8malgqlqsgmvcsu-png",
-    "preset": "pop",
-    "en": 15700,
-    "duracion": 600,
-    "easing": "back.out(1.5)"
-   }
-  },
-  {
-   "herramienta": "editar_capa",
-   "input": {
-    "capaId": "fig-49-but-things-snowballed-and-just-g",
-    "division": "palabras"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-49-but-things-snowballed-and-just-g",
-    "preset": "subirDesenfocado",
-    "en": 18200,
-    "duracion": 900,
-    "easing": "salidaExpo",
-    "escalonado": 70
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-50-xfggfavhnuw6aiwusilyz9stms-png",
-    "preset": "remolino",
-    "en": 18900,
-    "duracion": 1400,
-    "easing": "salidaExpo"
-   },
-   "nota": "la pila de avisos llega girando: la bola de nieve"
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-50-xfggfavhnuw6aiwusilyz9stms-png",
-    "propiedad": "rotacion",
-    "keyframes": [
-     {
-      "t": 20300,
-      "v": 0,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 21500,
-      "v": 2,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 22500,
-      "v": 0
-     }
-    ]
-   },
-   "nota": "secundaria: sigue meciéndose apenas"
-  },
-  {
-   "herramienta": "editar_capa",
-   "input": {
-    "capaId": "fig-51-the-project-fell-behind-until-ne",
-    "division": "lineas"
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-51-the-project-fell-behind-until-ne",
-    "preset": "revelar",
-    "en": 21700,
-    "duracion": 800,
-    "easing": "salidaQuint",
-    "escalonado": 260
-   },
-   "nota": "línea a línea, más grave"
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-54-div-framer-1jxrdmo-fondo",
-    "preset": "subirDesenfocado",
-    "en": 22200,
-    "duracion": 1000,
-    "easing": "salidaExpo",
-    "params": {
-     "distancia": 60
-    }
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-55-clip-path-group",
-    "preset": "subirDesenfocado",
-    "en": 22200,
-    "duracion": 1000,
-    "easing": "salidaExpo",
-    "params": {
-     "distancia": 60
-    }
-   },
-   "nota": "la tarjeta vacía"
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-52-div-framer-15i5kob",
-    "preset": "deslizarDerecha",
-    "en": 22500,
-    "duracion": 1000,
-    "easing": "salidaExpo",
-    "params": {
-     "distancia": 80
-    }
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-53-div-framer-s0luui",
-    "preset": "deslizarIzquierda",
-    "en": 22600,
-    "duracion": 1000,
-    "easing": "salidaExpo",
-    "params": {
-     "distancia": 80
-    }
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-63-div-framer-1dxpx4w",
-    "preset": "caer",
-    "en": 22800,
-    "duracion": 900,
-    "easing": "salidaCubic",
-    "params": {
-     "distancia": 140
-    }
-   },
-   "nota": "las barras CAEN, una tras otra, y quedan desparramadas"
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-56-div-framer-1tthdvf",
-    "preset": "caer",
-    "en": 22940,
-    "duracion": 900,
-    "easing": "salidaCubic",
-    "params": {
-     "distancia": 140
-    }
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-62-div-framer-qftxua",
-    "preset": "caer",
-    "en": 23080,
-    "duracion": 900,
-    "easing": "salidaCubic",
-    "params": {
-     "distancia": 140
-    }
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-57-div-framer-nd6er7",
-    "preset": "caer",
-    "en": 23220,
-    "duracion": 900,
-    "easing": "salidaCubic",
-    "params": {
-     "distancia": 140
-    }
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-59-div-framer-14uglua",
-    "preset": "caer",
-    "en": 23360,
-    "duracion": 900,
-    "easing": "salidaCubic",
-    "params": {
-     "distancia": 140
-    }
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-58-div-framer-1751jrh",
-    "preset": "caer",
-    "en": 23500,
-    "duracion": 900,
-    "easing": "salidaCubic",
-    "params": {
-     "distancia": 140
-    }
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-60-div-framer-161yiz",
-    "preset": "caer",
-    "en": 23640,
-    "duracion": 900,
-    "easing": "salidaCubic",
-    "params": {
-     "distancia": 140
-    }
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-61-div-framer-1t4kjer",
-    "preset": "caer",
-    "en": 23780,
-    "duracion": 900,
-    "easing": "salidaCubic",
-    "params": {
-     "distancia": 140
-    }
-   }
-  },
-  {
-   "herramienta": "definir_entrada",
-   "input": {
-    "capaId": "fig-82-clip-path-group",
-    "preset": "subir",
-    "en": 25600,
-    "duracion": 1600,
-    "easing": "salidaSine",
-    "params": {
-     "distancia": 120
-    }
-   },
-   "nota": "las nubes suben despacio y cierran"
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-11-rpzaphjp586snuq6odciybkaou-png",
-    "propiedad": "y",
-    "keyframes": [
-     {
-      "t": 6200,
-      "v": 1573,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 7200,
-      "v": 1567,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 8200,
-      "v": 1579,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 8600,
-      "v": 1573
-     }
-    ]
-   },
-   "nota": "vida ambiente: el avatar sigue flotando durante el hold"
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-10-i4i2niurh5x8malgqlqsgmvcsu-png",
-    "propiedad": "y",
-    "keyframes": [
-     {
-      "t": 6400,
-      "v": 1494,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 7500,
-      "v": 1500,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 8600,
-      "v": 1494
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-26-qwuezwq7opkirgz9zqt2k94e-png",
-    "propiedad": "y",
-    "keyframes": [
-     {
-      "t": 6700,
-      "v": 1931,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 7600,
-      "v": 1926,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 8500,
-      "v": 1936,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 8600,
-      "v": 1931
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-27-ixen6mk9zyoimbdpqzc8tzeksg-png",
-    "propiedad": "y",
-    "keyframes": [
-     {
-      "t": 6900,
-      "v": 1909,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 7900,
-      "v": 1914,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 8600,
-      "v": 1909
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-4-div-framer-1gjac07",
-    "propiedad": "rotacion",
-    "keyframes": [
-     {
-      "t": 5700,
-      "v": 0,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 7200,
-      "v": -1.2,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 8600,
-      "v": 0
-     }
-    ]
-   },
-   "nota": "las tarjetas laterales respiran ±1°"
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-5-div-framer-ef4xmd",
-    "propiedad": "rotacion",
-    "keyframes": [
-     {
-      "t": 5850,
-      "v": 0,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 7350,
-      "v": 1.2,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 8600,
-      "v": 0
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-65-lbmmk0dmwux7w4ukyp56jzditwy-png",
-    "propiedad": "y",
-    "keyframes": [
-     {
-      "t": 10850,
-      "v": 2357,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 11800,
-      "v": 2353,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 12750,
-      "v": 2361,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 13000,
-      "v": 2357
-     }
-    ]
-   },
-   "nota": "las notificaciones siguen vivas, fases alternadas"
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-67-igbzuaikqqkcfgaz0a1dojdwvzw-png",
-    "propiedad": "y",
-    "keyframes": [
-     {
-      "t": 11270,
-      "v": 2486,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 12220,
-      "v": 2490,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 13000,
-      "v": 2486
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-69-wngfbmmes7gjfajfjxrjesx85k-png",
-    "propiedad": "y",
-    "keyframes": [
-     {
-      "t": 11690,
-      "v": 2614,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 12640,
-      "v": 2610,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 13000,
-      "v": 2614
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-71-qlq0tgrtqui5ghtfwysrzsl19e-png",
-    "propiedad": "y",
-    "keyframes": [
-     {
-      "t": 12110,
-      "v": 2743,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 13000,
-      "v": 2743
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-48-es7hixvi9ingyrcv71zkur8ozcu-png",
-    "propiedad": "y",
-    "keyframes": [
-     {
-      "t": 16100,
-      "v": 3348,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 17100,
-      "v": 3342,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 17600,
-      "v": 3348
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-47-i4i2niurh5x8malgqlqsgmvcsu-png",
-    "propiedad": "y",
-    "keyframes": [
-     {
-      "t": 16300,
-      "v": 3431,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 17400,
-      "v": 3437,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 17600,
-      "v": 3431
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-50-xfggfavhnuw6aiwusilyz9stms-png",
-    "propiedad": "y",
-    "keyframes": [
-     {
-      "t": 20300,
-      "v": 4530,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 21000,
-      "v": 4530
-     }
-    ]
-   },
-   "nota": "la pila flota mientras se mece"
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-52-div-framer-15i5kob",
-    "propiedad": "rotacion",
-    "keyframes": [
-     {
-      "t": 23500,
-      "v": 0,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 25000,
-      "v": 0
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-53-div-framer-s0luui",
-    "propiedad": "rotacion",
-    "keyframes": [
-     {
-      "t": 23600,
-      "v": 0,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 25000,
-      "v": 0
-     }
-    ]
-   }
-  },
-  {
-   "herramienta": "definir_pista",
-   "input": {
-    "capaId": "fig-82-clip-path-group",
-    "propiedad": "x",
-    "keyframes": [
-     {
-      "t": 27200,
-      "v": 720,
-      "easing": "entradaSalidaSine"
-     },
-     {
-      "t": 28000,
-      "v": 720
-     }
-    ]
-   },
-   "nota": "las nubes derivan hasta el final"
-  }
- ]
+  ]
 }

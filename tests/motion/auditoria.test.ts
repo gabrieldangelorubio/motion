@@ -265,3 +265,79 @@ test("cajaAproximada: lo que el padre recorta (clip content) no cuenta para la c
   const caja = cajaAproximada(capa as unknown as import("@/lib/motion/modelo").Capa);
   assert.deepEqual(caja, { x1: 1038, y1: 697, x2: 1074, y2: 767 });
 });
+
+test("ENCUADRE AL BORDE: entera adentro pero a menos del 5 % del cuadro; con la corrección que la salva", () => {
+  // una pantalla del color del fondo (logbook): abrir el zoom no muestra vacío
+  const armar = (base: { x: number; y: number; zoom: number }) => {
+    let comp = crearComposicion({ nombre: "borde" });
+    comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "p", forma: "rect", x: 720, y: 2000, ancho: 1440, alto: 4000, color: comp.fondo }).comp;
+    comp = { ...comp, capas: comp.capas.map((c) => (c.id === "p" ? { ...c, nombre: "página", grupo: "p" } : c)) };
+    // un chip a 20 px del borde derecho del cuadro (cámara zoom 1.6 en (720, 900) ve x 120–1320)
+    comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "chip", forma: "rect", x: 1200, y: 900, ancho: 200, alto: 60 }).comp;
+    comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "titulo", texto: "Plan", x: 720, y: 800, tamano: 60 }).comp;
+    comp = ejecutarHerramienta(comp, "definir_camara", { base }).comp;
+    comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "chip", preset: "subir", en: 300, duracion: 600 }).comp;
+    comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "titulo", preset: "subir", en: 0, duracion: 800 }).comp;
+    return comp;
+  };
+  const h = auditarDireccion(armar({ x: 720, y: 900, zoom: 1.6 })).filter((x) => x.startsWith("ENCUADRE AL BORDE"));
+  assert.equal(h.length, 1, h.join(" | "));
+  assert.match(h[0], /«chip» queda en 900ms a 20 px del borde DERECHO del cuadro/);
+  assert.match(h[0], /deja 60 px libres por lado/);
+  assert.match(h[0], /zoom 1\.49 con el centro actual \(720, 900\), o centro \(760, 900\) con el zoom actual/);
+  assert.match(h[0], /JAMÁS moviendo/);
+  // no aparece como CORTA (está entera adentro) y con la corrección desaparece
+  assert.deepEqual(auditarDireccion(armar({ x: 720, y: 900, zoom: 1.6 })).filter((x) => x.startsWith("ENCUADRE CORTA")), []);
+  assert.deepEqual(auditarDireccion(armar({ x: 720, y: 900, zoom: 1.49 })).filter((x) => x.startsWith("ENCUADRE AL BORDE")), []);
+  assert.deepEqual(auditarDireccion(armar({ x: 760, y: 900, zoom: 1.6 })).filter((x) => x.startsWith("ENCUADRE AL BORDE")), []);
+});
+
+test("ENCUADRE AL BORDE: cuando la pantalla llena el cuadro en x y el vacío se vería, el margen en x es el de la página", () => {
+  let comp = crearComposicion({ nombre: "pagina" });
+  // pantalla de OTRO color que el fondo, 1440 de ancho, y la cámara a 1.33 la ve entera a lo ancho
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "p", forma: "rect", x: 720, y: 2000, ancho: 1440, alto: 4000, color: "#ffffff" }).comp;
+  comp = { ...comp, capas: comp.capas.map((c) => (c.id === "p" ? { ...c, nombre: "landing", grupo: "p" } : c)) };
+  // el logo a 40 px del borde izquierdo de la página (y del cuadro): decisión del diseño
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "logo", forma: "rect", x: 100, y: 500, ancho: 120, alto: 40 }).comp;
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "t", texto: "Hola", x: 720, y: 600, tamano: 60 }).comp;
+  comp = ejecutarHerramienta(comp, "definir_camara", { base: { x: 720, y: 600, zoom: 1920 / 1440 } }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "logo", preset: "subir", en: 0, duracion: 600 }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "t", preset: "subir", en: 200, duracion: 600 }).comp;
+  assert.deepEqual(auditarDireccion(comp).filter((x) => x.startsWith("ENCUADRE AL BORDE")), []);
+  // pero en y (la página sigue: 4000 de alto) el margen sí se exige: un pie a 10 px del borde inferior
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "pie", forma: "rect", x: 720, y: 995 - 20, ancho: 300, alto: 40, color: "#ff0000" }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "pie", preset: "subir", en: 400, duracion: 600 }).comp;
+  const h = auditarDireccion(comp).filter((x) => x.startsWith("ENCUADRE AL BORDE"));
+  assert.equal(h.length, 1, h.join(" | "));
+  assert.match(h[0], /«pie» queda en 1000ms a 10 px del borde INFERIOR/);
+});
+
+test("ENCUADRE AL BORDE también mira las paradas de cámara del hold: un push-in que acerca al borde", () => {
+  let comp = crearComposicion({ nombre: "push" });
+  comp = ejecutarHerramienta(comp, "ajustar_composicion", { duracion: 6000 }).comp;
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "p", forma: "rect", x: 720, y: 2000, ancho: 1440, alto: 4000, color: comp.fondo }).comp;
+  comp = { ...comp, capas: comp.capas.map((c) => (c.id === "p" ? { ...c, grupo: "p" } : c)) };
+  // el chip entra a zoom 1.3 bien adentro (cuadro x −18–1458, zona x 56–1384); el push-in a 1.5 lo deja a 2 px del borde
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "chip", forma: "rect", x: 1250, y: 900, ancho: 200, alto: 60 }).comp;
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "t", texto: "Hola", x: 720, y: 800, tamano: 60 }).comp;
+  comp = ejecutarHerramienta(comp, "definir_camara", {
+    x: [{ t: 0, v: 720 }], y: [{ t: 0, v: 900 }],
+    zoom: [{ t: 0, v: 1.3 }, { t: 1000, v: 1.3 }, { t: 4000, v: 1.5, easing: "entradaSalidaSine" }],
+  }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "chip", preset: "subir", en: 200, duracion: 600 }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "t", preset: "subir", en: 0, duracion: 800 }).comp;
+  const h = auditarDireccion(comp).filter((x) => x.startsWith("ENCUADRE AL BORDE"));
+  assert.equal(h.length, 1, h.join(" | "));
+  assert.match(h[0], /«chip» queda en 4000ms a 10 px del borde DERECHO/);
+});
+
+test("vacío invisible: una pantalla del color del fondo no marca vacío al abrir la cámara, pero sí centrada", () => {
+  let comp = crearComposicion({ nombre: "inv" });
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "p", forma: "rect", x: 720, y: 2000, ancho: 1440, alto: 4000, color: comp.fondo }).comp;
+  comp = { ...comp, capas: comp.capas.map((c) => (c.id === "p" ? { ...c, grupo: "p" } : c)) };
+  // zoom 1.1 muestra 1745 de ancho sobre una página de 1440: 152 px de «vacío» por lado del mismo color
+  const abierta = ejecutarHerramienta(comp, "definir_camara", { base: { x: 720, y: 900, zoom: 1.1 } }).comp;
+  assert.deepEqual(auditarDireccion(abierta).filter((x) => x.startsWith("ENCUADRE DESCENTRADO")), []);
+  const corrida = ejecutarHerramienta(comp, "definir_camara", { base: { x: 900, y: 900, zoom: 1.1 } }).comp;
+  assert.match(auditarDireccion(corrida).find((x) => x.startsWith("ENCUADRE DESCENTRADO")) ?? "", /descentrada en x/);
+});

@@ -18,6 +18,7 @@ import type { Composicion } from "@/lib/motion/modelo";
 import { camaraEn } from "@/lib/motion/evaluar-puro";
 import { estadoVivo } from "@/lib/motion/motor-gsap";
 import { pintar, type Contexto2D, type FuentesDeMedia } from "@/lib/motion/pintar";
+import { dibujarMargenesSeguros } from "@/lib/motion/margenes-puro";
 import {
   camaraConZoom,
   camaraQueEncuadra,
@@ -60,6 +61,8 @@ export const Lienzo = forwardRef<
     /** mundo = canvas con el encuadre dibujado · camara = lo que ve la cámara
         (arrastrar ENCUADRA, con auto-key) · ambas = mundo + PiP de la cámara */
     obtenerVista?: () => "mundo" | "camara" | "ambas";
+    /** guías de MÁRGENES SEGUROS sobre el cuadro (acción 5 %, título 10 %) */
+    obtenerMargenes?: () => boolean;
     /** avisa qué tecla de cámara quedó sostenida (X = posición, Z = zoom) — para el chip del Editor */
     onTeclaCamara?: (herramienta: "posicion" | "zoom" | null) => void;
     onSeleccionar: (id: string | null) => void;
@@ -76,7 +79,7 @@ export const Lienzo = forwardRef<
     /** herramienta Z: zoom nuevo del encuadre (drag horizontal) */
     onZoomCamara?: (zoom: number) => void;
   }
->(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerSeleccionIds, obtenerMedia, obtenerCalidad, obtenerTiempo, obtenerVista, onTeclaCamara, onSeleccionar, onAlternarSeleccion, onSeleccionarVarias, onCheckpoint, onMoverCapa, onMoverCapas, onMoverCamara, onZoomCamara }, ref) {
+>(function Lienzo({ obtenerComposicion, obtenerSeleccionId, obtenerSeleccionIds, obtenerMedia, obtenerCalidad, obtenerTiempo, obtenerVista, obtenerMargenes, onTeclaCamara, onSeleccionar, onAlternarSeleccion, onSeleccionarVarias, onCheckpoint, onMoverCapa, onMoverCapas, onMoverCamara, onZoomCamara }, ref) {
   const contRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const camRef = useRef<Camara>({ x: 0, y: 0, escala: 0.4 });
@@ -147,6 +150,7 @@ export const Lienzo = forwardRef<
       ctx.strokeStyle = tokensRef.current.linea;
       ctx.lineWidth = 1 / cam.escala;
       ctx.strokeRect(0, 0, comp.ancho, comp.alto);
+      if (obtenerMargenes?.()) dibujarMargenesSeguros(ctx, { x: 0, y: 0, ancho: comp.ancho, alto: comp.alto }, cam.escala);
       return;
     }
 
@@ -193,6 +197,10 @@ export const Lienzo = forwardRef<
       ctx.stroke();
     }
     ctx.restore();
+    // las guías de márgenes seguros viajan con el encuadre (escalan con el
+    // zoom de cámara, como el cuadro): lo que queda entre la guía exterior y
+    // el borde se corta en pantalla
+    if (obtenerMargenes?.()) dibujarMargenesSeguros(ctx, { x: vista.x - vw / 2, y: vista.y - vh / 2, ancho: vw, alto: vh }, cam.escala);
 
     // marco de selección: borde azul de 2px constantes, rotando con la capa
     // (§3.1); con selección múltiple, un marco por capa elegida
@@ -265,6 +273,7 @@ export const Lienzo = forwardRef<
       const s = pipW / comp.ancho;
       ctx.scale(s, s);
       pintar(estado, ctx as unknown as Contexto2D, obtenerMedia?.() ?? {}, s * factor);
+      if (obtenerMargenes?.()) dibujarMargenesSeguros(ctx, { x: 0, y: 0, ancho: comp.ancho, alto: comp.alto }, s);
       ctx.restore();
       ctx.strokeStyle = tokensRef.current.acento;
       ctx.lineWidth = 1;
