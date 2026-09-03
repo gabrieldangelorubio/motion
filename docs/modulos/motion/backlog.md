@@ -25,6 +25,20 @@
   todo lo de adentro. El estado del director dice «dentro de «padre»».
   3 tests nuevos.
 
+### [HECHO] Guion de Fable para logbook.so (comparativa con Kimi K3) (2026-09-03)
+- **Brief de Gabriel:** «video profesional de SaaS, muy premium, con muchas
+  animaciones secundarias; la cámara sigue la historia paso a paso; todo
+  suave y con ease». `_andamiaje/director-externo/ejemplos/logbook-guion-fable.json`:
+  28 s, 7 escenas, 105 pasos, 0 errores, auditoría sin hallazgos. Cámara con
+  hold + push-in sine por escena, viajes de 1 s entradaSalidaCubic, tilt
+  en el hero, flotar 0.35. Títulos palabra por palabra, barras que CARGAN
+  en cascada, avisos alternando de lado, bola de nieve en remolino, barras
+  que CAEN, nubes que suben. Correcciones que pidió la auditoría: 3 ajustes
+  de encuadre (hero tilt para el garabato y el logo; escena 2 y 6 a zoom
+  1.25 para que entren título y chips) — todo por definir_camara.
+- **Aprendizaje para el guionista:** `elevarDesenfocado` no es preset de
+  entrada (lo escribí 4 veces); el nombre correcto es `subirDesenfocado`.
+
 ### [HECHO] Plugin v21: sombra en texto, sombra de frame con fondo transparente, y el editor escala blur/sombras con el zoom (2026-09-03)
 - **Qué:** Gabriel seguía sin ver «detallitos de sombra». Medido en el
   render real (zoom 1.5): la sombra de las barras SÍ está (11 % bajo la
