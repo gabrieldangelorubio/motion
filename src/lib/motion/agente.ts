@@ -444,10 +444,11 @@ export async function dirigirComposicion(
       model: modelo,
       max_tokens: 16000,
       // el pensamiento lo elige el slider del panel (adaptativo + esfuerzo
-      // low/medium/xhigh); sin slider, el director «fino» piensa A FONDO
-      // (xhigh, el nivel de los trabajos agénticos largos) y el resto va
-      // con el default del modelo — la revisión visual no manda slider:
-      // mirar frames y retocar no paga el esfuerzo máximo. Los bloques de
+      // low/medium/xhigh) y vale para TODAS las iteraciones de este pedido;
+      // el panel manda «alto» por defecto, también con Claude en «rapido».
+      // Sin slider (CLI, revisión visual — que no lo manda: mirar frames y
+      // retocar no paga el esfuerzo máximo), el «fino» piensa A FONDO
+      // (xhigh) y el resto va con el default del modelo. Los bloques de
       // pensamiento vuelven enteros en respuesta.content y se reenvían tal
       // cual en el turno siguiente (abajo), como pide la API.
       ...configPensamientoClaude(pensamiento, nivel),

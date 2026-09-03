@@ -246,6 +246,7 @@ async function rasterizarPorClon(nodo, marco, aviso) {
 // Los nombres de los padres hasta el marco: para encontrar en Figma la capa
 // que llegó mal sin adivinar («Frame 95245 / Card / Group 12»).
 function rutaDe(nodo, marco) {
+  if (nodo.id === marco.id) return undefined;
   var partes = [];
   var p = nodo.parent;
   for (var i = 0; p && p.id !== marco.id && i < 12; i++) {
