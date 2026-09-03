@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 19;
+var VERSION_PLUGIN = 20;
 
 function aHex(color) {
   var c = function (v) {
@@ -21,6 +21,40 @@ function aHex(color) {
     return s.length === 1 ? "0" + s : s;
   };
   return "#" + c(color.r) + c(color.g) + c(color.b);
+}
+
+// ¿Tiene algún relleno visible que NO es sólido (imagen, gradiente)?
+function tieneRellenoNoSolido(fills) {
+  if (fills === figma.mixed || !Array.isArray(fills)) return false;
+  return fills.some(function (f) { return f.visible !== false && f.type !== "SOLID"; });
+}
+
+// v20: el RELLENO DE IMAGEN de un frame. logbook.so: cada globo de chat era
+// un frame «….png» con relleno de imagen y cero hijos — el frame solo sabía
+// sacar su fondo SÓLIDO, así que el globo entero se perdía en silencio
+// (el diagnóstico lo mostró: «SIN capas»). Sin hijos, el frame es esa
+// imagen: se rasteriza en su lugar. Con hijos, se exporta un clon SIN los
+// hijos (solo el relleno) y después se abren los hijos como siempre.
+async function rasterizarRellenoDeFrame(nodo, marco) {
+  if (!("children" in nodo) || nodo.children.length === 0) {
+    return await rasterizar(nodo, marco, "frame con relleno de imagen/gradiente: se rasterizó a 2×");
+  }
+  var clon = null;
+  try {
+    clon = nodo.clone();
+    figma.currentPage.appendChild(clon);
+    clon.relativeTransform = nodo.absoluteTransform;
+    for (var i = clon.children.length - 1; i >= 0; i--) clon.children[i].remove();
+    try { if ("opacity" in clon) clon.opacity = 1; } catch (e1) { /* no editable */ }
+    try { if ("effects" in clon) clon.effects = []; } catch (e2) { /* no editable */ }
+    var salida = await rasterizar(nodo, marco, "relleno de imagen/gradiente del frame: se rasterizó a 2× (sus hijos van aparte)", clon);
+    salida.nombre = nodo.name + " (fondo)";
+    return salida;
+  } catch (e) {
+    return await rasterizar(nodo, marco, "frame con relleno no sólido: se rasterizó entero (no se pudo separar el fondo)", null, true);
+  } finally {
+    if (clon) { try { clon.remove(); } catch (e3) { /* ya no está */ } }
+  }
 }
 
 function pinturaSolida(fills) {
@@ -901,6 +935,11 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
     var sombraFrame = null;
     if (nodo.type !== "GROUP") {
       var fondo = pinturaSolida(nodo.fills);
+      if (!fondo && tieneRellenoNoSolido(nodo.fills)) {
+        var rellenoFrame = await rasterizarRellenoDeFrame(nodo, marco);
+        rellenoFrame.ruta = rutaDentroDe(nodo, marco);
+        salida.push(rellenoFrame);
+      }
       if (fondo) {
         var cf = caja(nodo, marco);
         var opFondo = fondo.opacity === undefined ? 1 : fondo.opacity;

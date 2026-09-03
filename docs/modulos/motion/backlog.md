@@ -25,6 +25,21 @@
   todo lo de adentro. El estado del director dice «dentro de «padre»».
   3 tests nuevos.
 
+### [HECHO] Plugin v19/v20: ruta de carpetas en todas las capas + árbol en el panel; relleno de imagen de un frame (2026-09-03)
+- **v19 (árbol):** Gabriel: «¿mucho problema mantener el mismo orden,
+  distribución y nombre de las capas de Figma?». Orden y nombres ya eran
+  iguales; faltaba la anidación. Cada capa lleva `ruta` («a / b / c»);
+  `arbol-capas-puro.ts` arma el árbol por rachas en orden de z; el panel
+  lo pinta plegable a cualquier profundidad (click en carpeta = seleccionar
+  todo lo de adentro); el estado del director dice «dentro de «padre»».
+- **v20 (globos de logbook):** el diagnóstico v18 lo mostró: cada globo
+  era un FRAME «….png» con relleno de IMAGEN y cero hijos → «SIN capas».
+  El frame solo sacaba su fondo SÓLIDO. Ahora un relleno de imagen o
+  gradiente se rasteriza (sin hijos, en su lugar; con hijos, un clon sin
+  hijos como «(fondo)») y los hijos siguen aparte.
+- **Sombras:** el JSON v19 de logbook trae 17 sombras (y 9, blur 23,
+  negro 15 %) y el render las pinta; son sutiles como en Figma.
+
 ### [RESEARCH] D5 retematizar una serie + D6 componer pantalla con el mismo estilo (2026-09-03)
 - **Qué:** pedido de Gabriel («cambiar todo el estilo de una serie de
   pantallas», «con una pantalla, recrear otras con el mismo estilo»).
