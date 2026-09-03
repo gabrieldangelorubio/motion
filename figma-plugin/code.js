@@ -108,6 +108,18 @@ function conAviso(nodo, extra) {
   return nodo.aviso ? nodo.aviso + "; " + extra : extra;
 }
 
+// v17: esquinas DISTINTAS (cornerRadius «mixed»): las cuatro en orden
+// canvas (sup izq, sup der, inf der, inf izq) y la mayor como radio único.
+// Las mitades de cápsula y el círculo del logo de Figma llegaban cuadrados.
+function esquinasDe(nodo) {
+  if (typeof nodo.cornerRadius === "number") return nodo.cornerRadius > 0 ? { radio: nodo.cornerRadius } : {};
+  if (nodo.cornerRadius !== figma.mixed) return {};
+  var r = [nodo.topLeftRadius || 0, nodo.topRightRadius || 0, nodo.bottomRightRadius || 0, nodo.bottomLeftRadius || 0]
+    .map(function (v) { return Math.round(v * 100) / 100; });
+  var mayor = Math.max.apply(null, r);
+  return mayor > 0 ? { radio: mayor, radios: r } : {};
+}
+
 function caja(nodo, marco) {
   var b = nodo.absoluteBoundingBox;
   var m = marco.absoluteBoundingBox;
@@ -715,12 +727,7 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
         opacidad: nodo.opacity < 1 ? nodo.opacity : undefined,
         mezcla: mezclaForma.mezcla,
         aviso: mezclaForma.aviso || undefined,
-        forma: {
-          color: colorDePintura(p),
-          radio: nodo.type === "RECTANGLE" && typeof nodo.cornerRadius === "number" && nodo.cornerRadius > 0
-            ? nodo.cornerRadius
-            : undefined,
-        },
+        forma: Object.assign({ color: colorDePintura(p) }, nodo.type === "RECTANGLE" ? esquinasDe(nodo) : {}),
       });
       return;
     }
@@ -798,10 +805,7 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
           tipo: "rect",
           nombre: nodo.name + " (fondo)",
           x: cf.x, y: cf.y, ancho: cf.ancho, alto: cf.alto,
-          forma: {
-            color: colorDePintura(fondo),
-            radio: typeof nodo.cornerRadius === "number" && nodo.cornerRadius > 0 ? nodo.cornerRadius : undefined,
-          },
+          forma: Object.assign({ color: colorDePintura(fondo) }, esquinasDe(nodo)),
         });
       }
     }

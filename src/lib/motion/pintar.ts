@@ -318,9 +318,11 @@ function pintarForma(estado: EstadoCapa, ctx: Contexto2D, escalaPx: number): voi
     ctx.fill();
   } else if (capa.forma === "linea") {
     ctx.fillRect(x, -capa.alto / 2, capa.ancho, capa.alto);
-  } else if (capa.radio && ctx.roundRect) {
+  } else if ((capa.radios || capa.radio) && ctx.roundRect) {
     ctx.beginPath();
-    ctx.roundRect(x, y, capa.ancho, capa.alto, capa.radio);
+    // esquinas distintas (media cápsula, círculo del logo de Figma): canvas
+    // acepta las cuatro en el mismo orden que Figma las manda
+    ctx.roundRect(x, y, capa.ancho, capa.alto, capa.radios ?? capa.radio);
     ctx.fill();
   } else {
     ctx.fillRect(x, y, capa.ancho, capa.alto);

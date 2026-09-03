@@ -53,7 +53,7 @@ export type NodoFigma = {
         los caracteres NO BLANCOS del contenido — sobreviven al re-wrap */
     tramos?: { desde: number; hasta: number; familia?: string; peso?: number; tamano?: number; color?: string }[];
   };
-  forma?: { color: string; radio?: number };
+  forma?: { color: string; radio?: number; radios?: [number, number, number, number] };
   imagen?: { dataUri: string };
   /** vector con stroke y sin fill: candidato a animarse con trim (trazar/retraer) */
   trazo?: { path: string; color: string; grosor: number; remate?: "redondo" | "recto" };
@@ -434,6 +434,7 @@ export function normalizarFigma(datos: ImportFigma, fps = 30, duracion = 5000): 
         alto: nodo.alto,
         color: nodo.forma.color,
         radio: nodo.forma.radio,
+        radios: nodo.forma.radios,
         x: nodo.x + nodo.ancho / 2,
         y: nodo.y + nodo.alto / 2,
       });

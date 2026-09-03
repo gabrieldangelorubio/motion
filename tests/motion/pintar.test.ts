@@ -236,3 +236,13 @@ test("una capa con recorte de padre se pinta dentro de un clip de MUNDO (la vent
   const j = llamadas.slice(i).findIndex((l) => l.startsWith("translate("));
   assert.ok(j > 1);
 });
+
+test("una forma con radios por esquina pinta roundRect con las cuatro esquinas", () => {
+  const comp = fixture();
+  const capa = comp.capas.find((c) => c.tipo === "forma");
+  assert.ok(capa);
+  const con = { ...comp, capas: comp.capas.map((c) => (c.id === capa!.id ? { ...c, radio: 35, radios: [0, 35, 35, 0] as [number, number, number, number] } : c)) };
+  const { ctx, llamadas } = contextoFalso();
+  pintar(estadoEn(con, 0), ctx);
+  assert.ok(llamadas.some((l) => l.startsWith("roundRect(") && l.endsWith(",0,35,35,0)")), llamadas.filter((l) => l.startsWith("roundRect")).join(" | "));
+});

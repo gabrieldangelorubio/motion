@@ -27,8 +27,16 @@
   recorte (intersección de los padres con clipsContent) baja por la
   recursión; lo que queda entero afuera no se importa (aviso suelto en
   `avisos` del JSON), lo que sobresale viaja con `recorte`. Sello 17.
-- **Pendiente:** el export a AE ignora `recorte` (habría que emitir una
-  mask rectangular por capa). Gabriel valida v17 con diagram.com.
+- **También en v17:** esquinas DISTINTAS (cornerRadius «mixed»): `CapaForma.radios`
+  [sup izq, sup der, inf der, inf izq] y la mayor en `radio`; el pintor
+  pasa las cuatro a roundRect. Las mitades de cápsula y el círculo del
+  logo de Figma llegaban cuadrados.
+- **Verificado headless:** el JSON v15 de Gabriel con el recorte simulado
+  sobre la tarjeta «Figma's new AI bestie» se importa y la tarjeta se ve
+  recortada como en Figma (`scratchpad/diagram/tarjeta-recortada.png`).
+- **Pendiente:** el export a AE ignora `recorte` y `radios` (mask
+  rectangular por capa; AE solo tiene roundness uniforme). Gabriel valida
+  v17 con diagram.com.
 
 ### [HECHO] Plugin v16: el raster «como se ve» se exporta EN SU LUGAR (2026-09-03)
 - **Qué pasó:** diagram.com en el editor: la Figma-blur de «Figma's new AI

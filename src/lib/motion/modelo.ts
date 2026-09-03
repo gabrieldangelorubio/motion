@@ -198,6 +198,10 @@ export type CapaForma = CapaBase & {
   alto: number;
   color: string;
   radio?: number;
+  /** esquinas distintas (Figma «mixed»): superior izquierda, superior
+      derecha, inferior derecha, inferior izquierda. `radio` guarda la
+      mayor para quien no sabe de esquinas (AE). */
+  radios?: [number, number, number, number];
 };
 
 /** Trazo vectorial (línea/path de Figma): se anima con trim como en AE. */

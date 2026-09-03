@@ -366,3 +366,15 @@ test("v17: el recorte del padre (clip content) viaja a la capa, los avisos suelt
   assert.deepEqual(movida.recorte, { x: 3038, y: 639, ancho: 282, alto: 400 });
   assert.equal(movida.x, 2000 + 1004 + 35);
 });
+
+test("v17: esquinas distintas (cornerRadius mixed) llegan como radios por esquina y la mayor como radio", () => {
+  const datos: ImportFigma = {
+    origen: "figma",
+    version: 1,
+    frame: { nombre: "f", ancho: 400, alto: 400, fondo: "#000" },
+    nodos: [{ tipo: "rect", nombre: "capsula", x: 10, y: 10, ancho: 70, alto: 70, forma: { color: "#f24e1e", radio: 35, radios: [0, 35, 35, 0] } }],
+  };
+  const capa = normalizarFigma(datos).composicion.capas[0] as CapaForma;
+  assert.equal(capa.radio, 35);
+  assert.deepEqual(capa.radios, [0, 35, 35, 0]);
+});
