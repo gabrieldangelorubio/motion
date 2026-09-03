@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { auditarDireccion, bloqueDeAuditoria, cajaAproximada, cajaVisibleEn } from "@/lib/motion/auditoria-puro";
+import { auditarDireccion, bloqueDeAuditoria, cajaAproximada, cajaVisibleEn, ternaRGB } from "@/lib/motion/auditoria-puro";
 import { crearComposicion } from "@/lib/motion/herramientas-puro";
 import { ejecutarHerramienta } from "@/lib/motion/agente-herramientas";
 import type { Composicion } from "@/lib/motion/modelo";
@@ -340,4 +340,36 @@ test("vacío invisible: una pantalla del color del fondo no marca vacío al abri
   assert.deepEqual(auditarDireccion(abierta).filter((x) => x.startsWith("ENCUADRE DESCENTRADO")), []);
   const corrida = ejecutarHerramienta(comp, "definir_camara", { base: { x: 900, y: 900, zoom: 1.1 } }).comp;
   assert.match(auditarDireccion(corrida).find((x) => x.startsWith("ENCUADRE DESCENTRADO")) ?? "", /descentrada en x/);
+});
+
+test("vacío invisible cubre los cuatro lados, y compara colores reales (hex vs rgba)", () => {
+  const armar = (color: string, fondo?: string) => {
+    let comp = crearComposicion({ nombre: "inv4" });
+    if (fondo) comp = { ...comp, fondo };
+    comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "p", forma: "rect", x: 720, y: 2000, ancho: 1440, alto: 4000, color }).comp;
+    comp = { ...comp, capas: comp.capas.map((c) => (c.id === "p" ? { ...c, grupo: "p" } : c)) };
+    // zoom 1.4 (cuadro 1371 < 1440) corrido a x 840: 86 px de «vacío» a la DERECHA
+    return ejecutarHerramienta(comp, "definir_camara", { base: { x: 840, y: 900, zoom: 1.4 } }).comp;
+  };
+  assert.deepEqual(auditarDireccion(armar("rgba(12, 12, 17, 1)", "#0c0c11")).filter((x) => x.startsWith("ENCUADRE DESCENTRADO")), []);
+  assert.match(auditarDireccion(armar("#ffffff", "#0c0c11")).find((x) => x.startsWith("ENCUADRE DESCENTRADO")) ?? "", /vacío a la DERECHA/);
+  assert.deepEqual(ternaRGB("#fff"), [255, 255, 255]);
+  assert.deepEqual(ternaRGB("rgb(30,28,26)"), [30, 28, 26]);
+  assert.equal(ternaRGB("transparent"), null);
+});
+
+test("la corrección de ENCUADRE AL BORDE no propone zoom por un eje exento", () => {
+  let comp = crearComposicion({ nombre: "exento" });
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "p", forma: "rect", x: 720, y: 2000, ancho: 1440, alto: 4000, color: "#ffffff" }).comp;
+  comp = { ...comp, capas: comp.capas.map((c) => (c.id === "p" ? { ...c, grupo: "p" } : c)) };
+  // página entera a lo ancho (x exento); un pie corrido a la izquierda y a 10 px del borde inferior
+  comp = ejecutarHerramienta(comp, "agregar_capa_forma", { id: "pie", forma: "rect", x: 150, y: 975, ancho: 200, alto: 40, color: "#ff0000" }).comp;
+  comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "t", texto: "Hola", x: 720, y: 600, tamano: 60 }).comp;
+  comp = ejecutarHerramienta(comp, "definir_camara", { base: { x: 720, y: 600, zoom: 1920 / 1440 } }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "pie", preset: "subir", en: 0, duracion: 600 }).comp;
+  comp = ejecutarHerramienta(comp, "definir_entrada", { capaId: "t", preset: "subir", en: 200, duracion: 600 }).comp;
+  const h = auditarDireccion(comp).find((x) => x.startsWith("ENCUADRE AL BORDE")) ?? "";
+  // solo el eje y manda: zoom = 1080·0.9 / (2·(995−600)) = 1.23 (x está exento: la
+  // página llena el cuadro) y el centro se corrige solo en y (30.5 px hasta la zona)
+  assert.match(h, /zoom 1\.23 con el centro actual \(720, 600\), o centro \(720, 630\.5\) con el zoom actual/);
 });

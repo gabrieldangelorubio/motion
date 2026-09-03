@@ -65,6 +65,8 @@ export function correccionSegura(
   visible: Caja,
   zoom: number,
   margen: number = MARGEN_SEGURO.accion,
+  /** qué ejes exigen margen (un eje exento no aporta zoom ni corrimiento) */
+  ejes: { x: boolean; y: boolean } = { x: true, y: true },
 ): { zoom: number; centro: { x: number; y: number } | null } {
   const cx = (visible.x1 + visible.x2) / 2;
   const cy = (visible.y1 + visible.y2) / 2;
@@ -74,15 +76,17 @@ export function correccionSegura(
   // ancho: la caja entra cuando su punto más lejano al centro cae adentro
   const dx = Math.max(Math.abs(caja.x1 - cx), Math.abs(caja.x2 - cx));
   const dy = Math.max(Math.abs(caja.y1 - cy), Math.abs(caja.y2 - cy));
-  const zx = dx > 0 ? (anchoRender * (1 - 2 * margen)) / (2 * dx) : Infinity;
-  const zy = dy > 0 ? (altoRender * (1 - 2 * margen)) / (2 * dy) : Infinity;
+  const zx = ejes.x && dx > 0 ? (anchoRender * (1 - 2 * margen)) / (2 * dx) : Infinity;
+  const zy = ejes.y && dy > 0 ? (altoRender * (1 - 2 * margen)) / (2 * dy) : Infinity;
   const zoomSeguro = Math.min(zoom, zx, zy);
 
   const s = cajaSegura(visible, margen);
   let centro: { x: number; y: number } | null = null;
-  if (caja.x2 - caja.x1 <= s.x2 - s.x1 && caja.y2 - caja.y1 <= s.y2 - s.y1) {
-    const ddx = caja.x1 < s.x1 ? caja.x1 - s.x1 : caja.x2 > s.x2 ? caja.x2 - s.x2 : 0;
-    const ddy = caja.y1 < s.y1 ? caja.y1 - s.y1 : caja.y2 > s.y2 ? caja.y2 - s.y2 : 0;
+  const entraX = !ejes.x || caja.x2 - caja.x1 <= s.x2 - s.x1;
+  const entraY = !ejes.y || caja.y2 - caja.y1 <= s.y2 - s.y1;
+  if (entraX && entraY) {
+    const ddx = !ejes.x ? 0 : caja.x1 < s.x1 ? caja.x1 - s.x1 : caja.x2 > s.x2 ? caja.x2 - s.x2 : 0;
+    const ddy = !ejes.y ? 0 : caja.y1 < s.y1 ? caja.y1 - s.y1 : caja.y2 > s.y2 ? caja.y2 - s.y2 : 0;
     centro = { x: r1(cx + ddx), y: r1(cy + ddy) };
   }
   return { zoom: r2(zoomSeguro), centro };

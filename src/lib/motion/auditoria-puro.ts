@@ -158,13 +158,32 @@ function pantallaDe(comp: Composicion, ve: { x1: number; y1: number; x2: number;
   return mejor?.p ?? null;
 }
 
-const colorPlano = (c: string | undefined) => (c ?? "").replace(/\s+/g, "").toLowerCase();
+/** Un color a su terna RGB (hex de 3/6/8 o rgb/rgba); null si no se
+    entiende. Comparar strings crudos daba falsos negativos entre el fondo
+    en hex y una placa de Figma en rgba(). */
+export function ternaRGB(c: string | undefined): [number, number, number] | null {
+  const s = (c ?? "").trim().toLowerCase();
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/.exec(s);
+  if (hex) {
+    const h = hex[1].length === 3 ? hex[1].split("").map((d) => d + d).join("") : hex[1].slice(0, 6);
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+  const rgb = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/.exec(s);
+  if (rgb) return [Math.round(Number(rgb[1])), Math.round(Number(rgb[2])), Math.round(Number(rgb[3]))];
+  return null;
+}
+
+const mismoColor = (a: string | undefined, b: string | undefined) => {
+  const ta = ternaRGB(a);
+  const tb = ternaRGB(b);
+  return !!ta && !!tb && ta[0] === tb[0] && ta[1] === tb[1] && ta[2] === tb[2];
+};
 
 /** Si la pantalla es del MISMO color que el fondo de la pieza, el vacío
     fuera de ella no se ve (logbook: página y fondo #1e1c1a): la cámara puede
     abrir más allá de la página sin mostrar nada raro. */
 export function vacioInvisible(comp: Composicion, p: CapaForma | null): boolean {
-  return !!p && colorPlano(p.color) === colorPlano(comp.fondo);
+  return !!p && mismoColor(p.color, comp.fondo);
 }
 
 /** ¿Se le puede exigir el margen seguro en este eje? Sí, salvo que la
@@ -219,18 +238,14 @@ export function encuadresDescentrados(comp: Composicion): string[] {
     // (y hace falta para respetar los márgenes seguros); solo se exige centrada
     const invisible = vacioInvisible(comp, p);
     if (p.ancho >= vw) {
-      if (invisible) {
-        /* nada que exigir en x */
-      } else if (ve.x1 < px1 - tolX) problemas.push(`muestra ${r(px1 - ve.x1)} px de vacío a la IZQUIERDA de la pantalla`);
-      if (ve.x2 > px2 + tolX) problemas.push(`muestra ${r(ve.x2 - px2)} px de vacío a la DERECHA de la pantalla`);
+      if (!invisible && ve.x1 < px1 - tolX) problemas.push(`muestra ${r(px1 - ve.x1)} px de vacío a la IZQUIERDA de la pantalla`);
+      if (!invisible && ve.x2 > px2 + tolX) problemas.push(`muestra ${r(ve.x2 - px2)} px de vacío a la DERECHA de la pantalla`);
     } else if (Math.abs((ve.x1 + ve.x2) / 2 - p.x) > tolX) {
       problemas.push(`la pantalla queda descentrada en x (centro de cámara ${r((ve.x1 + ve.x2) / 2)}, centro de la pantalla ${r(p.x)})`);
     }
     if (p.alto >= vh) {
-      if (invisible) {
-        /* nada que exigir en y */
-      } else if (ve.y1 < py1 - tolY) problemas.push(`muestra ${r(py1 - ve.y1)} px de vacío ARRIBA de la pantalla`);
-      if (ve.y2 > py2 + tolY) problemas.push(`muestra ${r(ve.y2 - py2)} px de vacío ABAJO de la pantalla`);
+      if (!invisible && ve.y1 < py1 - tolY) problemas.push(`muestra ${r(py1 - ve.y1)} px de vacío ARRIBA de la pantalla`);
+      if (!invisible && ve.y2 > py2 + tolY) problemas.push(`muestra ${r(ve.y2 - py2)} px de vacío ABAJO de la pantalla`);
     } else if (Math.abs((ve.y1 + ve.y2) / 2 - p.y) > tolY) {
       problemas.push(`la pantalla queda descentrada en y (centro de cámara ${r((ve.y1 + ve.y2) / 2)}, centro de la pantalla ${r(p.y)})`);
     }
@@ -398,6 +413,8 @@ export function auditarDireccion(comp: Composicion): string[] {
       if (sangra.aba) d.aba = 0;
       if (!ejeExigible(p, vei, "x")) d.izq = d.der = 0;
       if (!ejeExigible(p, vei, "y")) d.arr = d.aba = 0;
+      // (la caja es la BASE de la capa: la vida ambiente del hold —pistas de
+      // pocos px— no se evalúa acá; el margen de decenas de px la absorbe)
       const total = totalDesborde(d);
       if (total > 1 && (!peor || total > peor.total)) peor = { t: ti, ve: vei, d, total };
     }
@@ -446,7 +463,9 @@ export function auditarDireccion(comp: Composicion): string[] {
       if (d.arr) lados.push(lado(caja.y1 - vp.y1, "SUPERIOR"));
       if (d.aba) lados.push(lado(vp.y2 - caja.y2, "INFERIOR"));
       const zoom = comp.ancho / (vp.x2 - vp.x1);
-      const fix = correccionSegura(caja, vp, zoom, MARGEN_SEGURO.accion);
+      // la corrección solo mira los ejes que exigen margen: sugerir un zoom por
+      // el eje exento mostraría el vacío o el recorte que esa exención evita
+      const fix = correccionSegura(caja, vp, zoom, MARGEN_SEGURO.accion, { x: ejeExigible(p, vp, "x"), y: ejeExigible(p, vp, "y") });
       const cx = r((vp.x1 + vp.x2) / 2);
       const cy = r((vp.y1 + vp.y2) / 2);
       alBorde.push(
