@@ -193,3 +193,18 @@ test("el modelo elegido en el panel manda sobre el entorno: con default Gemini, 
     process.env = envOriginal;
   }
 });
+
+test("un timeout del proveedor llega como error legible, no como panel colgado", async () => {
+  const fetchOriginal = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    const e = new Error("The operation was aborted due to timeout");
+    e.name = "TimeoutError";
+    throw e;
+  }) as unknown as typeof fetch;
+  try {
+    const res = await generarOpenRouter({ apiKey: "k", modelo: "moonshotai/kimi-k3", sistema: "S", historial: [], primerUsuario: "u" });
+    assert.ok(!res.ok && /30 minutos/.test(res.error));
+  } finally {
+    globalThis.fetch = fetchOriginal;
+  }
+});

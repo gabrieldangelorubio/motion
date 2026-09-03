@@ -86,23 +86,38 @@ function usoDe(datos: RespuestaChat): UsoTokens {
 }
 
 /** UN pedido con degradación: si el modelo rechaza `reasoning` o
-    `response_format` (400 que los nombra) se reintenta sin eso. */
+    `response_format` (400 que los nombra) se reintenta sin eso. Tope de 30
+    minutos por intento: Kimi K3 escribe un guion entero en 10–20 min con
+    razonamiento alto, y sin tope un proveedor colgado dejaba el panel en
+    «dirigiendo…» para siempre. */
+const TOPE_MS = 30 * 60 * 1000;
+
 async function pedirOpenRouter(
   apiKey: string,
   cuerpo: Record<string, unknown>,
 ): Promise<{ ok: true; datos: RespuestaChat; cuerpo: Record<string, unknown> } | { ok: false; error: string }> {
   let vivo = { ...cuerpo };
   for (let intento = 0; intento < 3; intento++) {
-    const res = await fetch(URL_OPENROUTER, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${apiKey}`,
-        "HTTP-Referer": "https://adiosadios.com",
-        "X-Title": "diosa motion",
-      },
-      body: JSON.stringify(vivo),
-    });
+    let res: Response;
+    try {
+      res = await fetch(URL_OPENROUTER, {
+        method: "POST",
+        signal: AbortSignal.timeout(TOPE_MS),
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${apiKey}`,
+          "HTTP-Referer": "https://adiosadios.com",
+          "X-Title": "diosa motion",
+        },
+        body: JSON.stringify(vivo),
+      });
+    } catch (e) {
+      const nombre = (e as { name?: string }).name;
+      if (nombre === "TimeoutError" || nombre === "AbortError") {
+        return { ok: false, error: "OpenRouter no respondió en 30 minutos: probá con pensamiento medio o bajo, o con otro modelo" };
+      }
+      return { ok: false, error: `OpenRouter: ${(e as Error).message.slice(0, 200)}` };
+    }
     if (!res.ok) {
       const detalle = await res.text().catch(() => "");
       // solo cuando el 400 NOMBRA el parámetro: un «invalid json» del body
