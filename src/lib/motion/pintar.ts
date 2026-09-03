@@ -69,6 +69,8 @@ function filtroDe(desenfoque: number, blurX: number, blurY: number, escalaPx: nu
  * El texto queda AFUERA por ahora (pintarTexto pinta corrida por corrida y
  * cada una arrastraría su propia sombra).
  */
+// Con un preset de revelado (u.recorte) el clip de la caja corta también la
+// sombra hasta que la capa asienta — como un track matte en AE; aceptado.
 function aplicarSombra(ctx: Contexto2D, estado: EstadoCapa, u: EstadoUnidad, escalaMundo: number): void {
   const sombra = estado.capa.sombra;
   if (!sombra) return;

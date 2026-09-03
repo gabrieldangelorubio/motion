@@ -66,6 +66,13 @@ function sombraDe(nodo) {
   };
 }
 
+// Varias sombras exteriores: viaja una sola (la de más radio) y se avisa.
+function avisoSombras(nodo) {
+  if (!("effects" in nodo) || !nodo.effects) return null;
+  var n = nodo.effects.filter(function (e) { return e.visible !== false && e.type === "DROP_SHADOW"; }).length;
+  return n > 1 ? "tiene " + n + " sombras: viajó la más amplia" : null;
+}
+
 // ¿Todos los efectos visibles son sombras exteriores? Entonces la pieza
 // puede viajar nativa con su sombra.
 function soloSombras(nodo) {
@@ -635,7 +642,9 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
     var conEfectosTexto = tieneEfectos(nodo);
     var lineasEstimadas;
     if (rangos.lineas) {
-      lineasEstimadas = rangos.lineas;
+      // una línea vacía (Enter tipeado sin texto) no tiene glifos que medir:
+      // las reales nunca son menos que los Enter + 1
+      lineasEstimadas = Math.max(rangos.lineas, contenido.split("\n").length);
     } else if (cortesReales) {
       lineasEstimadas = contenido.split("\n").length;
     } else {
@@ -801,7 +810,7 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
         x: cc.x, y: cc.y, ancho: cc.ancho, alto: cc.alto,
         opacidad: nodo.opacity < 1 ? nodo.opacity : undefined,
         mezcla: mezclaForma.mezcla,
-        aviso: mezclaForma.aviso || undefined,
+        aviso: conAviso({ aviso: mezclaForma.aviso || undefined }, avisoSombras(nodo)) || undefined,
         forma: Object.assign({ color: colorDePintura(p) }, nodo.type === "RECTANGLE" ? esquinasDe(nodo) : {}),
         sombra: sombraRE || undefined,
       });
@@ -888,6 +897,7 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
           x: cf.x, y: cf.y, ancho: cf.ancho, alto: cf.alto,
           forma: Object.assign({ color: colorDePintura(fondo) }, esquinasDe(nodo)),
           sombra: sombraFrame || undefined,
+          aviso: (sombraFrame && avisoSombras(nodo)) || undefined,
         });
       }
     }
