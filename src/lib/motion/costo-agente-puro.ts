@@ -23,14 +23,15 @@ export type UsoTokens = {
 
 type Precio = { entrada: number; salida: number; cacheLectura?: number; cacheEscritura?: number };
 
-/** USD por millón de tokens. Verificado 2026-08-28.
-    OJO gemini-3.6-flash: precio INTRO hasta el 31/12/2026 — el 1/1/2027
-    pasa a 1.50 / 7.50. */
+/** USD por millón de tokens. Verificado 2026-08-28 (3.8-flash: 2026-09-03).
+    OJO gemini-3.6-flash y gemini-3.8-flash: precio INTRO hasta el
+    31/12/2026 — el 1/1/2027 pasan a 1.50 / 7.50 (cache 0.15). */
 export const PRECIOS_USD_POR_MILLON: Record<string, Precio> = {
   "claude-opus-5": { entrada: 5, salida: 25, cacheLectura: 0.5, cacheEscritura: 6.25 },
   "claude-opus-4-8": { entrada: 5, salida: 25, cacheLectura: 0.5, cacheEscritura: 6.25 },
   "claude-sonnet-5": { entrada: 2, salida: 10, cacheLectura: 0.2, cacheEscritura: 2.5 },
   "claude-haiku-4-5": { entrada: 1, salida: 5, cacheLectura: 0.1, cacheEscritura: 1.25 },
+  "gemini-3.8-flash": { entrada: 0.75, salida: 3.75, cacheLectura: 0.075 },
   "gemini-3.6-flash": { entrada: 0.75, salida: 3.75, cacheLectura: 0.15 },
   "gemini-2.5-flash": { entrada: 0.3, salida: 2.5 },
 };

@@ -5,6 +5,7 @@ import { costoUSD, formatearCosto, formatearTokens, precioDeModelo, sumarUso } f
 test("precioDeModelo matchea por prefijo más largo y desconocido da null", () => {
   assert.ok(precioDeModelo("claude-opus-5"));
   assert.ok(precioDeModelo("gemini-3.6-flash-latest"), "sufijos de versión matchean por prefijo");
+  assert.equal(precioDeModelo("gemini-3.8-flash")?.cacheLectura, 0.075);
   assert.equal(precioDeModelo("gpt-9"), null);
 });
 

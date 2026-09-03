@@ -13,6 +13,22 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Director por defecto: gemini-3.8-flash (2026-09-03)
+- **Qué:** salió el 2/9. Mismo id de familia, mismo precio intro que la 3.6
+  (0.75 / 3.75 hasta el 31/12/2026, después 1.50 / 7.50), cache de lectura
+  0.075. Piensa por niveles low/medium/high (sin minimal): el peldaño
+  «dinámico» de la escalera de pensamiento pasa a `thinkingLevel: medium`
+  para 3.8+ (hasta la 3.7 sigue el presupuesto −1). El analista de video
+  también. `MOTION_AGENTE_MODELO` sigue mandando si está seteada.
+- **Slider de pensamiento (Gabriel: «deberíamos tener un slider para
+  cambiar de thinking»):** en el header del panel, bajo / medio / alto
+  (default alto). Viaja como `pensamiento` en el body: Gemini →
+  thinkingLevel low/medium/high (2.5: presupuesto 1024/−1); Claude →
+  adaptativo con effort low/medium/xhigh (`configPensamientoClaude`). Sin
+  slider (CLI, tests) queda lo de siempre. La revisión visual no lo manda.
+- **Sin verificar en vivo:** acá no hay GEMINI_API_KEY; la primera corrida
+  de Gabriel confirma que la 3.8 acepta `thinkingLevel` en JSON mode.
+
 ### [HECHO] El diseño no se borra: quitar_capa rechaza capas importadas, editar_capa explica el raster (2026-09-02)
 - **Qué pasó:** Gabriel, en modo iterativo con Gemini: «que "We're entering
   a new era…" y el texto de abajo entren palabra a palabra». Las dos capas

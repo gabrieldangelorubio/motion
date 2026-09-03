@@ -220,7 +220,7 @@ test("definir_pista «numero» solo va en textos con una cifra", () => {
 test("modeloDirector: MOTION_AGENTE_MODELO manda; sin él, la key de Gemini elige flash", async () => {
   const { modeloDirector } = await import("@/lib/motion/agente");
   assert.equal(modeloDirector({}), "claude-opus-5");
-  assert.equal(modeloDirector({ GEMINI_API_KEY: "x" }), "gemini-3.6-flash");
+  assert.equal(modeloDirector({ GEMINI_API_KEY: "x" }), "gemini-3.8-flash");
   assert.equal(modeloDirector({ GEMINI_API_KEY: "x", MOTION_AGENTE_MODELO: "claude-sonnet-5" }), "claude-sonnet-5");
   assert.equal(modeloDirector({ MOTION_AGENTE_MODELO: "gemini-2.5-pro" }), "gemini-2.5-pro");
 });
@@ -252,7 +252,7 @@ test("un modelo de Gemini retirado se reemplaza por el que sugiere el 404 (y el 
   // sin sugerencia (o la misma) no hay reintento
   assert.equal(modeloSugerido("not found", "gemini-x"), null);
   assert.equal(modeloSugerido("use models/gemini-x", "gemini-x"), null);
-  assert.equal(modeloDirector({ GEMINI_API_KEY: "k" }), "gemini-3.6-flash");
+  assert.equal(modeloDirector({ GEMINI_API_KEY: "k" }), "gemini-3.8-flash");
 });
 
 test("transformar_texto achica el tamaño si el texto nuevo es más largo y conserva el ALL-CAPS", () => {
@@ -327,14 +327,21 @@ test("configGeneracion: thinkingLevel high para los 3.x, presupuesto dinámico p
   assert.equal(configGeneracion("gemini-1.5-pro"), undefined);
 });
 
-test("la escalera de pensamiento baja alto → dinámico → apagado y cada peldaño cambia el request", async () => {
+test("la escalera de pensamiento baja alto → medio → apagado y cada peldaño cambia el request", async () => {
   const { configGeneracion, bajarPensamiento } = await import("@/lib/motion/agente-gemini");
-  assert.equal(bajarPensamiento("alto", "gemini-3.6-flash"), "dinamico");
-  assert.equal(bajarPensamiento("dinamico", "gemini-3.6-flash"), "apagado");
+  assert.equal(bajarPensamiento("alto", "gemini-3.6-flash"), "medio");
+  assert.equal(bajarPensamiento("medio", "gemini-3.6-flash"), "apagado");
+  assert.equal(bajarPensamiento("bajo", "gemini-3.6-flash"), "apagado");
   assert.equal(bajarPensamiento("apagado", "gemini-3.6-flash"), "apagado");
   // la 2.5 no tiene peldaño intermedio distinto: alto → apagado sin repetir el request
   assert.equal(bajarPensamiento("alto", "gemini-2.5-flash"), "apagado");
-  assert.deepEqual(configGeneracion("gemini-3.6-flash", "dinamico"), { thinkingConfig: { thinkingBudget: -1 } });
+  assert.deepEqual(configGeneracion("gemini-3.6-flash", "medio"), { thinkingConfig: { thinkingBudget: -1 } });
+  // 3.8 piensa por niveles (el slider del panel): low / medium / high
+  assert.deepEqual(configGeneracion("gemini-3.8-flash", "medio"), { thinkingConfig: { thinkingLevel: "medium" } });
+  assert.deepEqual(configGeneracion("gemini-3.8-flash", "bajo"), { thinkingConfig: { thinkingLevel: "low" } });
+  assert.deepEqual(configGeneracion("gemini-3.8-flash"), { thinkingConfig: { thinkingLevel: "high" } });
+  assert.deepEqual(configGeneracion("gemini-2.5-flash", "bajo"), { thinkingConfig: { thinkingBudget: 1024 } });
+  assert.equal(bajarPensamiento("alto", "gemini-3.8-flash"), "medio");
   assert.equal(configGeneracion("gemini-3.6-flash", "apagado"), undefined);
   assert.equal(configGeneracion("gemini-2.5-flash", "apagado"), undefined);
 });
@@ -346,8 +353,8 @@ test("modeloDirector con nivel «fino» sube a Opus (o al MODELO_FINO del entorn
   assert.equal(modeloDirector({ GEMINI_API_KEY: "x", MOTION_AGENTE_MODELO: "gemini-3.6-flash" }, "fino"), "claude-opus-5");
   assert.equal(modeloDirector({ MOTION_AGENTE_MODELO_FINO: "claude-sonnet-5" }, "fino"), "claude-sonnet-5");
   // rápido (o sin nivel) sigue el camino de siempre
-  assert.equal(modeloDirector({ GEMINI_API_KEY: "x" }, "rapido"), "gemini-3.6-flash");
-  assert.equal(modeloDirector({ GEMINI_API_KEY: "x" }), "gemini-3.6-flash");
+  assert.equal(modeloDirector({ GEMINI_API_KEY: "x" }, "rapido"), "gemini-3.8-flash");
+  assert.equal(modeloDirector({ GEMINI_API_KEY: "x" }), "gemini-3.8-flash");
 });
 
 test("sumarUso acumula el pensamiento y sigue siendo informativo (ya está dentro de salida)", async () => {
@@ -487,4 +494,14 @@ test("editar_capa {oculta} saca una capa del render sin borrarla, y vuelve", () 
   const visible = ejecutarHerramienta(oculta.comp, "editar_capa", { capaId: "fig-9-manifesto", oculta: false });
   assert.equal(visible.comp.capas.find((c) => c.id === "fig-9-manifesto")?.oculta, undefined);
   assert.ok(DEFINICIONES_HERRAMIENTAS.find((d) => d.name === "editar_capa")?.input_schema.properties.oculta);
+});
+
+test("configPensamientoClaude: el slider manda (low/medium/xhigh); sin slider, solo «fino» piensa a fondo", async () => {
+  const { configPensamientoClaude } = await import("@/lib/motion/agente");
+  assert.deepEqual(configPensamientoClaude("bajo", "fino"), { thinking: { type: "adaptive" }, output_config: { effort: "low" } });
+  assert.deepEqual(configPensamientoClaude("medio", undefined), { thinking: { type: "adaptive" }, output_config: { effort: "medium" } });
+  assert.deepEqual(configPensamientoClaude("alto", "rapido"), { thinking: { type: "adaptive" }, output_config: { effort: "xhigh" } });
+  assert.deepEqual(configPensamientoClaude(undefined, "fino"), { thinking: { type: "adaptive" }, output_config: { effort: "xhigh" } });
+  assert.deepEqual(configPensamientoClaude(undefined, "rapido"), {});
+  assert.deepEqual(configPensamientoClaude(undefined, undefined), {});
 });

@@ -42,6 +42,22 @@ import type { ImagenRevision } from "@/lib/motion/revision-puro";
     planteo creativo de una pieza. */
 export type NivelDirector = "rapido" | "fino";
 
+/** Cuánto piensa el director, elegido con el slider del panel. En Gemini
+    es el thinkingLevel (low/medium/high); en Claude, pensamiento adaptativo
+    con esfuerzo low/medium/xhigh. Sin slider (CLI, tests) vale lo de
+    siempre: Gemini alto, Claude solo a fondo en nivel «fino». */
+export type PensamientoDirector = "bajo" | "medio" | "alto";
+
+export function configPensamientoClaude(
+  pensamiento: PensamientoDirector | undefined,
+  nivel: NivelDirector | undefined,
+): { thinking: { type: "adaptive" }; output_config: { effort: "low" | "medium" | "xhigh" } } | Record<string, never> {
+  const efecto = pensamiento ?? (nivel === "fino" ? "alto" : undefined);
+  if (!efecto) return {};
+  const effort = efecto === "alto" ? "xhigh" : efecto === "medio" ? "medium" : "low";
+  return { thinking: { type: "adaptive" }, output_config: { effort } };
+}
+
 /** Qué modelo dirige. Con nivel «fino» manda MOTION_AGENTE_MODELO_FINO (u
     Opus). Si no: MOTION_AGENTE_MODELO manda (claude-* → Anthropic,
     gemini-* → Gemini); sin él, tener GEMINI_API_KEY elige flash (mucho más
@@ -52,7 +68,7 @@ export function modeloDirector(
 ): string {
   if (nivel === "fino") return env.MOTION_AGENTE_MODELO_FINO || "claude-opus-5";
   if (env.MOTION_AGENTE_MODELO) return env.MOTION_AGENTE_MODELO;
-  return env.GEMINI_API_KEY ? "gemini-3.6-flash" : "claude-opus-5";
+  return env.GEMINI_API_KEY ? "gemini-3.8-flash" : "claude-opus-5";
 }
 const MAX_ITERACIONES = 24;
 
@@ -172,6 +188,7 @@ export type RespuestaAgente =
 async function llamarGuionista(opts: {
   modelo: string;
   nivel?: NivelDirector;
+  pensamiento?: PensamientoDirector;
   sistema: string;
   historial: TurnoAgente[];
   texto: string;
@@ -187,6 +204,7 @@ async function llamarGuionista(opts: {
       primerUsuario: opts.texto,
       imagenes: opts.imagenes,
       json: true,
+      pensamiento: opts.pensamiento,
     });
   }
   if (!process.env.ANTHROPIC_API_KEY) return { ok: false, error: "Falta ANTHROPIC_API_KEY en el entorno (ver ENTREGA.md)" };
@@ -197,7 +215,7 @@ async function llamarGuionista(opts: {
     .stream({
     model: opts.modelo,
     max_tokens: 32000,
-    ...(opts.nivel === "fino" ? { thinking: { type: "adaptive" as const }, output_config: { effort: "xhigh" as const } } : {}),
+    ...configPensamientoClaude(opts.pensamiento, opts.nivel),
     system: [{ type: "text", text: opts.sistema, cache_control: { type: "ephemeral" } }],
     messages: [
       ...opts.historial.slice(-12).map<Anthropic.MessageParam>((turno) => ({
@@ -246,6 +264,7 @@ async function dirigirPorGuion(opts: {
   primerUsuario: string;
   imagenes?: ImagenRevision[];
   nivel?: NivelDirector;
+  pensamiento?: PensamientoDirector;
   onEvento?: (evento: EventoAgente) => void;
 }): Promise<RespuestaAgente> {
   const sistema = sistemaGuionista(SISTEMA);
@@ -261,7 +280,7 @@ async function dirigirPorGuion(opts: {
   let ronda = 0;
   for (; ronda < MAX_RONDAS; ronda++) {
     const t0 = Date.now();
-    const res = await llamarGuionista({ modelo: opts.modelo, nivel: opts.nivel, sistema, historial, texto, imagenes });
+    const res = await llamarGuionista({ modelo: opts.modelo, nivel: opts.nivel, pensamiento: opts.pensamiento, sistema, historial, texto, imagenes });
     if (!res.ok) return res;
     usoTotal = sumarUso(usoTotal, res.uso);
     const parseado = parsearGuion(res.texto);
@@ -335,6 +354,8 @@ export async function dirigirComposicion(
   /** lectura de pantalla: el texto que explica las imágenes del DISEÑO que
       van primeras en `imagenes` (contextoDeLectura) */
   contextoLectura?: string,
+  /** cuánto piensa el modelo: el slider del panel (sin él, lo de siempre) */
+  pensamiento?: PensamientoDirector,
 ): Promise<RespuestaAgente> {
   let comp = composicion;
   const ops: string[] = [];
@@ -355,7 +376,7 @@ export async function dirigirComposicion(
   // turno de corrección si algo dio error o la auditoría marcó). Una pieza
   // ya dirigida se retoca con el loop iterativo de herramientas.
   if (elegirModo(comp, historial) === "guion" && process.env.MOTION_DIRECTOR_MODO !== "iterativo") {
-    return dirigirPorGuion({ comp, modelo, historial, primerUsuario, imagenes, nivel, onEvento });
+    return dirigirPorGuion({ comp, modelo, historial, primerUsuario, imagenes, nivel, pensamiento, onEvento });
   }
 
   // ——— proveedor GEMINI (mismo prompt, mismas herramientas, otro loop) ———
@@ -379,6 +400,7 @@ export async function dirigirComposicion(
         return { resultado: r.resultado, esError: r.esError, resumen: r.resumen };
       },
       onEvento,
+      pensamiento,
     });
     return res.ok ? { ok: true, respuesta: res.respuesta, composicion: comp, ops, uso: res.uso, modelo } : res;
   }
@@ -421,13 +443,14 @@ export async function dirigirComposicion(
     const respuesta = await cliente.messages.create({
       model: modelo,
       max_tokens: 16000,
-      // el director «fino» piensa A FONDO: pensamiento adaptativo + esfuerzo
-      // xhigh (el nivel de los trabajos agénticos largos). Los bloques de
+      // el pensamiento lo elige el slider del panel (adaptativo + esfuerzo
+      // low/medium/xhigh); sin slider, el director «fino» piensa A FONDO
+      // (xhigh, el nivel de los trabajos agénticos largos) y el resto va
+      // con el default del modelo — la revisión visual no manda slider:
+      // mirar frames y retocar no paga el esfuerzo máximo. Los bloques de
       // pensamiento vuelven enteros en respuesta.content y se reenvían tal
-      // cual en el turno siguiente (abajo), como pide la API. La revisión
-      // visual y el nivel «rapido» sin Gemini van con el default del modelo:
-      // mirar frames y retocar no paga el esfuerzo máximo.
-      ...(nivel === "fino" ? { thinking: { type: "adaptive" as const }, output_config: { effort: "xhigh" as const } } : {}),
+      // cual en el turno siguiente (abajo), como pide la API.
+      ...configPensamientoClaude(pensamiento, nivel),
       system: [{ type: "text", text: SISTEMA, cache_control: { type: "ephemeral" } }],
       tools: DEFINICIONES_HERRAMIENTAS as unknown as Anthropic.Tool[],
       messages: mensajes,

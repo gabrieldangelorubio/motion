@@ -27,7 +27,10 @@ import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
 import { Segmentado } from "@/components/ui/Segmentado";
-import type { NivelDirector, TurnoAgente } from "@/lib/motion/agente";
+import { Deslizador } from "@/components/ui/Deslizador";
+import type { NivelDirector, PensamientoDirector, TurnoAgente } from "@/lib/motion/agente";
+
+const PENSAMIENTOS: PensamientoDirector[] = ["bajo", "medio", "alto"];
 
 type Mensaje = TurnoAgente & { ops?: string[]; meta?: string };
 
@@ -82,6 +85,9 @@ export function PanelAgente({
   // «fino» = Opus para el planteo creativo — la revisión visual y las
   // correcciones siguen yendo al barato aunque el planteo sea fino
   const [nivel, setNivel] = useState<NivelDirector>("rapido");
+  // cuánto piensa el modelo (slider): alto es lo de siempre; bajo y medio
+  // para pedidos chicos o para comparar cuánto cambia la dirección
+  const [pensamiento, setPensamiento] = useState<PensamientoDirector>("alto");
   const entradaGuionRef = useRef<HTMLInputElement>(null);
 
   // GUION EXTERNO: un archivo .json con {guion, pasos} (el que escribe Fable
@@ -342,6 +348,7 @@ export function PanelAgente({
           contextoAudio: obtenerContextoAudio?.(),
           contextoEstilo: obtenerContextoEstilo?.(),
           nivel,
+          pensamiento,
           imagenes: [...lectura.imagenes, ...imagenesRef],
           // el bloque de lectura viene sin la línea de referencia (el editor
           // no sabe si hay una): se agrega acá, donde sí se sabe
@@ -463,6 +470,22 @@ export function PanelAgente({
             Σ {formatearCosto(gasto)}
           </span>
         )}
+        <span
+          className="mr-2 flex w-[76px] shrink-0 items-center gap-1.5"
+          title={t("Pensamiento del modelo: bajo, medio o alto (cuánto razona antes de dirigir; la revisión visual no lo usa)")}
+        >
+          <span className="w-[30px] shrink-0 text-right font-mono text-[10px] text-foreground/50" aria-hidden>
+            {t(pensamiento)}
+          </span>
+          <Deslizador
+            valor={PENSAMIENTOS.indexOf(pensamiento)}
+            min={0}
+            max={2}
+            paso={1}
+            etiqueta={t("Pensamiento del modelo")}
+            onCambio={(v) => setPensamiento(PENSAMIENTOS[Math.round(v)] ?? "alto")}
+          />
+        </span>
         <span className="mr-1.5 shrink-0">
           <Segmentado
             opciones={[

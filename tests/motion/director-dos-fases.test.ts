@@ -54,7 +54,7 @@ test("director en dos fases: el guionista devuelve el guion, el código lo aplic
   const eventos: EventoAgente[] = [];
   try {
     const { dirigirComposicion } = await import("@/lib/motion/agente");
-    const res = await dirigirComposicion(piezaSinDirigir(), "animá la pieza", [], undefined, (e) => eventos.push(e));
+    const res = await dirigirComposicion(piezaSinDirigir(), "animá la pieza", [], undefined, (e) => eventos.push(e), undefined, undefined, undefined, undefined, undefined, "medio");
     assert.ok(res.ok, res.ok ? "" : res.error);
     if (!res.ok) return;
     // dos llamadas: guion + corrección (hubo un ✗)
@@ -63,6 +63,8 @@ test("director en dos fases: el guionista devuelve el guion, el código lo aplic
     assert.equal(pedidos[0].body.tools, undefined);
     const gen = pedidos[0].body.generationConfig as Record<string, unknown>;
     assert.equal(gen.responseMimeType, "application/json");
+    // el slider del panel («medio») llega al request del guionista
+    assert.deepEqual(gen.thinkingConfig, { thinkingLevel: "medium" });
     const sistema = (pedidos[0].body.systemInstruction as { parts: { text: string }[] }).parts[0].text;
     assert.ok(sistema.includes("# MODO GUION") && sistema.includes("# GUION DE REFERENCIA") && sistema.includes("REGLA DE ORO"));
     // el segundo turno pide solo pasos y lleva el ✗

@@ -67,12 +67,17 @@ export function partesDeUsuario(texto: string, imagenes?: ImagenRevision[]): Par
     de la 2.5 (y el fallback si un 3.x rechaza thinkingLevel), «apagado» no
     manda nada. La escalera baja un peldaño por cada 400 que nombre thinking:
     degradar, no romper. */
-export type NivelPensamiento = "alto" | "dinamico" | "apagado";
+/** Cuánto piensa Gemini: «alto/medio/bajo» los elige el slider del panel
+    (Gabriel, 2026-09-03: «deberíamos tener un slider para cambiar de
+    thinking»); «apagado» es el último peldaño de la escalera de
+    degradación, no una opción del usuario. */
+export type NivelPensamiento = "alto" | "medio" | "bajo" | "apagado";
 
+/** La escalera ante un 400 que nombra thinking: alto → medio (3.x) → apagado.
+    La 2.5 no distingue alto de medio (los dos son presupuesto -1): repetir el
+    mismo request sería gastar un intento — directo a apagado. */
 export function bajarPensamiento(nivel: NivelPensamiento, modelo: string): NivelPensamiento {
-  // la 2.5 no distingue alto de dinámico (los dos son presupuesto -1):
-  // repetir el mismo request sería gastar un intento — directo a apagado
-  return nivel === "alto" && /^gemini-[3-9]/.test(modelo) ? "dinamico" : "apagado";
+  return nivel === "alto" && /^gemini-[3-9]/.test(modelo) ? "medio" : "apagado";
 }
 
 /** El PENSAMIENTO de Gemini a fondo. Sólo para las familias que lo soportan
@@ -80,14 +85,20 @@ export function bajarPensamiento(nivel: NivelPensamiento, modelo: string): Nivel
 export function configGeneracion(
   modelo: string,
   nivel: NivelPensamiento = "alto",
-): { thinkingConfig: { thinkingLevel: "high" } | { thinkingBudget: number } } | undefined {
+): { thinkingConfig: { thinkingLevel: "high" | "medium" | "low" } | { thinkingBudget: number } } | undefined {
   if (nivel === "apagado") return undefined;
   if (/^gemini-[3-9]/.test(modelo)) {
-    return nivel === "alto"
-      ? { thinkingConfig: { thinkingLevel: "high" } }
+    if (nivel === "alto") return { thinkingConfig: { thinkingLevel: "high" } };
+    if (nivel === "bajo") return { thinkingConfig: { thinkingLevel: "low" } };
+    // medio: 3.8+ piensa por niveles (low/medium/high, sin minimal) y el
+    // peldaño intermedio es «medium»; hasta la 3.7 es el presupuesto
+    // dinámico (verificado con la 3.6).
+    return /^gemini-3\.[89]|^gemini-[4-9]/.test(modelo)
+      ? { thinkingConfig: { thinkingLevel: "medium" } }
       : { thinkingConfig: { thinkingBudget: -1 } };
   }
-  if (/^gemini-2\.5/.test(modelo)) return { thinkingConfig: { thinkingBudget: -1 } };
+  // la 2.5 no conoce niveles: presupuesto dinámico, o corto para «bajo»
+  if (/^gemini-2\.5/.test(modelo)) return { thinkingConfig: { thinkingBudget: nivel === "bajo" ? 1024 : -1 } };
   return undefined;
 }
 
@@ -216,10 +227,12 @@ export async function generarGemini(opts: {
   primerUsuario: string;
   imagenes?: ImagenRevision[];
   json?: boolean;
+  /** nivel de pensamiento elegido en el panel (default alto) */
+  pensamiento?: NivelPensamiento;
 }): Promise<{ ok: true; texto: string; uso: UsoTokens; modelo: string } | { ok: false; error: string }> {
   let modeloVivo = opts.modelo;
   let reintentoModelo = false;
-  let pensamiento: NivelPensamiento = "alto";
+  let pensamiento: NivelPensamiento = opts.pensamiento ?? "alto";
   const contents: ContenidoGemini[] = [
     ...opts.historial.slice(-12).map<ContenidoGemini>((turno) => ({
       role: turno.rol === "usuario" ? "user" : "model",
@@ -292,13 +305,15 @@ export async function loopGemini(opts: {
   maxIteraciones: number;
   ejecutar: (nombre: string, input: Record<string, unknown>) => { resultado: string; esError?: boolean; resumen?: string };
   onEvento?: (evento: EventoAgente) => void;
+  /** nivel de pensamiento elegido en el panel (default alto) */
+  pensamiento?: NivelPensamiento;
 }): Promise<{ ok: true; respuesta: string; uso: UsoTokens } | { ok: false; error: string }> {
   let usoTotal: UsoTokens = { entrada: 0, salida: 0 };
   let modeloVivo = opts.modelo;
   let reintentoModelo = false;
-  // pensamiento ALTO de entrada; cada 400 que nombre thinking baja un
-  // peldaño (alto → dinámico → apagado) y reintenta — degradar, no romper
-  let pensamiento: NivelPensamiento = "alto";
+  // el pensamiento del panel de entrada; cada 400 que nombre thinking baja
+  // un peldaño (alto → medio → apagado) y reintenta — degradar, no romper
+  let pensamiento: NivelPensamiento = opts.pensamiento ?? "alto";
   const tools = herramientasParaGemini(opts.herramientas);
 
   const contents: ContenidoGemini[] = [

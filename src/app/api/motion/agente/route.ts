@@ -44,6 +44,8 @@ export async function POST(pedido: Request): Promise<Response> {
       /** nivel del panel: «fino» = Opus para el planteo, «rapido» = el
           modelo económico del entorno (default) */
       nivel?: string;
+      /** slider de pensamiento del panel: bajo | medio | alto */
+      pensamiento?: string;
       /** el registro de la pieza (perilla de sensación), opcional */
       contextoEstilo?: string;
     };
@@ -94,6 +96,8 @@ export async function POST(pedido: Request): Promise<Response> {
           }
         : undefined;
     const nivel = cuerpo.nivel === "fino" || cuerpo.nivel === "rapido" ? cuerpo.nivel : undefined;
+    const pensamiento =
+      cuerpo.pensamiento === "bajo" || cuerpo.pensamiento === "medio" || cuerpo.pensamiento === "alto" ? cuerpo.pensamiento : undefined;
     const contextoEstilo =
       typeof cuerpo.contextoEstilo === "string" && cuerpo.contextoEstilo ? cuerpo.contextoEstilo.slice(0, 600) : undefined;
 
@@ -120,7 +124,7 @@ export async function POST(pedido: Request): Promise<Response> {
               const t0 = Date.now();
               const analisis = await analizarVideoGemini({
                 apiKey: process.env.GEMINI_API_KEY,
-                modelo: process.env.MOTION_REFERENCIA_MODELO || "gemini-3.6-flash",
+                modelo: process.env.MOTION_REFERENCIA_MODELO || "gemini-3.8-flash",
                 mime: videoReferencia.mime,
                 datosBase64: videoReferencia.datosBase64,
                 prompt: promptAnalisisReferencia(videoReferencia.nombre, videoReferencia.duracionMs),
@@ -151,6 +155,7 @@ export async function POST(pedido: Request): Promise<Response> {
             contextoEstilo,
             contextoFinal,
             contextoLectura,
+            pensamiento,
           );
           if (!res.ok) emitir({ tipo: "fin", error: res.error });
           else emitir({ tipo: "fin", respuesta: res.respuesta, snapshot: serializar(res.composicion), ops: res.ops, uso: res.uso, modelo: res.modelo });
