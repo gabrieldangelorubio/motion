@@ -96,6 +96,7 @@ test("loopOpenRouter: ejecuta los tool_calls, devuelve el resultado con su id y 
     assert.equal(pedidos[0].headers.authorization, "Bearer k");
     assert.equal(pedidos[0].body.model, "moonshotai/kimi-k3");
     assert.deepEqual(pedidos[0].body.reasoning, { effort: "medium" });
+    assert.equal(pedidos[0].body.max_tokens, 16000);
     assert.ok(Array.isArray(pedidos[0].body.tools) && (pedidos[0].body.tools as unknown[]).length > 5);
     // el segundo pedido lleva el assistant con sus tool_calls (y el razonamiento devuelto) y el tool result con el id
     const msgs = pedidos[1].body.messages as { role: string; tool_call_id?: string; content: unknown; reasoning_details?: unknown }[];
@@ -128,6 +129,7 @@ test("generarOpenRouter pide JSON; si el modelo rechaza response_format o reason
     assert.ok(res.ok, res.ok ? "" : res.error);
     assert.equal(pedidos.length, 3);
     assert.ok("response_format" in pedidos[0].body && "reasoning" in pedidos[0].body);
+    assert.equal(pedidos[0].body.max_tokens, 32000);
     assert.ok(!("response_format" in pedidos[1].body) && "reasoning" in pedidos[1].body);
     assert.ok(!("response_format" in pedidos[2].body) && !("reasoning" in pedidos[2].body));
     if (res.ok) assert.equal(res.texto, '{"pasos":[]}');

@@ -52,6 +52,9 @@ export function razonamientoOpenRouter(nivel: NivelPensamiento | undefined): { r
   return { reasoning: { effort: nivel === "alto" ? "high" : nivel === "medio" ? "medium" : "low" } };
 }
 
+/** Las imágenes (lectura de pantalla, revisión visual) van como data URL.
+    Kimi K3 es multimodal; un modelo solo-texto devuelve 400 y el error
+    llega legible al panel. */
 export function contenidoDeUsuario(texto: string, imagenes?: ImagenRevision[]): string | ParteContenido[] {
   if (!imagenes?.length) return texto;
   return [
@@ -102,13 +105,15 @@ async function pedirOpenRouter(
     });
     if (!res.ok) {
       const detalle = await res.text().catch(() => "");
-      if (res.status === 400 && "reasoning" in vivo && /reason/i.test(detalle)) {
+      // solo cuando el 400 NOMBRA el parámetro: un «invalid json» del body
+      // no es «este modelo no soporta response_format»
+      if (res.status === 400 && "reasoning" in vivo && /reasoning/i.test(detalle)) {
         const { reasoning: _r, ...sinRazon } = vivo;
         void _r;
         vivo = sinRazon;
         continue;
       }
-      if (res.status === 400 && "response_format" in vivo && /response_format|json/i.test(detalle)) {
+      if (res.status === 400 && "response_format" in vivo && /response_format|json_object|json mode/i.test(detalle)) {
         const { response_format: _f, ...sinFormato } = vivo;
         void _f;
         vivo = sinFormato;
@@ -150,6 +155,9 @@ export async function generarOpenRouter(opts: {
   const res = await pedirOpenRouter(opts.apiKey, {
     model: opts.modelo,
     messages,
+    // un guion entero son ~100 pasos de JSON: sin tope explícito el default
+    // del proveedor puede cortarlo a la mitad (y el parser vería «inválido»)
+    max_tokens: 32000,
     ...(opts.json ? { response_format: { type: "json_object" } } : {}),
     ...razonamientoOpenRouter(opts.pensamiento ?? "alto"),
   });
@@ -184,7 +192,7 @@ export async function loopOpenRouter(opts: {
 
   for (let iteracion = 0; iteracion < opts.maxIteraciones; iteracion++) {
     const t0 = Date.now();
-    const res = await pedirOpenRouter(opts.apiKey, { model: opts.modelo, messages, tools, tool_choice: "auto", ...razon });
+    const res = await pedirOpenRouter(opts.apiKey, { model: opts.modelo, messages, tools, tool_choice: "auto", max_tokens: 16000, ...razon });
     if (!res.ok) return res;
     // si el pedido salió sin reasoning (lo rechazó), no se vuelve a mandar
     if (!("reasoning" in res.cuerpo)) razon = {};
