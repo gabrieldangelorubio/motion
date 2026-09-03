@@ -13,6 +13,21 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Plugin v16: el raster «como se ve» se exporta EN SU LUGAR (2026-09-03)
+- **Qué pasó:** diagram.com en el editor: la Figma-blur de «Figma's new AI
+  bestie» y el mock de «Magically rename your layers» desbordan su tarjeta.
+  Son nodos con opacidad/blur que iban por el CLON en la raíz de la página
+  (v14, píxeles puros): el clon no tiene el recorte de sus padres
+  (clipsContent) ni las máscaras hermanas, y v15 solo lo AVISABA («un
+  padre lo recorta: se importó completo»).
+- **Hecho:** `rasterizarComoSeVe` exporta el ORIGINAL en su lugar
+  neutralizando opacidad y mezcla solo durante el export (restauradas en
+  `finally`); el clon queda como fallback si el nodo no se deja tocar.
+  Cada raster lleva `ruta` (padres hasta el marco) para ubicarlo en Figma.
+  Sello 16.
+- **Sin verificar en Figma** (acá no corre): Gabriel re-importa el
+  manifest, exporta diagram.com y manda el JSON + avisos.
+
 ### [HECHO] Director por defecto: gemini-3.8-flash (2026-09-03)
 - **Qué:** salió el 2/9. Mismo id de familia, mismo precio intro que la 3.6
   (0.75 / 3.75 hasta el 31/12/2026, después 1.50 / 7.50), cache de lectura

@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 15;
+var VERSION_PLUGIN = 16;
 
 function aHex(color) {
   var c = function (v) {
@@ -193,15 +193,46 @@ function tieneFlip(nodo) {
 // transform ABSOLUTA y exporta el clon. exportAsync del original solo
 // aplica la transform PROPIA del nodo — una pieza que su grupo espejaba o
 // rotaba salía al revés (visto: el logo espejado del grupo con flip).
+// v16: EN SU LUGAR. El export del ORIGINAL respeta lo que lo rodea: el
+// recorte de sus padres (clipsContent) y las máscaras hermanas; el clon en
+// la raíz de la página no tenía nada de eso, y en diagram.com las piezas
+// con opacidad o blur llegaban ENTERAS desbordando su tarjeta (Gabriel:
+// «siento que tiene unas máscaras que no está tomando»). Para que los
+// píxeles salgan PUROS (opacidad y mezcla viajan en la capa, no horneadas)
+// se neutralizan en el original SOLO durante el export y se restauran
+// siempre. Si el nodo no se deja tocar (instancia trabada), cae al clon.
 async function rasterizarComoSeVe(nodo, marco, aviso) {
+  var opacidad = null;
+  var mezcla = null;
+  try {
+    if ("opacity" in nodo && typeof nodo.opacity === "number" && nodo.opacity < 1) { opacidad = nodo.opacity; nodo.opacity = 1; }
+    if ("blendMode" in nodo && nodo.blendMode !== "NORMAL" && nodo.blendMode !== "PASS_THROUGH") { mezcla = nodo.blendMode; nodo.blendMode = "NORMAL"; }
+  } catch (e0) {
+    restaurarLook(nodo, opacidad, mezcla);
+    return await rasterizarPorClon(nodo, marco, aviso);
+  }
+  var bytes;
+  try {
+    bytes = await nodo.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: 2 } });
+  } finally {
+    restaurarLook(nodo, opacidad, mezcla);
+  }
+  return salidaRaster(nodo, marco, aviso, bytes, cajaRender(nodo, marco));
+}
+
+function restaurarLook(nodo, opacidad, mezcla) {
+  try { if (opacidad !== null) nodo.opacity = opacidad; } catch (e1) { /* no editable */ }
+  try { if (mezcla !== null) nodo.blendMode = mezcla; } catch (e2) { /* no editable */ }
+}
+
+// El clon en la raíz de la página (v14): píxeles puros pero SIN el recorte
+// de los padres ni las máscaras hermanas. Solo como fallback.
+async function rasterizarPorClon(nodo, marco, aviso) {
   var clon = null;
   try {
     clon = nodo.clone();
     figma.currentPage.appendChild(clon);
     clon.relativeTransform = nodo.absoluteTransform;
-    // el PNG con los píxeles PUROS: opacidad y mezcla viajan en la capa
-    // (rasterizar las lee del original) — si quedaran en el clon, el export
-    // ya las traería horneadas y el motor las aplicaría OTRA vez
     try { if ("opacity" in clon) clon.opacity = 1; } catch (e1) { /* no editable */ }
     try { if ("blendMode" in clon) clon.blendMode = "NORMAL"; } catch (e2) { /* no editable */ }
     return await rasterizar(nodo, marco, aviso, clon);
@@ -210,6 +241,18 @@ async function rasterizarComoSeVe(nodo, marco, aviso) {
   } finally {
     if (clon) { try { clon.remove(); } catch (e2) { /* ya no está */ } }
   }
+}
+
+// Los nombres de los padres hasta el marco: para encontrar en Figma la capa
+// que llegó mal sin adivinar («Frame 95245 / Card / Group 12»).
+function rutaDe(nodo, marco) {
+  var partes = [];
+  var p = nodo.parent;
+  for (var i = 0; p && p.id !== marco.id && i < 12; i++) {
+    partes.unshift(p.name);
+    p = p.parent;
+  }
+  return partes.join(" / ") || undefined;
 }
 
 // La caja del RENDER (absoluteRenderBounds): incluye el grosor del borde,
@@ -250,6 +293,10 @@ async function rasterizar(nodo, marco, aviso, nodoExport, sinClon) {
         " (un padre lo recorta): se importó completo");
     }
   }
+  return salidaRaster(nodo, marco, aviso, bytes, c);
+}
+
+function salidaRaster(nodo, marco, aviso, bytes, c) {
   var mezcla = mezclaDe(nodo);
   var salida = {
     tipo: "imagen",
@@ -259,6 +306,7 @@ async function rasterizar(nodo, marco, aviso, nodoExport, sinClon) {
     mezcla: mezcla.mezcla,
     imagen: { dataUri: "data:image/png;base64," + figma.base64Encode(bytes) },
     aviso: aviso,
+    ruta: rutaDe(nodo, marco),
   };
   salida.aviso = conAviso(salida, mezcla.aviso);
   return salida;
