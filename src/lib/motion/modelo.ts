@@ -134,6 +134,10 @@ export type CapaBase = {
   motionBlur?: number;
   /** modo de mezcla con lo que hay debajo; ausente = normal */
   mezcla?: MezclaCapa;
+  /** las carpetas de Figma desde la pantalla hasta la capa, separadas por
+      « / » (la jerarquía real del archivo): el panel de capas la muestra
+      como árbol y el director lee el padre inmediato */
+  ruta?: string;
   /** caja (esquina superior izquierda, px del lienzo) del padre que la
       recorta en Figma («clip content»): fuera de ella no se pinta. Viene
       del import cuando la capa sobresale de su tarjeta. */

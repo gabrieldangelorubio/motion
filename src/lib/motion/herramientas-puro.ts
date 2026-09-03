@@ -16,6 +16,7 @@ import { ordenarKeyframes } from "@/lib/motion/keyframes-puro";
 import { nombresPresets } from "@/lib/motion/presets-puro";
 import { esPlaca } from "@/lib/motion/estilo-puro";
 import { describirEncuadres } from "@/lib/motion/encuadres-puro";
+import { padreDe } from "@/lib/motion/arbol-capas-puro";
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; error: string };
 
@@ -537,7 +538,10 @@ export function describir(comp: Composicion): string {
     // el ID va A LA VISTA: las herramientas piden capaId y sin esto el
     // director lo adivinaba desde el nombre («right» por «fig-3-right»),
     // fallaba y quemaba un paso entero recuperándose del error
-    const partes = [`  · [${capa.tipo}] «${capa.nombre}» (id: ${capa.id}) en (${Math.round(capa.x)}, ${Math.round(capa.y)})`];
+    const padre = padreDe(capa);
+    const partes = [
+      `  · [${capa.tipo}] «${capa.nombre}» (id: ${capa.id})${padre ? ` dentro de «${padre}»` : ""} en (${Math.round(capa.x)}, ${Math.round(capa.y)})`,
+    ];
     // pantallas del lienzo: la placa es la MANIJA (su id es el pantallaId de
     // derivar_pantalla); sus capas dicen a qué pantalla pertenecen
     if (esPlaca(capa) && capa.tipo === "forma") {

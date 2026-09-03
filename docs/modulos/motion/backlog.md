@@ -13,6 +13,18 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] El panel de capas es el árbol de Figma: orden, anidación y nombres (plugin v19) (2026-09-03)
+- **Qué:** Gabriel: «¿mucho problema mantener el mismo orden, distribución y
+  nombre de las capas que tienen en Figma?». Orden y nombres ya venían
+  iguales; se aplanaba la anidación (pantalla + un subgrupo). Ahora cada
+  capa lleva `ruta` («carpeta / subcarpeta», v19 del plugin: todos los
+  nodos, no solo rasters; el fondo de un frame vive adentro de su frame),
+  `arbol-capas-puro.ts` arma el árbol en orden de z (rachas partidas =
+  nodos distintos, fallback al subgrupo para imports viejos) y el panel lo
+  pinta plegable a cualquier profundidad; click en una carpeta selecciona
+  todo lo de adentro. El estado del director dice «dentro de «padre»».
+  3 tests nuevos.
+
 ### [RESEARCH] D5 retematizar una serie + D6 componer pantalla con el mismo estilo (2026-09-03)
 - **Qué:** pedido de Gabriel («cambiar todo el estilo de una serie de
   pantallas», «con una pantalla, recrear otras con el mismo estilo»).

@@ -13,7 +13,7 @@
 
 // Sello de versión: se ve en la UI del plugin y viaja en el JSON — para
 // saber al toque si el plugin que corrió es el del repo actualizado.
-var VERSION_PLUGIN = 18;
+var VERSION_PLUGIN = 19;
 
 function aHex(color) {
   var c = function (v) {
@@ -295,6 +295,12 @@ async function rasterizarPorClon(nodo, marco, aviso) {
 
 // Los nombres de los padres hasta el marco: para encontrar en Figma la capa
 // que llegó mal sin adivinar («Frame 95245 / Card / Group 12»).
+// la ruta de un hijo directo del nodo: la del nodo más el nodo mismo
+function rutaDentroDe(nodo, marco) {
+  var padres = rutaDe(nodo, marco);
+  return padres ? padres + " / " + nodo.name : nodo.name;
+}
+
 function rutaDe(nodo, marco) {
   if (nodo.id === marco.id) return undefined;
   var partes = [];
@@ -547,6 +553,13 @@ async function nodoAIR(nodo, marco, salida, recorte) {
   var desde = salida.length;
   await nodoAIRInterno(nodo, marco, salida, recorte);
   var nuevas = salida.length - desde;
+  // v19: TODA capa lleva la ruta de carpetas de Figma (antes solo los
+  // rasters) — el panel la vuelve árbol, igual que el archivo. Lo que
+  // pushearon los hijos ya trae la suya (más profunda); acá se completa
+  // lo que dejó este nodo por sí mismo.
+  for (var r = desde; r < salida.length; r++) {
+    if (salida[r].ruta === undefined) salida[r].ruta = rutaDe(nodo, marco);
+  }
   DIAGNOSTICO.push((nuevas === 0 ? "SIN capas: " : nuevas + " capa(s): ") + etiqueta +
     (nuevas === 1 ? " → " + salida[desde].tipo : ""));
   if (!recorte) return;
@@ -866,6 +879,7 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
       }
       for (var sr = desdeRotado; sr < salida.length; sr++) {
         salida[sr].subgrupo = nodo.name;
+        if (salida[sr].ruta === undefined) salida[sr].ruta = rutaDentroDe(nodo, marco);
       }
       if (salida.length > desdeRotado) {
         salida[desdeRotado].aviso = conAviso(salida[desdeRotado],
@@ -898,6 +912,8 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
           forma: Object.assign({ color: colorDePintura(fondo) }, esquinasDe(nodo)),
           sombra: sombraFrame || undefined,
           aviso: (sombraFrame && avisoSombras(nodo)) || undefined,
+          // el fondo vive ADENTRO de su frame, como en Figma
+          ruta: rutaDentroDe(nodo, marco),
         });
       }
     }

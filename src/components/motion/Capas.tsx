@@ -4,8 +4,9 @@
    Panel de capas — agrupado por pantalla, con reorden por drag y borrado
 
    Las capas se agrupan por su pantalla (el frame del que vinieron en Figma):
-   cabecera colapsable con el nombre del frame, y adentro todas sus capas —
-   igual que en Figma. Arrastrar una fila vertical reordena el z-order EN SU
+   cabecera colapsable con el nombre del frame, y adentro el ÁRBOL de
+   carpetas del archivo (`ruta` de cada capa, v19 del plugin) — el mismo
+   orden, la misma anidación y los mismos nombres que en Figma. Arrastrar una fila vertical reordena el z-order EN SU
    contenedor (capas dentro de su pantalla, sueltas entre sueltas, pantallas
    entre pantallas), en vivo y con UN checkpoint por gesto (§8.3). Cada fila
    tiene ocultar y borrar; borrar la placa borra la pantalla completa. La
@@ -19,7 +20,8 @@
 
 import { useRef, useState } from "react";
 import type { Capa, Composicion } from "@/lib/motion/modelo";
-import { CAMARA_ID, filasDeCapas } from "@/lib/motion/herramientas-puro";
+import { CAMARA_ID } from "@/lib/motion/herramientas-puro";
+import { arbolDeCapas, idsDelArbol, contarCapas, type NodoArbol } from "@/lib/motion/arbol-capas-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
@@ -140,7 +142,7 @@ export function Capas({
     window.addEventListener("pointerup", alSoltar);
   };
 
-  const fila = (capa: Capa, cont: string, sangria: boolean) => {
+  const fila = (capa: Capa, cont: string, sangria: boolean, nivel = 0) => {
     const activa = seleccionId === capa.id || seleccionIds.includes(capa.id);
     const esPlaca = capa.grupo === capa.id;
     // el video de referencia vive CLAVADO al fondo: ni se arrastra ni es
@@ -158,10 +160,11 @@ export function Capas({
             ? (e) => (e.shiftKey && onAlternarSeleccion ? onAlternarSeleccion(capa.id) : onSeleccionar(capa.id))
             : undefined
         }
+        style={sangria ? { paddingLeft: 24 + Math.min(nivel, 6) * 10 } : undefined}
         className={[
           "group/fila relative mb-0.5 flex h-8 touch-none items-center gap-2 rounded-control pr-1",
           esVideo ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
-          sangria ? "pl-6" : "pl-2.5",
+          sangria ? "" : "pl-2.5",
           activa ? "bg-ink/[0.08]" : "hover:bg-ink/[0.04]",
         ].join(" ")}
       >
@@ -219,56 +222,69 @@ export function Capas({
   const elementos = elementosDe(composicion).reverse();
   const seleccionada = composicion.capas.find((c) => c.id === seleccionId);
 
-  // ——— SUBGRUPOS (grupos de Figma) adentro de una pantalla: sub-nivel
-  // plegable — el logo con sus letras es UNA fila hasta que lo abrís.
-  // Click en la cabecera selecciona el grupo entero (para mover/animar en
-  // bloque); las capas siguen sueltas en el modelo.
+  // ——— ÁRBOL DE FIGMA adentro de una pantalla: las carpetas del archivo
+  // (`ruta` de cada capa) plegables a cualquier profundidad, en el mismo
+  // orden de z. Click en la cabecera de una carpeta selecciona todo lo que
+  // tiene adentro (para mover/animar en bloque); las capas siguen sueltas
+  // en el modelo. Una carpeta con la selección adentro se abre sola.
   const [subAbiertos, setSubAbiertos] = useState<Set<string>>(new Set());
-  const filasConSubgrupos = (miembros: Capa[], cont: string) =>
-    filasDeCapas([...miembros].reverse()).map((f) => {
-      if (f.tipo === "capa") return fila(f.capa, cont, true);
-      const ids = f.capas.map((c) => c.id);
-      const abierto = subAbiertos.has(f.id) || ids.includes(seleccionId ?? "");
-      const alguna = ids.some((id) => id === seleccionId || seleccionIds.includes(id));
-      return (
-        <div key={f.id}>
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label={t("Subgrupo «{nombre}»: seleccionar sus {n} capas", { nombre: f.nombre, n: f.capas.length })}
-            onClick={() => onSeleccionarVarias?.(ids)}
-            className={[
-              "group/fila relative mb-0.5 flex h-8 cursor-pointer touch-none items-center gap-1 rounded-control pl-4 pr-1",
-              alguna ? "bg-ink/[0.08]" : "hover:bg-ink/[0.04]",
-            ].join(" ")}
-          >
-            <span className={["absolute inset-y-1 left-0 w-0.5 rounded-full", alguna ? "bg-acento" : "bg-transparent"].join(" ")} />
-            <span onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-              <BotonIcono
-                tam={22}
-                activo={abierto}
-                etiqueta={abierto ? t("Plegar el grupo «{nombre}»", { nombre: f.nombre }) : t("Desplegar el grupo «{nombre}»", { nombre: f.nombre })}
-                onClick={() =>
-                  setSubAbiertos((prev) => {
-                    const nuevo = new Set(prev);
-                    if (nuevo.has(f.id)) nuevo.delete(f.id);
-                    else nuevo.add(f.id);
-                    return nuevo;
-                  })
-                }
-              >
-                <Icono nombre="chevronAbajo" width={11} height={11} className={abierto ? "" : "-rotate-90"} />
-              </BotonIcono>
-            </span>
-            <span className={["min-w-0 flex-1 truncate text-left text-[12px]", alguna ? "text-foreground" : "text-foreground/70"].join(" ")}>
-              {f.nombre}
-            </span>
-            <span className="shrink-0 pr-1 font-mono text-[10px] tabular-nums text-foreground/40">{f.capas.length}</span>
-          </div>
-          {abierto && f.capas.map((c) => fila(c, cont, true))}
-        </div>
-      );
+  const alternarCarpeta = (id: string) =>
+    setSubAbiertos((prev) => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(id)) nuevo.delete(id);
+      else nuevo.add(id);
+      return nuevo;
     });
+  const pintarNodo = (nodo: NodoArbol, cont: string, nivel: number): React.ReactNode => {
+    if (nodo.tipo === "capa") return fila(nodo.capa, cont, true, nivel);
+    const ids = idsDelArbol(nodo);
+    const abierto = subAbiertos.has(nodo.id) || ids.includes(seleccionId ?? "");
+    const alguna = ids.some((id) => id === seleccionId || seleccionIds.includes(id));
+    const sangria = 16 + Math.min(nivel, 6) * 10;
+    return (
+      <div key={nodo.id}>
+        <div
+          role="button"
+          tabIndex={0}
+          title={nodo.ruta}
+          aria-label={t("Carpeta «{nombre}»: seleccionar sus {n} capas", { nombre: nodo.nombre, n: ids.length })}
+          onClick={() => onSeleccionarVarias?.(ids)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onSeleccionarVarias?.(ids);
+            }
+          }}
+          style={{ paddingLeft: sangria }}
+          className={[
+            "group/fila relative mb-0.5 flex h-8 cursor-pointer touch-none items-center gap-1 rounded-control pr-1",
+            alguna ? "bg-ink/[0.08]" : "hover:bg-ink/[0.04]",
+          ].join(" ")}
+        >
+          <span className={["absolute inset-y-1 left-0 w-0.5 rounded-full", alguna ? "bg-acento" : "bg-transparent"].join(" ")} />
+          <span onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+            <BotonIcono
+              tam={22}
+              activo={abierto}
+              etiqueta={abierto ? t("Plegar «{nombre}»", { nombre: nodo.nombre }) : t("Desplegar «{nombre}»", { nombre: nodo.nombre })}
+              onClick={() => alternarCarpeta(nodo.id)}
+            >
+              <Icono nombre="chevronAbajo" width={11} height={11} className={abierto ? "" : "-rotate-90"} />
+            </BotonIcono>
+          </span>
+          <span className={["min-w-0 flex-1 truncate text-left text-[12px]", alguna ? "text-foreground" : "text-foreground/70"].join(" ")}>
+            {nodo.nombre}
+          </span>
+          <span className="shrink-0 pr-1 font-mono text-[10px] tabular-nums text-foreground/40">{contarCapas(nodo)}</span>
+        </div>
+        {abierto && nodo.hijos.map((h) => pintarNodo(h, cont, nivel + 1))}
+      </div>
+    );
+  };
+  // frente arriba: el array de la pantalla va fondo→frente, el árbol se
+  // arma sobre la lista invertida para que el panel lea como Figma
+  const filasConSubgrupos = (miembros: Capa[], cont: string) =>
+    arbolDeCapas([...miembros].reverse()).map((n) => pintarNodo(n, cont, 0));
 
   return (
     <aside className="flex h-full select-none flex-col border-r border-(--glass-border) bg-(--chrome-bg)">
