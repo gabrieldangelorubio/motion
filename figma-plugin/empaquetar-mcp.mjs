@@ -32,10 +32,14 @@ if (nodeId === "--rasters") {
   process.stdout.write(`const ids = ${JSON.stringify(ids)};
 const salida = {};
 for (const id of ids) {
-  const n = await figma.getNodeByIdAsync(id);
-  if (!n) { salida[id] = null; continue; }
-  const bytes = await n.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: 2 } });
-  salida[id] = figma.base64Encode(bytes);
+  try {
+    const n = await figma.getNodeByIdAsync(id);
+    if (!n) { salida[id] = null; continue; }
+    const bytes = await n.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: 2 } });
+    salida[id] = figma.base64Encode(bytes);
+  } catch (e) {
+    salida[id] = null; // un nodo que falla no tira el lote: queda pendiente
+  }
 }
 return salida;
 `);
@@ -47,9 +51,22 @@ const fuente = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "code.
 // sin comentarios de bloque ni líneas de comentario (el código usa // solo
 // al inicio de línea; ninguna cadena contiene «/*»)
 let cuerpo = fuente.replace(/\/\*[\s\S]*?\*\//g, "");
+// también los comentarios de FIN de línea, solo cuando el «//» no está
+// dentro de una cadena (cuenta de comillas pares antes del //)
+const sinComentarioFinal = (l) => {
+  let i = l.indexOf("//");
+  while (i >= 0) {
+    const antes = l.slice(0, i);
+    const dobles = (antes.match(/"/g) || []).length;
+    const simples = (antes.match(/'/g) || []).length;
+    if (dobles % 2 === 0 && simples % 2 === 0) return antes.replace(/\s+$/, "");
+    i = l.indexOf("//", i + 2);
+  }
+  return l;
+};
 cuerpo = cuerpo
   .split("\n")
-  .map((l) => l.replace(/^\s*\/\/.*$/, ""))
+  .map((l) => sinComentarioFinal(l.replace(/^\s*\/\/.*$/, "")))
   .filter((l) => l.trim() !== "")
   .join("\n");
 // la UI del plugin (exportarSeleccion + showUI) no corre en use_figma

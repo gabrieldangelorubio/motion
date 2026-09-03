@@ -41,6 +41,12 @@ export function crearBandeja(): Bandeja {
   return { entradas: [], contenidos: new Map() };
 }
 
+/** Una entrada sola no puede pesar más que la bandeja entera: se rechaza
+    antes de entrar (el route responde 413), no se evicta después. */
+export function cabeEnBandeja(caracteres: number): boolean {
+  return caracteres > 0 && caracteres <= TOPE_CARACTERES;
+}
+
 /** ¿Parece el JSON del plugin? Lo mismo que mira el panel al pegar, sin
     normalizar: origen figma y un frame con nodos o un lote de pantallas. */
 export function pareceExportDelPlugin(datos: unknown): { ok: true; nombre: string } | { ok: false; error: string } {
@@ -64,8 +70,16 @@ export function dejarEnBandeja(
   nombre: string,
   ahora: number,
   origen?: string,
-  id: string = `b-${ahora.toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
+  id?: string,
 ): { bandeja: Bandeja; entrada: EntradaBandeja } {
+  if (!cabeEnBandeja(contenido.length)) throw new Error(`la entrada pesa ${contenido.length} caracteres: el tope de la bandeja es ${TOPE_CARACTERES}`);
+  // id automático: nunca pisa una entrada existente (un id DADO sí reemplaza)
+  if (id === undefined) {
+    let n = 0;
+    do {
+      id = `b-${ahora.toString(36)}-${(n++).toString(36)}${Math.floor(Math.random() * 46656).toString(36)}`;
+    } while (bandeja.contenidos.has(id));
+  }
   const entrada: EntradaBandeja = { id, nombre, caracteres: contenido.length, llegada: ahora, origen };
   const entradas = [entrada, ...bandeja.entradas.filter((e) => e.id !== id)];
   const contenidos = new Map(bandeja.contenidos);

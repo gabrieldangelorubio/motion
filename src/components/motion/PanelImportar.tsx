@@ -10,7 +10,7 @@
    nunca degradación en silencio.
 ----------------------------------------------------------------------------- */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ImportFigma, ResultadoImport } from "@/lib/motion/figma-puro";
 import { describirPeso, type EntradaBandeja } from "@/lib/motion/bandeja-puro";
 import { normalizarFigma, offsetsDeLote, pantallasDeImport, avisoDePluginViejo } from "@/lib/motion/figma-puro";
@@ -38,6 +38,9 @@ export function PanelImportar({
   // MISMO analizar() que el pegado
   const [bandeja, setBandeja] = useState<EntradaBandeja[]>([]);
   const [trayendo, setTrayendo] = useState<string | null>(null);
+  // lo ya traído en este panel: el poll no lo revive aunque el servidor
+  // todavía lo liste (respuesta vieja en vuelo, DELETE que no llegó)
+  const consumidas = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!abierto) return;
     let vivo = true;
@@ -45,7 +48,7 @@ export function PanelImportar({
       try {
         const r = await fetch("/api/motion/bandeja", { cache: "no-store" });
         const d = (await r.json()) as { ok?: boolean; entradas?: EntradaBandeja[] };
-        if (vivo && d.ok && Array.isArray(d.entradas)) setBandeja(d.entradas);
+        if (vivo && d.ok && Array.isArray(d.entradas)) setBandeja(d.entradas.filter((e) => !consumidas.current.has(e.id)));
       } catch {
         /* sin servidor: la bandeja queda vacía */
       }
@@ -63,14 +66,20 @@ export function PanelImportar({
   const traerDeBandeja = async (entrada: EntradaBandeja) => {
     setTrayendo(entrada.id);
     try {
+      // GET ?id es un PEEK: la entrada sigue en el servidor hasta que acá se
+      // analizó bien; si algo falla en el medio, no se pierde
       const r = await fetch(`/api/motion/bandeja?id=${encodeURIComponent(entrada.id)}`, { cache: "no-store" });
       if (!r.ok) {
         setError(t("Esa entrada ya no está en la bandeja"));
+        consumidas.current.add(entrada.id);
         setBandeja((lista) => lista.filter((e) => e.id !== entrada.id));
         return;
       }
-      analizar(await r.text());
+      const texto = await r.text();
+      if (!analizar(texto)) return; // el error ya está en pantalla; la entrada queda para reintentar
+      consumidas.current.add(entrada.id);
       setBandeja((lista) => lista.filter((e) => e.id !== entrada.id));
+      void fetch(`/api/motion/bandeja?id=${encodeURIComponent(entrada.id)}`, { method: "DELETE" }).catch(() => {});
     } catch {
       setError(t("No se pudo traer la entrada de la bandeja"));
     } finally {
@@ -78,17 +87,18 @@ export function PanelImportar({
     }
   };
 
-  const analizar = (texto: string) => {
+  /** Devuelve true si el texto dio una previa importable. */
+  const analizar = (texto: string): boolean => {
     setJson(texto);
     setError(null);
     setPrevia(null);
-    if (!texto.trim()) return;
+    if (!texto.trim()) return false;
     try {
       const datos: unknown = JSON.parse(texto);
       const pantallas: ImportFigma[] | null = pantallasDeImport(datos);
       if (!pantallas) {
         setError(t("Esto no parece el JSON del plugin de Figma del módulo"));
-        return;
+        return false;
       }
       const offsets = offsetsDeLote(pantallas);
       const nueva = pantallas.map((p, i) => ({ resultado: normalizarFigma(p), ...offsets[i] }));
@@ -97,8 +107,10 @@ export function PanelImportar({
       const viejo = avisoDePluginViejo(datos);
       if (viejo && nueva.length > 0) nueva[0].resultado.avisos.unshift(viejo);
       setPrevia(nueva);
+      return true;
     } catch {
       setError(t("El texto pegado no es un JSON válido"));
+      return false;
     }
   };
 

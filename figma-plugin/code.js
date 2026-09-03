@@ -575,12 +575,24 @@ async function contenidoPorSvg(nodo) {
   } catch (e) {
     return { contenido: null, lineas: null };
   }
-  var re = /<tspan[^>]*>([\s\S]*?)<\/tspan>/g;
+  // un texto con ESTILOS MIXTOS trae varios <tspan> por línea (uno por
+  // corrida de estilo, mismo y): se agrupan por su y, no se cuentan 1:1
+  var re = /<tspan([^>]*)>([\s\S]*?)<\/tspan>/g;
   var lineas = [];
+  var yAnterior = null;
   var m;
   while ((m = re.exec(svg)) !== null) {
-    lineas.push(decodificarXml(m[1]).replace(/[\r\n]+$/, "").replace(/[ \t]+$/, ""));
+    var my = /\by="([^"]+)"/.exec(m[1]);
+    var y = my ? parseFloat(my[1]) : NaN;
+    var trozo = decodificarXml(m[2]);
+    if (lineas.length > 0 && (isNaN(y) || (yAnterior !== null && Math.abs(y - yAnterior) < 0.5))) {
+      lineas[lineas.length - 1] += trozo;
+    } else {
+      lineas.push(trozo);
+    }
+    if (!isNaN(y)) yAnterior = y;
   }
+  lineas = lineas.map(function (l) { return l.replace(/[\r\n]+$/, "").replace(/[ \t]+$/, ""); });
   if (lineas.length === 0) return { contenido: null, lineas: null };
   return { contenido: lineas.length > 1 ? lineas.join("\n") : null, lineas: lineas.length };
 }

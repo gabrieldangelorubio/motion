@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  TOPE_CARACTERES,
   TOPE_ENTRADAS,
+  cabeEnBandeja,
   crearBandeja,
   dejarEnBandeja,
   describirPeso,
@@ -53,4 +55,20 @@ test("describirPeso: B, KB y MB con coma", () => {
   assert.equal(describirPeso(512), "512 B");
   assert.equal(describirPeso(45_571), "46 KB");
   assert.equal(describirPeso(12_569_085), "12,6 MB");
+});
+
+test("tope de peso: una entrada sola más grande que la bandeja se rechaza; el id automático nunca pisa otra", () => {
+  const b = crearBandeja();
+  assert.ok(!cabeEnBandeja(TOPE_CARACTERES + 1));
+  assert.ok(cabeEnBandeja(TOPE_CARACTERES));
+  assert.throws(() => dejarEnBandeja(b, "x".repeat(TOPE_CARACTERES + 1), "gigante", 1), /tope de la bandeja/);
+  // dos entradas en el mismo milisegundo, sin id dado: ids distintos, las dos quedan
+  let c = dejarEnBandeja(b, "{}", "a", 5).bandeja;
+  c = dejarEnBandeja(c, "{}", "b", 5).bandeja;
+  assert.equal(listarBandeja(c).length, 2);
+  assert.notEqual(listarBandeja(c)[0].id, listarBandeja(c)[1].id);
+  // el peso total también evicta lo viejo cuando hay más de una
+  let d = dejarEnBandeja(crearBandeja(), "x".repeat(TOPE_CARACTERES - 10), "casi", 1, undefined, "casi").bandeja;
+  d = dejarEnBandeja(d, "x".repeat(100), "nueva", 2, undefined, "nueva").bandeja;
+  assert.deepEqual(listarBandeja(d).map((e) => e.id), ["nueva"]);
 });
