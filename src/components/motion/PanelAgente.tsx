@@ -26,9 +26,10 @@ import { deserializar } from "@/lib/motion/serializar-puro";
 import { t } from "@/lib/i18n/stub";
 import { Icono } from "@/components/icons";
 import { BotonIcono } from "@/components/ui/BotonIcono";
-import { Segmentado } from "@/components/ui/Segmentado";
+import { Desplegable } from "@/components/ui/Desplegable";
 import { Deslizador } from "@/components/ui/Deslizador";
-import type { NivelDirector, PensamientoDirector, TurnoAgente } from "@/lib/motion/agente";
+import type { PensamientoDirector, TurnoAgente } from "@/lib/motion/agente";
+import type { ModeloDirector } from "@/lib/motion/modelos-director-puro";
 
 const PENSAMIENTOS: PensamientoDirector[] = ["bajo", "medio", "alto"];
 
@@ -81,10 +82,26 @@ export function PanelAgente({
   // revisión visual automática: al terminar, el director mira frames del
   // render y se corrige (prendida por defecto; el ojo del header la apaga)
   const [autoRevision, setAutoRevision] = useState(true);
-  // nivel del director: «rapido» = el modelo económico del entorno (Flash),
-  // «fino» = Opus para el planteo creativo — la revisión visual y las
-  // correcciones siguen yendo al barato aunque el planteo sea fino
-  const [nivel, setNivel] = useState<NivelDirector>("rapido");
+  // QUÉ MODELO dirige: el desplegable muestra los nombres reales del
+  // catálogo del servidor (según las claves cargadas); el id elegido viaja
+  // en cada pedido — también en la revisión visual, así la comparativa
+  // entre modelos es de un solo modelo de punta a punta
+  const [modelos, setModelos] = useState<ModeloDirector[]>([]);
+  const [modelo, setModelo] = useState<string>("");
+  useEffect(() => {
+    let vivo = true;
+    fetch("/api/motion/agente")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((cat: { modelos?: ModeloDirector[]; defecto?: string } | null) => {
+        if (!vivo || !cat?.modelos) return;
+        setModelos(cat.modelos);
+        setModelo((actual) => actual || cat.defecto || cat.modelos?.[0]?.id || "");
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, []);
   // cuánto piensa el modelo (slider): alto es lo de siempre; bajo y medio
   // para pedidos chicos o para comparar cuánto cambia la dirección
   const [pensamiento, setPensamiento] = useState<PensamientoDirector>("alto");
@@ -347,7 +364,7 @@ export function PanelAgente({
           historial,
           contextoAudio: obtenerContextoAudio?.(),
           contextoEstilo: obtenerContextoEstilo?.(),
-          nivel,
+          modelo: modelo || undefined,
           pensamiento,
           imagenes: [...lectura.imagenes, ...imagenesRef],
           // el bloque de lectura viene sin la línea de referencia (el editor
@@ -411,10 +428,10 @@ export function PanelAgente({
             for (const h of auditoria) log.push(`  · ${h}`);
           }
           setProgreso({ paso: 0, ultimaOp: t("revisión visual {n}: mirando el render…", { n: ronda }) });
-          // la revisión NO manda nivel: mirar frames y hacer retoques es
-          // tarea del modelo barato, aunque el planteo haya sido fino
+          // la revisión va al MISMO modelo elegido (sin slider: mirar frames y
+          // retocar no paga el esfuerzo máximo)
           const { fin: finR, pasos: pasosR } = await pedirAlAgente(
-            { composicionId, snapshot: snapshotVivo, mensaje: mensajeDeRevision(tiempos, auditoria), historial: historialVivo, imagenes: frames },
+            { composicionId, snapshot: snapshotVivo, mensaje: mensajeDeRevision(tiempos, auditoria), historial: historialVivo, imagenes: frames, modelo: modelo || undefined },
             log,
             t0,
           );
@@ -486,17 +503,17 @@ export function PanelAgente({
             onCambio={(v) => setPensamiento(PENSAMIENTOS[Math.round(v)] ?? "alto")}
           />
         </span>
-        <span className="mr-1.5 shrink-0">
-          <Segmentado
-            opciones={[
-              { valor: "rapido", nombre: t("rápido") },
-              { valor: "fino", nombre: t("fino") },
-            ]}
-            valor={nivel}
-            onCambio={(v) => setNivel(v as NivelDirector)}
-            etiquetaAria={t("Nivel del director: rápido (Flash, barato) o fino (Opus, criterio)")}
-          />
-        </span>
+        {modelos.length > 0 && (
+          <span className="mr-1.5 shrink-0" data-testid="modelo-director">
+            <Desplegable
+              compacto
+              etiqueta={t("Modelo que dirige (según las claves cargadas en el servidor)")}
+              valor={modelo}
+              opciones={modelos.map((m) => ({ valor: m.id, nombre: m.nombre }))}
+              onCambio={setModelo}
+            />
+          </span>
+        )}
         {renderizarFrames && (
           <span className="mr-1 shrink-0">
             <BotonIcono

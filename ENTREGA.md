@@ -657,11 +657,13 @@ Nada más: cero librerías de animación, canvas o UI.
   solo por frames, avisado en el log. El archivo viaja inline si pesa
   ≤13MB (más pesado: solo frames); su costo entra al taxímetro como una
   línea propia del log («analista de referencia»).
-- `MOTION_AGENTE_MODELO_FINO` (opcional) — el modelo del nivel «fino» del
-  panel (default `claude-opus-5`). El panel del director tiene un selector
-  rápido/fino: «rápido» usa el modelo económico de arriba, «fino» sube a
-  este para el planteo creativo; la revisión visual y los retoques siguen
-  yendo al barato aunque el planteo sea fino. Los tokens de RAZONAMIENTO
+- `MOTION_AGENTE_MODELO_FINO` (opcional) — un modelo más para el
+  desplegable del panel (default `claude-opus-5`). El panel del director
+  muestra un DESPLEGABLE con los modelos reales que el servidor puede
+  correr (`GET /api/motion/agente`: el default del entorno primero y los
+  conocidos de cada proveedor con clave); el id elegido viaja en cada
+  pedido, revisión visual incluida, y el route solo acepta ids de ese
+  catálogo. El nivel rápido/fino sigue existiendo para la CLI. Los tokens de RAZONAMIENTO
   de Gemini se muestran aparte en el log y la meta («pensó 12k tokens») —
   ya están incluidos en salida para el costo.
 

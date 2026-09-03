@@ -18,11 +18,15 @@ export function Desplegable({
   valor,
   opciones,
   onCambio,
+  compacto,
 }: {
   etiqueta: string;
   valor: string;
   opciones: { valor: string; nombre: string }[];
   onCambio: (v: string) => void;
+  /** en una barra: sin etiqueta visible (va a aria-label), botón bajo y
+      ancho natural, lista alineada a la derecha */
+  compacto?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const raizRef = useRef<HTMLDivElement>(null);
@@ -50,13 +54,19 @@ export function Desplegable({
 
   return (
     <div ref={raizRef} className="relative">
-      <Etiqueta className="mb-1">{etiqueta}</Etiqueta>
+      {!compacto && <Etiqueta className="mb-1">{etiqueta}</Etiqueta>}
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={abierto}
+        aria-label={compacto ? etiqueta : undefined}
+        title={compacto ? etiqueta : undefined}
         onClick={() => setAbierto((a) => !a)}
-        className="boton flex h-9 w-full items-center justify-between gap-2 rounded-control px-3 text-[13px] shadow-control hover:bg-ink/[0.06]"
+        className={
+          compacto
+            ? "boton flex h-7 max-w-[170px] items-center justify-between gap-1.5 rounded-[8px] px-2 font-mono text-[11px] shadow-hueco hover:bg-ink/[0.06]"
+            : "boton flex h-9 w-full items-center justify-between gap-2 rounded-control px-3 text-[13px] shadow-control hover:bg-ink/[0.06]"
+        }
       >
         <span className="truncate">{actual?.nombre ?? valor}</span>
         <Icono nombre="chevronAbajo" width={14} height={14} className={`shrink-0 text-foreground/50 transition-transform duration-200 ${abierto ? "rotate-180" : ""}`} />
@@ -64,7 +74,9 @@ export function Desplegable({
       {abierto && (
         <div
           role="listbox"
-          className="absolute left-0 right-0 top-full z-[70] mt-1 max-h-56 overflow-y-auto rounded-card border border-(--menu-border) bg-(--menu-solido-bg) p-1 shadow-(--menu-shadow)"
+          className={`absolute top-full z-[70] mt-1 max-h-56 overflow-y-auto rounded-card border border-(--menu-border) bg-(--menu-solido-bg) p-1 shadow-(--menu-shadow) ${
+            compacto ? "right-0 min-w-[200px]" : "left-0 right-0"
+          }`}
         >
           {opciones.map((o) => (
             <button

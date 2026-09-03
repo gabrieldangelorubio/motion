@@ -370,20 +370,25 @@ export async function dirigirComposicion(
   contextoLectura?: string,
   /** cuánto piensa el modelo: el slider del panel (sin él, lo de siempre) */
   pensamiento?: PensamientoDirector,
+  /** el modelo elegido en el desplegable del panel: manda sobre el nivel
+      y sobre el entorno (el route ya lo validó contra el catálogo) */
+  modeloElegido?: string,
 ): Promise<RespuestaAgente> {
   let comp = composicion;
   const ops: string[] = [];
 
   const primerUsuario = armarPrimerUsuario(comp, mensaje, contextoAudio, contextoEstilo, contextoReferencias, contextoLectura);
 
-  const modelo = modeloDirector(
-    {
-      MOTION_AGENTE_MODELO: process.env.MOTION_AGENTE_MODELO,
-      MOTION_AGENTE_MODELO_FINO: process.env.MOTION_AGENTE_MODELO_FINO,
-      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-    },
-    nivel,
-  );
+  const modelo =
+    modeloElegido ??
+    modeloDirector(
+      {
+        MOTION_AGENTE_MODELO: process.env.MOTION_AGENTE_MODELO,
+        MOTION_AGENTE_MODELO_FINO: process.env.MOTION_AGENTE_MODELO_FINO,
+        GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+      },
+      nivel,
+    );
 
   // ——— DIRECTOR EN DOS FASES: una pieza sin dirigir se dirige por GUION ———
   // (el guionista escribe el plan entero como JSON, el código lo ejecuta, un

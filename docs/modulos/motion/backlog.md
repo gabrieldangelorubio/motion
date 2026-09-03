@@ -13,6 +13,16 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [HECHO] Desplegable de modelos reales en el panel (2026-09-03)
+- **Qué:** Gabriel: «¿cómo sé qué agente está elegido? En vez de rápido/fino
+  un dropdown con los nombres reales». `modelos-director-puro.ts` arma el
+  catálogo con las claves cargadas (default del entorno primero; Gemini 3.8
+  Flash, Claude Opus/Sonnet 5, Kimi K3 según clave); `GET /api/motion/agente`
+  lo sirve; el panel lo muestra en un `Desplegable compacto` y manda el id
+  en cada pedido (revisión visual incluida). El route valida contra el
+  catálogo y `dirigirComposicion` recibe `modeloElegido`, que manda sobre
+  nivel y entorno. El selector rápido/fino desapareció del panel.
+
 ### [HECHO] Tercer proveedor del director: OpenRouter (Kimi K3) (2026-09-03)
 - **Qué:** Gabriel quiere comparar Kimi K3 dirigiendo. `agente-openrouter.ts`:
   formato OpenAI (chat completions con tools/tool_calls), mismo SISTEMA y

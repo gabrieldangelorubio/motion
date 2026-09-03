@@ -170,3 +170,26 @@ test("dirigirComposicion manda a OpenRouter cuando MOTION_AGENTE_MODELO lleva ba
     process.env = envOriginal;
   }
 });
+
+test("el modelo elegido en el panel manda sobre el entorno: con default Gemini, elegir Kimi va a OpenRouter", async () => {
+  const fetchOriginal = globalThis.fetch;
+  const envOriginal = { ...process.env };
+  process.env.GEMINI_API_KEY = "g";
+  process.env.OPENROUTER_API_KEY = "o";
+  delete process.env.MOTION_AGENTE_MODELO;
+  try {
+    const { dirigirComposicion } = await import("@/lib/motion/agente");
+    let comp = crearComposicion({ nombre: "elegido" });
+    comp = ejecutarHerramienta(comp, "agregar_capa_texto", { id: "t", texto: "HOLA" }).comp;
+    const historial = [{ rol: "usuario" as const, texto: "hola" }, { rol: "agente" as const, texto: "listo" }];
+    const { pedidos, fetchFalso } = openRouterFalso([mensajeFinal("Nada que tocar.")]);
+    globalThis.fetch = fetchFalso;
+    const res = await dirigirComposicion(comp, "más lento", historial, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, "moonshotai/kimi-k3");
+    assert.ok(res.ok, res.ok ? "" : res.error);
+    if (res.ok) assert.equal(res.modelo, "moonshotai/kimi-k3");
+    assert.equal(pedidos[0].url, URL_OPENROUTER);
+  } finally {
+    globalThis.fetch = fetchOriginal;
+    process.env = envOriginal;
+  }
+});

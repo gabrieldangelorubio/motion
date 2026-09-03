@@ -7,6 +7,7 @@
    actor es andamiaje, diosa lo cablea a la sesión real.
 ----------------------------------------------------------------------------- */
 
+import { catalogoDeModelos, esModeloDelCatalogo } from "@/lib/motion/modelos-director-puro";
 import type { Actor } from "@/lib/motion/modelo";
 import { deserializar, serializar } from "@/lib/motion/serializar-puro";
 import { exigirEdicion } from "@/lib/motion/consultas";
@@ -19,6 +20,23 @@ export const maxDuration = 300;
 // ANDAMIAJE: en diosa, el actor sale de la sesión.
 async function actorDeSesion(): Promise<Actor> {
   return { id: "dev-local", rol: "admin", email: "dev@local" };
+}
+
+/** El catálogo de modelos que este servidor puede correr (según las
+    claves cargadas): el panel arma su desplegable con esto. */
+export async function GET(): Promise<Response> {
+  return Response.json(catalogoDeModelos(envDirector()));
+}
+
+/** Solo las variables que el catálogo mira (process.env entero no tipa). */
+function envDirector() {
+  return {
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+    MOTION_AGENTE_MODELO: process.env.MOTION_AGENTE_MODELO,
+    MOTION_AGENTE_MODELO_FINO: process.env.MOTION_AGENTE_MODELO_FINO,
+  };
 }
 
 export async function POST(pedido: Request): Promise<Response> {
@@ -46,6 +64,9 @@ export async function POST(pedido: Request): Promise<Response> {
       nivel?: string;
       /** slider de pensamiento del panel: bajo | medio | alto */
       pensamiento?: string;
+      /** el modelo elegido en el desplegable del panel (un id del
+          catálogo de GET; si no viene, el default del entorno) */
+      modelo?: string;
       /** el registro de la pieza (perilla de sensación), opcional */
       contextoEstilo?: string;
     };
@@ -98,6 +119,9 @@ export async function POST(pedido: Request): Promise<Response> {
     const nivel = cuerpo.nivel === "fino" || cuerpo.nivel === "rapido" ? cuerpo.nivel : undefined;
     const pensamiento =
       cuerpo.pensamiento === "bajo" || cuerpo.pensamiento === "medio" || cuerpo.pensamiento === "alto" ? cuerpo.pensamiento : undefined;
+    // solo ids del catálogo: nadie manda un modelo arbitrario por el body
+    const catalogo = catalogoDeModelos(envDirector());
+    const modeloElegido = esModeloDelCatalogo(catalogo, cuerpo.modelo) ? cuerpo.modelo : undefined;
     const contextoEstilo =
       typeof cuerpo.contextoEstilo === "string" && cuerpo.contextoEstilo ? cuerpo.contextoEstilo.slice(0, 600) : undefined;
 
@@ -156,6 +180,7 @@ export async function POST(pedido: Request): Promise<Response> {
             contextoFinal,
             contextoLectura,
             pensamiento,
+            modeloElegido,
           );
           if (!res.ok) emitir({ tipo: "fin", error: res.error });
           else emitir({ tipo: "fin", respuesta: res.respuesta, snapshot: serializar(res.composicion), ops: res.ops, uso: res.uso, modelo: res.modelo });
