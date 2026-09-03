@@ -1001,6 +1001,7 @@ async function nodoAIRInterno(nodo, marco, salida, recorte) {
           pieza.sombra = sombraSuelta;
           pieza.aviso = conAviso(pieza, "lleva la sombra del grupo «" + nodo.name + "» (fondo transparente)");
           sombraFrame = sombraSuelta;
+          break; // UNA sola pieza la lleva: dos sombras apiladas se ven el doble de oscuras
         }
       }
     }
