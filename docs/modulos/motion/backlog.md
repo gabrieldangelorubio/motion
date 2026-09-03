@@ -13,6 +13,19 @@
 > letra por letra, máscara del revelado por línea, path SVG real del
 > trazo) y lo de abajo.
 
+### [RESEARCH] D5 retematizar una serie + D6 componer pantalla con el mismo estilo (2026-09-03)
+- **Qué:** pedido de Gabriel («cambiar todo el estilo de una serie de
+  pantallas», «con una pantalla, recrear otras con el mismo estilo»).
+  Nota completa en `research/research-restyle-y-pantallas-nuevas.md`:
+  auditoría (estilo plano, derivar solo clona, editar_capa una por vez,
+  sin tokens), mercado (registro estructurado + generación restringida
+  gana), papers (LayoutGPT, VST, DSL con esquema, HCT/APCA), propuesta
+  (tarjeta de estilo con roles OKLCH → `retematizar` determinista con
+  verificación → `componer_pantalla` por JSON de tokens) y tandas D5a–D6b
+  (~11 días).
+- **Estado:** a decidir con Gabriel. Primer paso natural: D5a (tarjeta de
+  estilo), que además mejora el bloque ESTILO DE LA PIEZA del director.
+
 ### [HECHO] Plugin v18 por logbook.so: líneas reales, sombras en el motor y diagnóstico por nodo (2026-09-03)
 - **Qué pasó (JSON de Gabriel, Framer → Figma):** (1) los títulos tienen
   sombra y `absoluteRenderBounds` crece con ella: «It all began with a
